@@ -56,17 +56,17 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.keyAzimuthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyLightAzimuth(value))
     self.ui.keyAzimuthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.Modified())
 
-    self.ui.headIntensitySliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyToHeadRatio(value))
+    self.ui.headIntensitySliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyToHeadRatio(1.0/value))
     self.ui.headWarmthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetHeadLightWarmth(value))
 
-    self.ui.fillIntensitySliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyToFillRatio(value))
+    self.ui.fillIntensitySliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyToFillRatio(1.0/value))
     self.ui.fillWarmthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetFillLightWarmth(value))
     self.ui.fillElevationSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetFillLightElevation(value))
     self.ui.fillElevationSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.Modified())
     self.ui.fillAzimuthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetFillLightAzimuth(value))
     self.ui.fillAzimuthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.Modified())
 
-    self.ui.backIntensitySliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyToBackRatio(value))
+    self.ui.backIntensitySliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyToBackRatio(1.0/value))
     self.ui.backWarmthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetBackLightWarmth(value))
     self.ui.backElevationSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetBackLightElevation(value))
     self.ui.backElevationSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.Modified())
@@ -90,15 +90,15 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.keyElevationSliderWidget.value = lightkit.GetKeyLightElevation()
     self.ui.keyAzimuthSliderWidget.value = lightkit.GetKeyLightAzimuth()
 
-    self.ui.headIntensitySliderWidget.value = lightkit.GetKeyToHeadRatio()
+    self.ui.headIntensitySliderWidget.value = 1.0/lightkit.GetKeyToHeadRatio()
     self.ui.headWarmthSliderWidget.value = lightkit.GetHeadLightWarmth()
 
-    self.ui.fillIntensitySliderWidget.value = lightkit.GetKeyToFillRatio()
+    self.ui.fillIntensitySliderWidget.value = 1.0/lightkit.GetKeyToFillRatio()
     self.ui.fillWarmthSliderWidget.value = lightkit.GetFillLightWarmth()
     self.ui.fillElevationSliderWidget.value = lightkit.GetFillLightElevation()
     self.ui.fillAzimuthSliderWidget.value = lightkit.GetFillLightAzimuth()
 
-    self.ui.backIntensitySliderWidget.value = lightkit.GetKeyToBackRatio()
+    self.ui.backIntensitySliderWidget.value = 1.0/lightkit.GetKeyToBackRatio()
     self.ui.backWarmthSliderWidget.value = lightkit.GetBackLightWarmth()
     self.ui.backElevationSliderWidget.value = lightkit.GetBackLightElevation()
     self.ui.backAzimuthSliderWidget.value = lightkit.GetBackLightAzimuth()
@@ -112,6 +112,7 @@ class LightsLogic(ScriptedLoadableModuleLogic):
 
   def __init__(self):
     self.lightKit = vtk.vtkLightKit()
+    self.lightKit.MaintainLuminanceOn()
     lightkitObserverTag = self.lightKit.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onLightkitModified)
     self.managedViewNodes = []
 

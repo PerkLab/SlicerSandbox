@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>445</width>
-    <height>504</height>
+    <height>595</height>
    </rect>
   </property>
   <layout class="QFormLayout" name="formLayout">
@@ -39,7 +39,7 @@
          <double>0.000000000000000</double>
         </property>
         <property name="maximum">
-         <double>1.000000000000000</double>
+         <double>10.000000000000000</double>
         </property>
         <property name="value">
          <double>0.500000000000000</double>
@@ -161,13 +161,13 @@
          <double>0.100000000000000</double>
         </property>
         <property name="minimum">
-         <double>0.000000000000000</double>
+         <double>0.100000000000000</double>
         </property>
         <property name="maximum">
          <double>1.000000000000000</double>
         </property>
         <property name="value">
-         <double>0.500000000000000</double>
+         <double>1.000000000000000</double>
         </property>
        </widget>
       </item>
@@ -286,13 +286,13 @@
          <double>0.100000000000000</double>
         </property>
         <property name="minimum">
-         <double>0.000000000000000</double>
+         <double>0.100000000000000</double>
         </property>
         <property name="maximum">
          <double>1.000000000000000</double>
         </property>
         <property name="value">
-         <double>0.500000000000000</double>
+         <double>1.000000000000000</double>
         </property>
        </widget>
       </item>
@@ -411,13 +411,13 @@
          <double>0.100000000000000</double>
         </property>
         <property name="minimum">
-         <double>0.000000000000000</double>
+         <double>0.100000000000000</double>
         </property>
         <property name="maximum">
          <double>1.000000000000000</double>
         </property>
         <property name="value">
-         <double>0.500000000000000</double>
+         <double>1.000000000000000</double>
         </property>
        </widget>
       </item>
