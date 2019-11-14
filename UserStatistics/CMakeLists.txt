@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-set(MODULE_NAME SegmentationTimer)
+set(MODULE_NAME UserStatistics)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS
