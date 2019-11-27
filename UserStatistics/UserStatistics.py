@@ -22,14 +22,14 @@ class UserStatistics(ScriptedLoadableModule):
     self.parent.dependencies = ["Segmentations", "SegmentEditor"]
     self.parent.contributors = ["Kyle Sunderland (Perk Lab, Queen's University)"]
     self.parent.helpText = """
-This is an example of scripted loadable module bundled in an extension.
-It performs a simple thresholding on the input volume and optionally captures a screenshot.
+This module measures user statistics and stores them in a table.
+Some of the statistics that are measured are active module, active segment editor effect, selected segment, duration, application status (active, wait, idle), etc.
+Tables from different scenes can be merged together in a single table.
 """
     self.parent.helpText += self.getDefaultModuleDocumentationLink()
     self.parent.acknowledgementText = """
-This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc.
-and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
-""" # replace with organization, grant and thanks.
+This file was originally developed by Kyle Sunderland (Perk Lab, Queen's University), and was partially funded by CANARIE’s Research Software Program, OpenAnatomy, and Brigham and Women’s Hospital through NIH grant R01MH112748
+"""
 
     if not slicer.app.commandOptions().noMainWindow :
       slicer.app.connect("startupCompleted()", self.initializeModule)
