@@ -20,7 +20,7 @@ class LineProfile(ScriptedLoadableModule):
     self.parent.dependencies = []
     parent.contributors = ["Andras Lasso (PerkLab)"]
     self.parent.helpText = """
-This module computes intensity profile of a volume along a ruler line.
+This module computes intensity profile of a volume along a line line.
 """
     self.parent.helpText += self.getDefaultModuleDocumentationLink()
     self.parent.acknowledgementText = """
@@ -68,18 +68,21 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     parametersFormLayout.addRow("Input Volume: ", self.inputVolumeSelector)
 
     #
-    # input ruler selector
+    # input line selector
     #
-    self.inputRulerSelector = slicer.qMRMLNodeComboBox()
-    self.inputRulerSelector.nodeTypes = ["vtkMRMLAnnotationRulerNode"]
-    self.inputRulerSelector.selectNodeUponCreation = True
-    self.inputRulerSelector.addEnabled = False
-    self.inputRulerSelector.removeEnabled = False
-    self.inputRulerSelector.noneEnabled = False
-    self.inputRulerSelector.showHidden = False
-    self.inputRulerSelector.setMRMLScene( slicer.mrmlScene )
-    self.inputRulerSelector.setToolTip("Pick the ruler that defines the sampling line.")
-    parametersFormLayout.addRow("Input ruler: ", self.inputRulerSelector)
+    self.inputLineWidget = slicer.qSlicerSimpleMarkupsWidget()
+    self.inputLineSelector = self.inputLineWidget.markupsSelectorComboBox()
+    self.inputLineSelector.nodeTypes = ["vtkMRMLMarkupsLineNode", "vtkMRMLMarkupsCurveNode"]
+    self.inputLineSelector.selectNodeUponCreation = True
+    self.inputLineSelector.addEnabled = True
+    self.inputLineSelector.removeEnabled = True
+    self.inputLineSelector.noneEnabled = False
+    self.inputLineSelector.showHidden = False
+    self.inputLineWidget.tableWidget().setVisible(False)
+    self.inputLineWidget.setDefaultNodeColor(qt.QColor().fromRgbF(1,1,0))
+    self.inputLineWidget.setMRMLScene( slicer.mrmlScene )
+    self.inputLineWidget.setToolTip("Pick line or curve to take image samples along.")
+    parametersFormLayout.addRow("Input line: ", self.inputLineWidget)
 
     #
     # output table selector
@@ -134,7 +137,7 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
     self.applyButton.connect('checkBoxToggled(bool)', self.onApplyButtonToggled)
     self.inputVolumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
-    self.inputRulerSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
+    self.inputLineSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
     self.outputPlotSeriesSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
     self.outputTableSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
     self.lineResolutionSliderWidget.connect("valueChanged(double)", self.onSetLineResolution)
@@ -146,14 +149,14 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     self.onSelectNode()
 
   def cleanup(self):
-    pass
+    self.logic.setEnableAutoUpdate(False)
 
   def onSelectNode(self):
-    self.applyButton.enabled = self.inputVolumeSelector.currentNode() and self.inputRulerSelector.currentNode()
-    self.logic.inputVolumeNode = self.inputVolumeSelector.currentNode()
-    self.logic.inputRulerNode = self.inputRulerSelector.currentNode()
-    self.logic.outputTableNode = self.outputTableSelector.currentNode()
-    self.logic.outputPlotSeriesNode = self.outputPlotSeriesSelector.currentNode()
+    self.applyButton.enabled = self.inputVolumeSelector.currentNode() and self.inputLineSelector.currentNode()
+    self.logic.setInputVolumeNode(self.inputVolumeSelector.currentNode())
+    self.logic.setInputLineNode(self.inputLineSelector.currentNode())
+    self.logic.setOutputTableNode(self.outputTableSelector.currentNode())
+    self.logic.setOutputPlotSeriesNode(self.outputPlotSeriesSelector.currentNode())
 
   def onSetLineResolution(self, resolution):
     lineResolution = int(self.lineResolutionSliderWidget.value)
@@ -174,7 +177,7 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
   def onApplyButtonToggled(self, toggle):
     if toggle:
       self.createOutputNodes()
-    self.logic.enableAutoUpdate(toggle)
+    self.logic.setEnableAutoUpdate(toggle)
 
 #
 # LineProfileLogic
@@ -192,29 +195,63 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
 
   def __init__(self):
     self.inputVolumeNode = None
-    self.inputRulerNode = None
-    self.rulerObservation = None # pair of ruler object and observation ID
+    self.inputLineNode = None
+    self.lineObservation = None # pair of line object and observation ID
     self.lineResolution = 100
     self.outputPlotSeriesNode = None
     self.outputTableNode = None
     self.plotChartNode = None
 
   def __del__(self):
-    self.enableAutoUpdate(False)
+    self.setEnableAutoUpdate(False)
+
+  def setInputVolumeNode(self, volumeNode):
+    if self.inputVolumeNode == volumeNode:
+      return
+    self.inputVolumeNode = volumeNode
+    if self.getEnableAutoUpdate():
+      self.update()
+
+  def setInputLineNode(self, lineNode):
+    if self.inputLineNode == lineNode:
+      return
+    self.inputLineNode = lineNode
+    if self.getEnableAutoUpdate():
+      self.setEnableAutoUpdate(False) # remove old observers
+      self.setEnableAutoUpdate(True) # add new observers
+      self.update()
+
+  def setOutputTableNode(self, tableNode):
+    if self.outputTableNode == tableNode:
+      return
+    self.outputTableNode = tableNode
+    if self.getEnableAutoUpdate():
+      self.update()
+
+  def setOutputPlotSeriesNode(self, plotSeriesNode):
+    if self.outputPlotSeriesNode == plotSeriesNode:
+      return
+    self.outputPlotSeriesNode = plotSeriesNode
+    if self.getEnableAutoUpdate():
+      self.update()
 
   def update(self):
-    self.updateOutputTable(self.inputVolumeNode, self.inputRulerNode, self.outputTableNode, self.lineResolution)
+    self.updateOutputTable(self.inputVolumeNode, self.inputLineNode, self.outputTableNode, self.lineResolution)
     self.updatePlot(self.outputPlotSeriesNode, self.outputTableNode, self.inputVolumeNode.GetName())
     self.showPlot()
 
-  def enableAutoUpdate(self, toggle):
-    if self.rulerObservation:
-      self.rulerObservation[0].RemoveObserver(self.rulerObservation[1])
-      self.rulerObservation = None
-    if toggle and (self.inputRulerNode is not None):
-      self.rulerObservation = [self.inputRulerNode, self.inputRulerNode.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onRulerModified)]
+  def getEnableAutoUpdate(self):
+    return self.lineObservation is not None
 
-  def onRulerModified(self, caller=None, event=None):
+  def setEnableAutoUpdate(self, toggle):
+    if self.lineObservation:
+      self.lineObservation[0].RemoveObserver(self.lineObservation[1])
+      self.lineObservation = None
+    if toggle and (self.inputLineNode is not None):
+      self.lineObservation = [self.inputLineNode,
+        self.inputLineNode.AddObserver(slicer.vtkMRMLMarkupsNode.PointModifiedEvent, self.onLineModified)]
+
+  def onLineModified(self, caller=None, event=None):
     self.update()
 
   def getArrayFromTable(self, outputTable, arrayName):
@@ -226,30 +263,19 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     outputTable.GetTable().AddColumn(newArray)
     return newArray
 
-  def updateOutputTable(self, inputVolume, inputRuler, outputTable, lineResolution):
+  def updateOutputTable(self, inputVolume, inputLine, outputTable, lineResolution):
+    if inputLine.GetNumberOfDefinedControlPoints() < 2:
+      outputTable.GetTable().SetNumberOfRows(0)
+      return
+
     import math
 
-    rulerStartPoint_Ruler = [0,0,0]
-    rulerEndPoint_Ruler = [0,0,0]
-    inputRuler.GetPosition1(rulerStartPoint_Ruler)
-    inputRuler.GetPosition2(rulerEndPoint_Ruler)
-    rulerStartPoint_Ruler1 = [rulerStartPoint_Ruler[0], rulerStartPoint_Ruler[1], rulerStartPoint_Ruler[2], 1.0]
-    rulerEndPoint_Ruler1 = [rulerEndPoint_Ruler[0], rulerEndPoint_Ruler[1], rulerEndPoint_Ruler[2], 1.0]
+    lineStartPoint_RAS = [0,0,0]
+    lineEndPoint_RAS = [0,0,0]
+    inputLine.GetNthControlPointPositionWorld(0, lineStartPoint_RAS)
+    inputLine.GetNthControlPointPositionWorld(1, lineEndPoint_RAS)
 
-    rulerToRAS = vtk.vtkMatrix4x4()
-    rulerTransformNode = inputRuler.GetParentTransformNode()
-    if rulerTransformNode:
-      if rulerTransformNode.IsTransformToWorldLinear():
-        rulerToRAS.DeepCopy(rulerTransformNode.GetMatrixTransformToParent())
-      else:
-        logging.warning("Cannot handle non-linear transforms - ignoring transform of the input ruler")
-
-    rulerStartPoint_RAS1 = [0,0,0,1]
-    rulerEndPoint_RAS1 = [0,0,0,1]
-    rulerToRAS.MultiplyPoint(rulerStartPoint_Ruler1,rulerStartPoint_RAS1)
-    rulerToRAS.MultiplyPoint(rulerEndPoint_Ruler1,rulerEndPoint_RAS1)
-
-    rulerLengthMm=math.sqrt(vtk.vtkMath.Distance2BetweenPoints(rulerStartPoint_RAS1[0:3],rulerEndPoint_RAS1[0:3]))
+    lineLengthMm = math.sqrt(vtk.vtkMath.Distance2BetweenPoints(lineStartPoint_RAS,lineEndPoint_RAS))
 
     # Need to get the start/end point of the line in the IJK coordinate system
     # as VTK filters cannot take into account direction cosines
@@ -266,19 +292,22 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
         print ("Cannot handle non-linear transforms - ignoring transform of the input volume")
     vtk.vtkMatrix4x4.Multiply4x4(parentToIJK, rasToParent, rasToIJK)
 
-    rulerStartPoint_IJK1 = [0,0,0,1]
-    rulerEndPoint_IJK1 = [0,0,0,1]
-    rasToIJK.MultiplyPoint(rulerStartPoint_RAS1,rulerStartPoint_IJK1)
-    rasToIJK.MultiplyPoint(rulerEndPoint_RAS1,rulerEndPoint_IJK1)
+    lineStartPoint_RAS1 = [lineStartPoint_RAS[0], lineStartPoint_RAS[1], lineStartPoint_RAS[2], 1.0]
+    lineEndPoint_RAS1 = [lineEndPoint_RAS[0], lineEndPoint_RAS[1], lineEndPoint_RAS[2], 1.0]
+    lineStartPoint_IJK1 = [0,0,0,1]
+    lineEndPoint_IJK1 = [0,0,0,1]
+    rasToIJK.MultiplyPoint(lineStartPoint_RAS1,lineStartPoint_IJK1)
+    rasToIJK.MultiplyPoint(lineEndPoint_RAS1,lineEndPoint_IJK1)
 
     lineSource=vtk.vtkLineSource()
-    lineSource.SetPoint1(rulerStartPoint_IJK1[0],rulerStartPoint_IJK1[1],rulerStartPoint_IJK1[2])
-    lineSource.SetPoint2(rulerEndPoint_IJK1[0], rulerEndPoint_IJK1[1], rulerEndPoint_IJK1[2])
+    lineSource.SetPoint1(lineStartPoint_IJK1[0],lineStartPoint_IJK1[1],lineStartPoint_IJK1[2])
+    lineSource.SetPoint2(lineEndPoint_IJK1[0], lineEndPoint_IJK1[1], lineEndPoint_IJK1[2])
     lineSource.SetResolution(lineResolution-1)
 
     probeFilter=vtk.vtkProbeFilter()
     probeFilter.SetInputConnection(lineSource.GetOutputPort())
     probeFilter.SetSourceData(inputVolume.GetImageData())
+    probeFilter.ComputeToleranceOff()
     probeFilter.Update()
 
     probedPoints=probeFilter.GetOutput()
@@ -288,7 +317,7 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     intensityArray = self.getArrayFromTable(outputTable, INTENSITY_ARRAY_NAME)
     outputTable.GetTable().SetNumberOfRows(probedPoints.GetNumberOfPoints())
     x = range(0, probedPoints.GetNumberOfPoints())
-    xStep = rulerLengthMm/(probedPoints.GetNumberOfPoints()-1)
+    xStep = lineLengthMm/(probedPoints.GetNumberOfPoints()-1)
     probedPointScalars = probedPoints.GetPointData().GetScalars()
     for i in range(len(x)):
       distanceArray.SetValue(i, x[i]*xStep)
