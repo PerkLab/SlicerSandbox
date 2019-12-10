@@ -7,26 +7,29 @@
     <x>0</x>
     <y>0</y>
     <width>413</width>
-    <height>189</height>
+    <height>245</height>
    </rect>
   </property>
   <layout class="QFormLayout" name="formLayout">
-   <item row="0" column="0">
+   <item row="1" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
       <string>Input curve:</string>
      </property>
     </widget>
    </item>
-   <item row="3" column="0">
+   <item row="4" column="0">
     <widget class="QLabel" name="label_6">
      <property name="text">
       <string>Curve resolution:</string>
      </property>
     </widget>
    </item>
-   <item row="3" column="1">
+   <item row="4" column="1">
     <widget class="qMRMLSliderWidget" name="curveResolutionSliderWidget">
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
      <property name="value">
       <double>1.000000000000000</double>
      </property>
@@ -35,34 +38,27 @@
      </property>
     </widget>
    </item>
-   <item row="5" column="0">
+   <item row="6" column="0">
     <widget class="QLabel" name="label_3">
      <property name="text">
-      <string>Field of view:</string>
+      <string>Slice size:</string>
      </property>
     </widget>
    </item>
-   <item row="5" column="1">
-    <widget class="qMRMLSliderWidget" name="fieldOfViewSliderWidget">
-     <property name="value">
-      <double>40.000000000000000</double>
-     </property>
-     <property name="quantity">
-      <string>length</string>
-     </property>
-    </widget>
-   </item>
-   <item row="6" column="0">
+   <item row="7" column="0">
     <widget class="QLabel" name="label_7">
      <property name="text">
       <string>Rotation angle: </string>
      </property>
     </widget>
    </item>
-   <item row="6" column="1">
+   <item row="7" column="1">
     <widget class="qMRMLSliderWidget" name="rotationAngleSliderWidget">
      <property name="decimals">
       <number>1</number>
+     </property>
+     <property name="minimum">
+      <double>-180.000000000000000</double>
      </property>
      <property name="maximum">
       <double>180.000000000000000</double>
@@ -72,14 +68,14 @@
      </property>
     </widget>
    </item>
-   <item row="8" column="0">
+   <item row="9" column="0">
     <widget class="QLabel" name="label_2">
      <property name="text">
       <string>Output straightened volume:</string>
      </property>
     </widget>
    </item>
-   <item row="8" column="1">
+   <item row="9" column="1">
     <widget class="qMRMLNodeComboBox" name="outputStraightenedVolumeSelector">
      <property name="toolTip">
       <string>Pick the output to the algorithm.</string>
@@ -106,14 +102,14 @@
      </property>
     </widget>
    </item>
-   <item row="9" column="0">
+   <item row="10" column="0">
     <widget class="QLabel" name="label_5">
      <property name="text">
       <string>Output projected volume:</string>
      </property>
     </widget>
    </item>
-   <item row="9" column="1">
+   <item row="10" column="1">
     <widget class="qMRMLNodeComboBox" name="outputProjectedVolumeSelector">
      <property name="toolTip">
       <string>Pick the output to the algorithm.</string>
@@ -140,7 +136,7 @@
      </property>
     </widget>
    </item>
-   <item row="10" column="0" colspan="2">
+   <item row="11" column="0" colspan="2">
     <widget class="QPushButton" name="applyButton">
      <property name="enabled">
       <bool>false</bool>
@@ -153,35 +149,7 @@
      </property>
     </widget>
    </item>
-   <item row="2" column="1">
-    <widget class="qMRMLNodeComboBox" name="inputSliceSelector">
-     <property name="toolTip">
-      <string>Background layer of this slice view will be reformatted</string>
-     </property>
-     <property name="nodeTypes">
-      <stringlist>
-       <string>vtkMRMLSliceNode</string>
-      </stringlist>
-     </property>
-     <property name="showChildNodeTypes">
-      <bool>false</bool>
-     </property>
-     <property name="addEnabled">
-      <bool>false</bool>
-     </property>
-     <property name="removeEnabled">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0">
-    <widget class="QLabel" name="label_4">
-     <property name="text">
-      <string>Input slice view:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="1">
+   <item row="1" column="1">
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
       <widget class="qMRMLNodeComboBox" name="inputCurveSelector">
@@ -212,13 +180,87 @@
      </item>
     </layout>
    </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string>Input volume:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="qMRMLNodeComboBox" name="inputVolumeSelector">
+     <property name="toolTip">
+      <string>Background layer of this slice view will be reformatted</string>
+     </property>
+     <property name="nodeTypes">
+      <stringlist>
+       <string>vtkMRMLScalarVolumeNode</string>
+      </stringlist>
+     </property>
+     <property name="showChildNodeTypes">
+      <bool>false</bool>
+     </property>
+     <property name="addEnabled">
+      <bool>false</bool>
+     </property>
+     <property name="removeEnabled">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0">
+    <widget class="QLabel" name="label_8">
+     <property name="text">
+      <string>Slice resolution:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="qMRMLSliderWidget" name="sliceResolutionSliderWidget">
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="value">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="quantity">
+      <string>length</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="qMRMLCoordinatesWidget" name="sliceSizeCoordinatesWidget">
+     <property name="dimension">
+      <number>2</number>
+     </property>
+     <property name="minimum">
+      <double>0.000000000000000</double>
+     </property>
+     <property name="coordinates" stdset="0">
+      <string>30,30</string>
+     </property>
+     <property name="quantity">
+      <string>length</string>
+     </property>
+    </widget>
+   </item>
   </layout>
  </widget>
  <customwidgets>
   <customwidget>
+   <class>ctkCoordinatesWidget</class>
+   <extends>QWidget</extends>
+   <header>ctkCoordinatesWidget.h</header>
+  </customwidget>
+  <customwidget>
    <class>ctkSliderWidget</class>
    <extends>QWidget</extends>
    <header>ctkSliderWidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLCoordinatesWidget</class>
+   <extends>ctkCoordinatesWidget</extends>
+   <header>qMRMLCoordinatesWidget.h</header>
   </customwidget>
   <customwidget>
    <class>qMRMLNodeComboBox</class>
