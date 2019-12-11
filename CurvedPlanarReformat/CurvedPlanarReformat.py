@@ -142,8 +142,8 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
 
     transformWorldToIjk = vtk.vtkTransform()
     transformWorldToIjk.Concatenate(transformWorldToVolumeRas)
-    transformWorldToIjk.Concatenate(volumeRasToIjkTransformMatrix)
     transformWorldToIjk.Scale(inputSpacing)
+    transformWorldToIjk.Concatenate(volumeRasToIjkTransformMatrix)
 
     transformPolydataWorldToIjk = vtk.vtkTransformPolyDataFilter()
     transformPolydataWorldToIjk.SetInputData(sampledCurvePoly)
