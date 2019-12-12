@@ -23,6 +23,7 @@ add_subdirectory(LineProfile)
 add_subdirectory(Lights)
 add_subdirectory(UserStatistics)
 add_subdirectory(CurvedPlanarReformat)
+add_subdirectory(AutoSave)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_GENERATE_CONFIG})
