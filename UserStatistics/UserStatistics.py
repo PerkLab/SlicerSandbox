@@ -39,9 +39,11 @@ This file was originally developed by Kyle Sunderland (Perk Lab, Queen's Univers
     qt.QTimer.singleShot(1, self.showUserConfirmationDialog)
 
   def showUserConfirmationDialog(self):
-    userConfirmationDialog = UserConfirmationDialog(slicer.util.mainWindow())
-    userConfirmationDialog.deleteLater()
-    userConfirmationDialog.exec_()
+    logic = slicer.modules.userstatistics.widgetRepresentation().self().logic
+    if logic.getUserStatisticsEnabled():
+      userConfirmationDialog = UserConfirmationDialog(slicer.util.mainWindow())
+      userConfirmationDialog.deleteLater()
+      userConfirmationDialog.exec_()
 
 #
 # UserStatisticsWidget
@@ -85,6 +87,8 @@ class UserStatisticsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndImportEvent, self.onSceneEndImport)
 
     # Connections
+    self.ui.enabledCheckBox.checked = self.logic.getUserStatisticsEnabled()
+    self.ui.enabledCheckBox.stateChanged.connect(self.onUserStatisticsEnabledCheckboxChanged)
     self.ui.tableNodeSelector.nodeAddedByUser.connect(self.onNodeAddedByUser)
     self.ui.tableNodeSelector.currentNodeChanged.connect(self.onCurrentNodeChanged)
     self.ui.mergeTablesButton.clicked.connect(self.onMergeStatisticTablesClicked)
@@ -95,6 +99,11 @@ class UserStatisticsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     # This will use createParameterNode with the provided default options
     self.setParameterNode(self.logic.getParameterNode())
+    self.ui.mainWidget.setEnabled(self.logic.getUserStatisticsEnabled())
+
+  def onUserStatisticsEnabledCheckboxChanged(self):
+    self.logic.setUserStatisticsEnabled(self.ui.enabledCheckBox.checked)
+    self.ui.mainWidget.setEnabled(self.logic.getUserStatisticsEnabled())
 
   def onScreenshotEnabledChanged(self):
     parameterNode = self.logic.getParameterNode()
@@ -264,14 +273,12 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
     self.waitDetectionTimer.setInterval(self.WAIT_TIMEOUT_SECONDS * 1000)
     self.waitDetectionTimer.setSingleShot(False)
     self.waitDetectionTimer.timeout.connect(self.onWaitDetectionTimer)
-    self.waitDetectionTimer.start()
 
     self.screenshotEnabled = False
     self.autoRowCreationTimer = qt.QTimer()
     self.autoRowCreationTimer.setInterval(self.AUTO_ROW_CREATION_INTERVAL_SECONDS * 1000)
     self.autoRowCreationTimer.setSingleShot(False)
     self.autoRowCreationTimer.timeout.connect(self.onAutoRowCreationTimer)
-    self.autoRowCreationTimer.start()
 
     self.takeScreenshotTimer = qt.QTimer()
     self.takeScreenshotTimer.setInterval(1)
@@ -283,10 +290,9 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
     slicer.app.installEventFilter(self.idleDetectionEventFilter)
     self.idleDetectionEventFilter.idleStarted.connect(self.onIdleStarted)
     self.idleDetectionEventFilter.idleEnded.connect(self.onIdleEnded)
-    self.idleDetectionEventFilter.start()
 
     self.getUserStatisticsTableNode()
-    self.addSegmentEditorObservers()
+    self.updateUserStatisticsTimers()
 
   def cleanup(self):
     slicer.util.moduleSelector().moduleSelected.disconnect(self.updateTable)
@@ -297,6 +303,31 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
     slicer.app.removeEventFilter(self.idleDetectionEventFilter)
     self.idleDetectionEventFilter.deleteLater()
     self.removeObservers()
+
+  def getUserStatisticsEnabled(self):
+    settings = qt.QSettings()
+    #print(settings.value("UserStatisticsEnabled", "False") == "True")
+    return settings.value("UserStatisticsEnabled", "False") == "True"
+
+  def setUserStatisticsEnabled(self, enabled):
+    settings = qt.QSettings()
+    settings.setValue("UserStatisticsEnabled", str(enabled))
+    self.waitDetectionLastTimeout = vtk.vtkTimerLog.GetUniversalTime()
+    self.updateUserStatisticsTimers()
+
+  def updateUserStatisticsTimers(self):
+    settings = qt.QSettings()
+    enabled = self.getUserStatisticsEnabled()
+    if enabled == True:
+      self.waitDetectionTimer.start()
+      self.autoRowCreationTimer.start()
+      self.idleDetectionEventFilter.start()
+      self.addSegmentEditorObservers()
+    else:
+      self.waitDetectionTimer.stop()
+      self.autoRowCreationTimer.stop()
+      self.idleDetectionEventFilter.stop()
+      self.removeSegmentEditorObservers()
 
   def getParameterNode(self):
     """Returns the current parameter node and creates one if it doesn't exist yet"""
@@ -580,6 +611,11 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
     for editorNode in editorNodes:
       self.observeSegmentEditorNode(editorNode)
 
+  def removeSegmentEditorObservers(self):
+    editorNodes = slicer.util.getNodesByClass("vtkMRMLSegmentEditorNode")
+    for editorNode in editorNodes:
+      self.removeObserver(editorNode, vtk.vtkCommand.ModifiedEvent, self.onEditorNodeModified)
+
   @vtk.calldata_type(vtk.VTK_OBJECT)
   def onNodeAdded(self, caller, event, callData):
     if isinstance(callData, slicer.vtkMRMLSegmentEditorNode):
@@ -595,6 +631,9 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
 
   def updateTable(self):
     if self.importInProgress or self.closeInProgress:
+      return
+
+    if not self.getUserStatisticsEnabled():
       return
 
     serializedScene = self.serializeFromScene()
