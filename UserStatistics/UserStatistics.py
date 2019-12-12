@@ -306,8 +306,7 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
 
   def getUserStatisticsEnabled(self):
     settings = qt.QSettings()
-    #print(settings.value("UserStatisticsEnabled", "False") == "True")
-    return settings.value("UserStatisticsEnabled", "False") == "True"
+    return settings.value("UserStatisticsEnabled", str(False)) == str(True)
 
   def setUserStatisticsEnabled(self, enabled):
     settings = qt.QSettings()
