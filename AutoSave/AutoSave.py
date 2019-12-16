@@ -141,10 +141,14 @@ class AutoSaveLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
     VTKObservationMixin.__init__(self)
     self.autoSaveTimer = qt.QTimer()
     self.autoSaveTimer.timeout.connect(self.onAutoSaveTimeout)
+    self.autoSaveCallback = self.saveScene
 
   def cleanup(self):
     self.removeObservers()
     self.autoSaveTimer.stop()
+
+  def setAutoSaveCallback(self, callback):
+    self.autoSaveCallback = callback
 
   def getParameterNode(self):
     parameterNode = ScriptedLoadableModuleLogic.getParameterNode(self)
@@ -166,9 +170,12 @@ class AutoSaveLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
       self.autoSaveTimer.start()
 
   def onAutoSaveTimeout(self):
+    directory = self.getSaveDirectory()
+    self.autoSaveCallback(directory)
+
+  def saveScene(self, directory):
     # Generate file name
-    sceneSaveFilename = self.getSaveDirectory() + "/" + time.strftime("%Y%m%d-%H%M%S") + ".mrb"
-    print(sceneSaveFilename)
+    sceneSaveFilename = directory + "/" + time.strftime("%Y%m%d-%H%M%S") + ".mrb"
     # Save scene
     if slicer.util.saveScene(sceneSaveFilename):
       logging.info("Scene saved to: {0}".format(sceneSaveFilename))
