@@ -192,6 +192,7 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
 
     outputStraightenedVolume.SetIJKToRASMatrix(ijkToRas)
     outputStraightenedVolume.SetAndObserveImageData(straightenedVolumeImageData)
+    outputStraightenedVolume.CreateDefaultDisplayNodes()
 
     return True
 
@@ -222,6 +223,7 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     ijkToRas = vtk.vtkMatrix4x4()
     inputStraightenedVolume.GetIJKToRASMatrix(ijkToRas)
     outputProjectedVolume.SetIJKToRASMatrix(ijkToRas)
+    outputProjectedVolume.CreateDefaultDisplayNodes()
 
     return True
 
