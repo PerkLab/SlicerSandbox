@@ -299,6 +299,24 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     rasToIJK.MultiplyPoint(lineStartPoint_RAS1,lineStartPoint_IJK1)
     rasToIJK.MultiplyPoint(lineEndPoint_RAS1,lineEndPoint_IJK1)
 
+    # Special case: single-slice volume
+    # vtkProbeFilter treats vtkImageData as a general data set and it considers its bounds to end
+    # in the middle of edge voxels. This makes single-slice volumes to have zero thickness, which
+    # can be easily missed by a line that that is drawn on the plane (e.g., they happen to be
+    # extremely on the same side of the plane, very slightly off, due to runding errors).
+    # We move the start/end points very close to the plane and force them to be on opposite sides of the plane.
+    dims = inputVolume.GetImageData().GetDimensions()
+    for axisIndex in range(3):
+      if dims[axisIndex] == 1:
+        if abs(lineStartPoint_IJK1[axisIndex]) < 0.5 and abs(lineEndPoint_IJK1[axisIndex]) < 0.5:
+          # both points are inside the volume plane
+          # keep their distance the same (to keep the overall length of the line he same)
+          # but make sure the points are on the opposite side of the plane (to ensure probe filter
+          # considers the line crossing the image plane)
+          pointDistance = max(abs(lineStartPoint_IJK1[axisIndex]-lineEndPoint_IJK1[axisIndex]), 1e-6)
+          lineStartPoint_IJK1[axisIndex] = -0.5 * pointDistance
+          lineEndPoint_IJK1[axisIndex] = 0.5 * pointDistance
+
     lineSource=vtk.vtkLineSource()
     lineSource.SetPoint1(lineStartPoint_IJK1[0],lineStartPoint_IJK1[1],lineStartPoint_IJK1[2])
     lineSource.SetPoint2(lineEndPoint_IJK1[0], lineEndPoint_IJK1[1], lineEndPoint_IJK1[2])
