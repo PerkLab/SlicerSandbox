@@ -52,7 +52,7 @@ class CurvedPlanarReformatWidget(ScriptedLoadableModuleWidget):
     self.ui.curveResolutionSliderWidget.setMRMLScene(slicer.mrmlScene)
     self.ui.sliceResolutionSliderWidget.setMRMLScene(slicer.mrmlScene)
     self.ui.sliceSizeCoordinatesWidget.setMRMLScene(slicer.mrmlScene)
-    
+
     self.ui.outputStraightenedVolumeSelector.setMRMLScene(slicer.mrmlScene)
     self.ui.outputProjectedVolumeSelector.setMRMLScene(slicer.mrmlScene)
 
@@ -93,6 +93,9 @@ class CurvedPlanarReformatWidget(ScriptedLoadableModuleWidget):
     if not logic.straightenVolume(straightenedVolume, curveNode, volumeNode, sliceSizeMm, spacingMm, rotationAngleDeg):
       logging.error("CPR straightenVolume failed")
       return
+
+    if self.ui.showOutputCheckBox.checked:
+      slicer.util.setSliceViewerLayers(background=straightenedVolume, fit=True)
 
     projectedVolume = self.ui.outputProjectedVolumeSelector.currentNode()
     if projectedVolume:
@@ -161,7 +164,7 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     reslicer.SetSliceExtent(*sliceExtent)
     reslicer.SetSliceSpacing(outputSpacingMm[0], outputSpacingMm[1])
     reslicer.SetIncidence(vtk.vtkMath.RadiansFromDegrees(rotationAngleDeg))
-   
+
     nbPoints = sampledPoints.GetNumberOfPoints()
     for ptId in reversed(range(nbPoints)):
       reslicer.SetOffsetPoint(ptId)
@@ -181,7 +184,7 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     ijkToRas.SetElement(0, 0, 0.0)
     ijkToRas.SetElement(1, 0, 0.0)
     ijkToRas.SetElement(2, 0, -outputSpacingMm[0])
-    
+
     ijkToRas.SetElement(0, 1, 0.0)
     ijkToRas.SetElement(1, 1, outputSpacingMm[1])
     ijkToRas.SetElement(2, 1, 0.0)
@@ -212,14 +215,14 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     projectedImageData.AllocateScalars(straightenedImageData.GetScalarType(), straightenedImageData.GetNumberOfScalarComponents())
     outputProjectedVolumeArray = slicer.util.arrayFromVolume(outputProjectedVolume)
     inputStraightenedVolumeArray = slicer.util.arrayFromVolume(inputStraightenedVolume)
-    
+
     if projectionAxisIndex == 0:
       outputProjectedVolumeArray[0, :, :] = inputStraightenedVolumeArray.mean(projectionAxisIndex)
     else:
       outputProjectedVolumeArray[:, 0, :] = inputStraightenedVolumeArray.mean(projectionAxisIndex)
 
     slicer.util.arrayFromVolumeModified(outputProjectedVolume)
-    
+
     ijkToRas = vtk.vtkMatrix4x4()
     inputStraightenedVolume.GetIJKToRASMatrix(ijkToRas)
     outputProjectedVolume.SetIJKToRASMatrix(ijkToRas)
