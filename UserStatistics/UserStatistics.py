@@ -493,6 +493,7 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
     for tableNode in tableNodes:
       currentRowIndexes[tableNode] = 0
 
+    logging.info("Create new table node")
     newTableNode = slicer.vtkMRMLTableNode()
     newTableNode.SetName("UserStatisticsTableNode")
     newTableNode.SetAttribute("UserStatistics.TableNode", "")
@@ -563,6 +564,9 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
     if not tableNode is None:
       return tableNode
 
+    if not self.getUserStatisticsEnabled():
+      return
+
     tableNodes = slicer.util.getNodesByClass("vtkMRMLTableNode")
     for node in tableNodes:
       if node.GetAttribute("UserStatistics.TableNode"):
@@ -570,6 +574,7 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
         break
 
     if tableNode is None:
+      logging.info("Create new table node")
       tableNode = slicer.vtkMRMLTableNode()
       tableNode.SetName("UserStatisticsTableNode")
       tableNode.SetAttribute("UserStatistics.TableNode", "")
