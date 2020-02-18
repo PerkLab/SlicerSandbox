@@ -43,7 +43,9 @@ This file was originally developed by Kyle Sunderland (Perk Lab, Queen's Univers
     if logic.getUserStatisticsEnabled():
       userConfirmationDialog = UserConfirmationDialog(slicer.util.mainWindow())
       userConfirmationDialog.deleteLater()
-      userConfirmationDialog.exec_()
+      if not userConfirmationDialog.exec_():
+        logging.info("User confirmation dialog has been rejected, disable user statistics")
+        logic.setUserStatisticsEnabled(False)
 
 #
 # UserStatisticsWidget
@@ -829,15 +831,17 @@ class UserConfirmationDialog(qt.QDialog):
     layout = qt.QVBoxLayout()
     self.setLayout(layout)
 
-    self.setWindowTitle("Current user information")
+    self.setWindowTitle("User Statistics")
 
     self.settingsUserPanel = slicer.qSlicerSettingsUserInformationPanel()
     self.settingsUserPanel.setUserInformation(slicer.app.applicationLogic().GetUserInformation())
     layout.addWidget(self.settingsUserPanel)
 
     self.dialogButtons = qt.QDialogButtonBox()
-    self.dialogButtons.addButton(qt.QDialogButtonBox.Ok)
+    self.dialogButtons.addButton("Confirm user information", qt.QDialogButtonBox.AcceptRole)
+    self.dialogButtons.addButton("Disable user statistics", qt.QDialogButtonBox.RejectRole)
     self.dialogButtons.accepted.connect(self.accept)
+    self.dialogButtons.rejected.connect(self.reject)
     layout.addWidget(self.dialogButtons)
 
 class IdleDetectionEventFilter(qt.QObject):
