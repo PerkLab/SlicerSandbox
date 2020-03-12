@@ -120,6 +120,7 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     self.lineResolutionSliderWidget.minimum = 2
     self.lineResolutionSliderWidget.maximum = 1000
     self.lineResolutionSliderWidget.value = 100
+    self.lineResolutionSliderWidget.decimals = 0
     self.lineResolutionSliderWidget.setToolTip("Number of points to sample along the line.")
     parametersFormLayout.addRow("Line resolution", self.lineResolutionSliderWidget)
 
@@ -263,41 +264,45 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     outputTable.GetTable().AddColumn(newArray)
     return newArray
 
-  def updateOutputTable(self, inputVolume, inputLine, outputTable, lineResolution):
-    if inputLine.GetNumberOfDefinedControlPoints() < 2:
+  def updateOutputTable(self, inputVolume, inputCurve, outputTable, lineResolution):
+    if inputCurve.GetNumberOfDefinedControlPoints() < 2:
       outputTable.GetTable().SetNumberOfRows(0)
       return
 
-    import math
-
-    lineStartPoint_RAS = [0,0,0]
-    lineEndPoint_RAS = [0,0,0]
-    inputLine.GetNthControlPointPositionWorld(0, lineStartPoint_RAS)
-    inputLine.GetNthControlPointPositionWorld(1, lineEndPoint_RAS)
-
-    lineLengthMm = math.sqrt(vtk.vtkMath.Distance2BetweenPoints(lineStartPoint_RAS,lineEndPoint_RAS))
+    curvePoints_RAS = inputCurve.GetCurvePointsWorld()
+    closedCurve = inputCurve.IsA('vtkMRMLClosedCurveNode')
+    curveLengthMm = slicer.vtkMRMLMarkupsCurveNode.GetCurveLength(curvePoints_RAS, closedCurve)
 
     # Need to get the start/end point of the line in the IJK coordinate system
     # as VTK filters cannot take into account direction cosines
-    rasToIJK = vtk.vtkMatrix4x4()
-    parentToIJK = vtk.vtkMatrix4x4()
-    rasToParent = vtk.vtkMatrix4x4()
-    inputVolume.GetRASToIJKMatrix(parentToIJK)
-    transformNode = inputVolume.GetParentTransformNode()
-    if transformNode:
-      if transformNode.IsTransformToWorldLinear():
-        rasToParent.DeepCopy(transformNode.GetMatrixTransformToParent())
-        rasToParent.Invert()
-      else:
-        print ("Cannot handle non-linear transforms - ignoring transform of the input volume")
-    vtk.vtkMatrix4x4.Multiply4x4(parentToIJK, rasToParent, rasToIJK)
+    # We transform the curve points from RAS coordinate system (instead of directly from the inputCurve coordinate system)
+    # to make sure the curve is transformed to RAS exactly the same way as it is done for display.
+    inputVolumeToIJK = vtk.vtkMatrix4x4()
+    inputVolume.GetRASToIJKMatrix(inputVolumeToIJK)
+    rasToInputVolumeTransform = vtk.vtkGeneralTransform()
+    slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(None, inputVolume.GetParentTransformNode(), rasToInputVolumeTransform)
+    rasToIJKTransform = vtk.vtkGeneralTransform()  # rasToIJKTransform = inputVolumeToIJK * rasToInputVolumeTransform
+    rasToIJKTransform.Concatenate(inputVolumeToIJK)
+    rasToIJKTransform.Concatenate(rasToInputVolumeTransform)
 
-    lineStartPoint_RAS1 = [lineStartPoint_RAS[0], lineStartPoint_RAS[1], lineStartPoint_RAS[2], 1.0]
-    lineEndPoint_RAS1 = [lineEndPoint_RAS[0], lineEndPoint_RAS[1], lineEndPoint_RAS[2], 1.0]
-    lineStartPoint_IJK1 = [0,0,0,1]
-    lineEndPoint_IJK1 = [0,0,0,1]
-    rasToIJK.MultiplyPoint(lineStartPoint_RAS1,lineStartPoint_IJK1)
-    rasToIJK.MultiplyPoint(lineEndPoint_RAS1,lineEndPoint_IJK1)
+    curvePoly_RAS = vtk.vtkPolyData()
+    curvePoly_RAS.SetPoints(curvePoints_RAS)
+
+    transformRasToIjk = vtk.vtkTransformPolyDataFilter()
+    transformRasToIjk.SetInputData(curvePoly_RAS)
+    transformRasToIjk.SetTransform(rasToIJKTransform)
+    transformRasToIjk.Update()
+    curvePoly_IJK = transformRasToIjk.GetOutput()
+    curvePoints_IJK = curvePoly_IJK.GetPoints()
+
+    if curvePoints_IJK.GetNumberOfPoints() < 2:
+      # We checked before that there are at least two control points, so it should not happen
+      raise ValueError()
+
+    startPointIndex = 0
+    endPointIndex = curvePoints_IJK.GetNumberOfPoints() - 1
+    lineStartPoint_IJK = curvePoints_IJK.GetPoint(startPointIndex)
+    lineEndPoint_IJK = curvePoints_IJK.GetPoint(endPointIndex)
 
     # Special case: single-slice volume
     # vtkProbeFilter treats vtkImageData as a general data set and it considers its bounds to end
@@ -308,22 +313,26 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     dims = inputVolume.GetImageData().GetDimensions()
     for axisIndex in range(3):
       if dims[axisIndex] == 1:
-        if abs(lineStartPoint_IJK1[axisIndex]) < 0.5 and abs(lineEndPoint_IJK1[axisIndex]) < 0.5:
+        if abs(lineStartPoint_IJK[axisIndex]) < 0.5 and abs(lineEndPoint_IJK[axisIndex]) < 0.5:
           # both points are inside the volume plane
           # keep their distance the same (to keep the overall length of the line he same)
           # but make sure the points are on the opposite side of the plane (to ensure probe filter
           # considers the line crossing the image plane)
-          pointDistance = max(abs(lineStartPoint_IJK1[axisIndex]-lineEndPoint_IJK1[axisIndex]), 1e-6)
-          lineStartPoint_IJK1[axisIndex] = -0.5 * pointDistance
-          lineEndPoint_IJK1[axisIndex] = 0.5 * pointDistance
+          pointDistance = max(abs(lineStartPoint_IJK[axisIndex]-lineEndPoint_IJK[axisIndex]), 1e-6)
+          lineStartPoint_IJK[axisIndex] = -0.5 * pointDistance
+          lineEndPoint_IJK[axisIndex] = 0.5 * pointDistance
+          curvePoints_IJK.SetPoint(startPointIndex, lineStartPoint_IJK)
+          curvePoints_IJK.SetPoint(endPointIndex, lineEndPoint_IJK)
 
-    lineSource=vtk.vtkLineSource()
-    lineSource.SetPoint1(lineStartPoint_IJK1[0],lineStartPoint_IJK1[1],lineStartPoint_IJK1[2])
-    lineSource.SetPoint2(lineEndPoint_IJK1[0], lineEndPoint_IJK1[1], lineEndPoint_IJK1[2])
-    lineSource.SetResolution(lineResolution-1)
+    sampledCurvePoints_IJK = vtk.vtkPoints()
+    samplingDistance = curveLengthMm / lineResolution
+    slicer.vtkMRMLMarkupsCurveNode.ResamplePoints(curvePoints_IJK, sampledCurvePoints_IJK, samplingDistance, closedCurve)
+
+    sampledCurvePoly_IJK = vtk.vtkPolyData()
+    sampledCurvePoly_IJK.SetPoints(sampledCurvePoints_IJK)
 
     probeFilter=vtk.vtkProbeFilter()
-    probeFilter.SetInputConnection(lineSource.GetOutputPort())
+    probeFilter.SetInputData(sampledCurvePoly_IJK)
     probeFilter.SetSourceData(inputVolume.GetImageData())
     probeFilter.ComputeToleranceOff()
     probeFilter.Update()
@@ -335,7 +344,7 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     intensityArray = self.getArrayFromTable(outputTable, INTENSITY_ARRAY_NAME)
     outputTable.GetTable().SetNumberOfRows(probedPoints.GetNumberOfPoints())
     x = range(0, probedPoints.GetNumberOfPoints())
-    xStep = lineLengthMm/(probedPoints.GetNumberOfPoints()-1)
+    xStep = curveLengthMm/(probedPoints.GetNumberOfPoints()-1)
     probedPointScalars = probedPoints.GetPointData().GetScalars()
     for i in range(len(x)):
       distanceArray.SetValue(i, x[i]*xStep)
