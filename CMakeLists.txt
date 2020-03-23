@@ -24,6 +24,7 @@ add_subdirectory(Lights)
 add_subdirectory(UserStatistics)
 add_subdirectory(CurvedPlanarReformat)
 add_subdirectory(AutoSave)
+add_subdirectory(ImportOsirixROI)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_GENERATE_CONFIG})
