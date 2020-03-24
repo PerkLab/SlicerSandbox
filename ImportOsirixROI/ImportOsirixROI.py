@@ -194,22 +194,27 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
     """
     pass
 
-  def importOsirixRoiFileToSegmentation(self, inputRoiFilePath, outputSegmentationNode):
+  def importOsirixRoiFileToSegmentation(self, inputRoi, outputSegmentationNode):
     """
     Run the processing algorithm.
     Can be used without GUI widget.
-    :param inputRoiFilePath: input OsiriX ROI file
+    :param inputRoi: input OsiriX ROI file path or text node
     :param outputSegmentation: output segmentation node
     """
 
-    if not inputRoiFilePath or not outputSegmentationNode:
+    if not inputRoi or not outputSegmentationNode:
       raise ValueError("Input file or output segmentation node is invalid")
 
     logging.info('Processing started')
 
     import json
-    with open(inputRoiFilePath) as f:
-      inputRoi = json.load(f)
+    if isinstance(inputRoi,str):
+      with open(inputRoiFilePath) as f:
+        inputRoi = json.load(f)
+    elif isinstance(inputRoi, slicer.vtkMRMLTextNode):
+      inputRoi = json.loads(inputRoi.GetText())
+    else:
+      raise TypeError("inputRoi is expected to be a string or vtkMRMLTextNode")
 
     outputSegmentationNode.CreateDefaultDisplayNodes()
     segmentation = outputSegmentationNode.GetSegmentation()
@@ -288,35 +293,21 @@ class ImportOsirixROITest(ScriptedLoadableModuleTest):
     # Get/create input data
 
     import SampleData
-    inputVolume = SampleData.downloadFromURL(
+    jsonTextNode = SampleData.downloadFromURL(
       nodeNames='OsirixTestROI_1',
-      fileNames='MR-Head.nrrd',
+      fileNames='OsirixTestROI_1.json',
       loadFileTypes='TextFile',
-      uris='https://github.com/Slicer/SlicerTestingData/releases/download/MD5/39b01631b7b38232a220007230624c8e',
-      checksums='MD5:39b01631b7b38232a220007230624c8e')[0]
+      uris='https://raw.githubusercontent.com/PerkLab/SlicerSandbox/master/ImportOsirixROI/Testing/Data/OsirixTestROI_1.json',
+      checksums='MD5:0ffb20a8802b08884753b5f4c0cb18c9')[0]
+
     self.delayDisplay('Finished with download and loading')
 
-    inputScalarRange = inputVolume.GetImageData().GetScalarRange()
-    self.assertEqual(inputScalarRange[0], 0)
-    self.assertEqual(inputScalarRange[1], 279)
-
-    outputVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
-    threshold = 50
+    outputSegmentation = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
 
     # Test the module logic
-
     logic = ImportOsirixROILogic()
-
-    # Test algorithm with non-inverted threshold
-    logic.run(inputVolume, outputVolume, threshold, True)
-    outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-    self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-    self.assertEqual(outputScalarRange[1], threshold)
-
-    # Test algorithm with inverted threshold
-    logic.run(inputVolume, outputVolume, threshold, False)
-    outputScalarRange = outputVolume.GetImageData().GetScalarRange()
-    self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-    self.assertEqual(outputScalarRange[1], inputScalarRange[1])
+    logic.importOsirixRoiFileToSegmentation(jsonTextNode, outputSegmentation)
+    self.assertEqual(outputSegmentation.GetSegmentation().GetNumberOfSegments(), 1)
+    self.assertEqual(outputSegmentation.GetClosedSurfaceInternalRepresentation("Test").GetNumberOfPoints(), 2935)
 
     self.delayDisplay('Test passed')
