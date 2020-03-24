@@ -209,7 +209,7 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
 
     import json
     if isinstance(inputRoi,str):
-      with open(inputRoiFilePath) as f:
+      with open(inputRoi) as f:
         inputRoi = json.load(f)
     elif isinstance(inputRoi, slicer.vtkMRMLTextNode):
       inputRoi = json.loads(inputRoi.GetText())
