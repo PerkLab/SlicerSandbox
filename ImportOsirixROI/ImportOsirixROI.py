@@ -165,6 +165,10 @@ class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     """
     Run processing when user clicks "Apply" button.
     """
+
+    if not hasattr(slicer.modules, 'dicomrtimportexport'):
+      slicer.util.warningDisplay("SlicerRT extension is not installed. Segmentation will be imported as a set of parallel contours. Install SlicerRT extension to create segmentation as a solid object.")
+
     self.ui.inputRoiPathLineEdit.addCurrentPathToHistory()
     try:
       self.logic.importOsirixRoiFileToSegmentation(self.ui.inputRoiPathLineEdit.currentPath, self._parameterNode.GetNodeReference("OutputSegmentation"))
@@ -207,12 +211,22 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
 
     logging.info('Processing started')
 
+    inputRoiJson = None
+    inputRoiPlist = None
     import json
+    import plistlib
     if isinstance(inputRoi,str):
-      with open(inputRoi) as f:
-        inputRoi = json.load(f)
+      filename, ext = os.path.splitext(inputRoi)
+      if ext.lower() == '.json':
+        with open(inputRoi) as f:
+          inputRoiJson = json.load(f)
+      else:
+        inputRoiPlist = plistlib.readPlist(inputRoi)
     elif isinstance(inputRoi, slicer.vtkMRMLTextNode):
-      inputRoi = json.loads(inputRoi.GetText())
+      try:
+        inputRoiJson = json.loads(inputRoi.GetText())
+      except:
+        inputRoiPlist = plistlib.readPlistFromBytes(inputRoi.GetText())
     else:
       raise TypeError("inputRoi is expected to be a string or vtkMRMLTextNode")
 
@@ -222,23 +236,42 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
 
     roiContourPoints = vtk.vtkPoints()
     roiContourCells = vtk.vtkCellArray()
-    for contour in inputRoi:
-      roiPoints = contour["ROI3DPoints"]
-      cellPointIds = []
-      for roiPoint in roiPoints:
-        roiPointStrList = roiPoint.strip('[]').split(',')
-        cellPointIds.append(roiContourPoints.InsertNextPoint(-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])))
-      contourIndex = roiContourCells.InsertNextCell(len(cellPointIds)+1)
-      for cellPointId in cellPointIds:
-        roiContourCells.InsertCellPoint(cellPointId)
-      roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
+
+    name = None
+    color = [ 1.0, 0.0, 0.0 ]
+
+    if inputRoiJson:
+      for contour in inputRoiJson:
+        roiPoints = contour["ROI3DPoints"]
+        cellPointIds = []
+        for roiPoint in roiPoints:
+          roiPointStrList = roiPoint.strip('[]').split(',')
+          cellPointIds.append(roiContourPoints.InsertNextPoint(-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])))
+        contourIndex = roiContourCells.InsertNextCell(len(cellPointIds)+1)
+        for cellPointId in cellPointIds:
+          roiContourCells.InsertCellPoint(cellPointId)
+        roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
+      name = inputRoiJson[0]["Name"]
+    else:
+      for image in inputRoiPlist['Images']:
+        rois = image['ROIs']
+        for roi in rois:
+          if not name:
+            if roi['Name']:
+              name = roi['Name']
+          roiPoints = roi['Point_mm']
+          cellPointIds = []
+          for roiPoint in roiPoints:
+            roiPointStrList = roiPoint.strip('()').split(',')
+            cellPointIds.append(roiContourPoints.InsertNextPoint(-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])))
+          contourIndex = roiContourCells.InsertNextCell(len(cellPointIds)+1)
+          for cellPointId in cellPointIds:
+            roiContourCells.InsertCellPoint(cellPointId)
+          roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
 
     roiPolyData = vtk.vtkPolyData()
     roiPolyData.SetPoints(roiContourPoints)
     roiPolyData.SetLines(roiContourCells)
-
-    color = [ 1.0, 0.0, 0.0 ]
-    name = inputRoi[0]["Name"]
 
     segment = slicer.vtkSegment()
     segment.SetName(name)
