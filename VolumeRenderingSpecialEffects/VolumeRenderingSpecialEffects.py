@@ -82,7 +82,7 @@ class VolumeRenderingSpecialEffectsWidget(ScriptedLoadableModuleWidget, VTKObser
     self.ui.noneModeButton.connect("toggled(bool)", self.modeButtonToggled)
     self.ui.sphereCropModeButton.connect("toggled(bool)", self.modeButtonToggled)
     self.ui.wedgeCropModeButton.connect("toggled(bool)", self.modeButtonToggled) 
-    self.ui.inputMarkupsSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
+    self.ui.inputMarkupsSelector.connect("markupsNodeChanged()", self.updateParameterNodeFromGUI)
     self.ui.radiusSliderWidget.connect("valueChanged(double)", self.updateParameterNodeFromGUI)
 
     # Initial GUI update
