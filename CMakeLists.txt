@@ -26,6 +26,7 @@ add_subdirectory(CurvedPlanarReformat)
 add_subdirectory(AutoSave)
 add_subdirectory(ImportOsirixROI)
 add_subdirectory(VolumeRenderingSpecialEffects)
+add_subdirectory(SegmentCrossSectionArea)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_GENERATE_CONFIG})
