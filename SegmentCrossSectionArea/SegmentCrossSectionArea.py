@@ -317,23 +317,23 @@ class SegmentCrossSectionAreaLogic(ScriptedLoadableModuleLogic):
           numSlices = volumeExtents[axisIndex*2+1] - volumeExtents[axisIndex*2] + 1
           
           startPosition_Ijk = [
-            (volumeExtents[0]+volumeExtents[1])/2 if axisIndex!=1 else volumeExtents[0],
-            (volumeExtents[2]+volumeExtents[3])/2 if axisIndex!=2 else volumeExtents[2],
-            (volumeExtents[4]+volumeExtents[5])/2 if axisIndex!=3 else volumeExtents[4],
+            (volumeExtents[0]+volumeExtents[1])/2.0 if axisIndex!=0 else volumeExtents[0],
+            (volumeExtents[2]+volumeExtents[3])/2.0 if axisIndex!=1 else volumeExtents[2],
+            (volumeExtents[4]+volumeExtents[5])/2.0 if axisIndex!=2 else volumeExtents[4],
             1
           ]
           endPosition_Ijk = [
-            (volumeExtents[0]+volumeExtents[1])/2 if axisIndex!=1 else volumeExtents[1],
-            (volumeExtents[2]+volumeExtents[3])/2 if axisIndex!=2 else volumeExtents[3],
-            (volumeExtents[4]+volumeExtents[5])/2 if axisIndex!=3 else volumeExtents[5],
+            (volumeExtents[0]+volumeExtents[1])/2.0 if axisIndex!=0 else volumeExtents[1],
+            (volumeExtents[2]+volumeExtents[3])/2.0 if axisIndex!=1 else volumeExtents[3],
+            (volumeExtents[4]+volumeExtents[5])/2.0 if axisIndex!=2 else volumeExtents[5],
             1
           ]
           # Get physical coordinates from voxel coordinates
           volumeIjkToRas = vtk.vtkMatrix4x4()
           tempSegmentLabelmapVolumeNode.GetIJKToRASMatrix(volumeIjkToRas)
-          startPosition_Ras = np.array([0,0,0,1])
+          startPosition_Ras = np.array([0.0,0.0,0.0,1.0])
           volumeIjkToRas.MultiplyPoint(startPosition_Ijk, startPosition_Ras)
-          endPosition_Ras = np.array([0,0,0,1])
+          endPosition_Ras = np.array([0.0,0.0,0.0,1.0])
           volumeIjkToRas.MultiplyPoint(endPosition_Ijk, endPosition_Ras)
           volumePositionIncrement_Ras = np.array([0,0,0,1])
           if numSlices > 1:
@@ -347,6 +347,9 @@ class SegmentCrossSectionAreaLogic(ScriptedLoadableModuleLogic):
           sliceNumberArray.SetName("Index")
           slicePositionArray = vtk.vtkFloatArray()
           slicePositionArray.SetNumberOfComponents(3)
+          slicePositionArray.SetComponentName(0, "R")
+          slicePositionArray.SetComponentName(1, "A")
+          slicePositionArray.SetComponentName(2, "S")
           slicePositionArray.SetName("Position")
 
           for i in range(numSlices):
