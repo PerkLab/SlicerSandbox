@@ -270,7 +270,7 @@ class SegmentCrossSectionAreaLogic(ScriptedLoadableModuleLogic):
     # Make a plot chart node. Plot series nodes will be added to this in the
     # loop below that iterates over each segment.
     plotChartNode.SetTitle('Segment cross-section area ('+axis+')')
-    plotChartNode.SetXAxisTitle(axis)
+    plotChartNode.SetXAxisTitle(axis +" index")
     plotChartNode.SetYAxisTitle('Area in mm^2')  # TODO: use length unit
 
     #
@@ -313,18 +313,18 @@ class SegmentCrossSectionAreaLogic(ScriptedLoadableModuleLogic):
           endPosition_Ras = np.array([0,0,0,1])
           volumeIjkToRas.MultiplyPoint(endPosition_Ijk, endPosition_Ras)
           volumePositionIncrement_Ras = np.array([0,0,0,1])
-          if numSlices > 0:
+          if numSlices > 1:
             volumePositionIncrement_Ras = (endPosition_Ras - startPosition_Ras) / (numSlices - 1.0)
 
           # If volume node is transformed, apply that transform to get volume's RAS coordinates
           transformVolumeRasToRas = vtk.vtkGeneralTransform()
-          slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(volumeNode.GetParentTransformNode(), None, transformVolumeRasToRas)
+          slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(tempSegmentLabelmapVolumeNode.GetParentTransformNode(), None, transformVolumeRasToRas)
 
           sliceNumberArray = vtk.vtkIntArray()
-          sliceNumberArray.SetName(axis+" number")
+          sliceNumberArray.SetName("Index")
           slicePositionArray = vtk.vtkFloatArray()
           slicePositionArray.SetNumberOfComponents(3)
-          slicePositionArray.SetName(axis+" position")
+          slicePositionArray.SetName("Position")
 
           for i in range(numSlices):
             sliceNumberArray.InsertNextValue(i)
@@ -333,7 +333,12 @@ class SegmentCrossSectionAreaLogic(ScriptedLoadableModuleLogic):
             slicePositionArray.InsertNextTuple3(*point_Ras)
 
           table.AddColumn(sliceNumberArray)
+          tableNode.SetColumnDescription(sliceNumberArray.GetName(), "Index of " + axis)
+          tableNode.SetColumnUnitLabel(sliceNumberArray.GetName(), "voxel")
+
           table.AddColumn(slicePositionArray)
+          tableNode.SetColumnDescription(slicePositionArray.GetName(), "RAS position of slice center")
+          tableNode.SetColumnUnitLabel(slicePositionArray.GetName(), "mm")  # TODO: use length unit
 
         narray = slicer.util.arrayFromVolume(tempSegmentLabelmapVolumeNode)
 
@@ -357,11 +362,13 @@ class SegmentCrossSectionAreaLogic(ScriptedLoadableModuleLogic):
           areaArray.InsertNextValue(areaBySliceInMm2)
 
         tableNode.AddColumn(areaArray)
+        tableNode.SetColumnUnitLabel(areaArray.GetName(), "mm2")  # TODO: use length unit
+        tableNode.SetColumnDescription(areaArray.GetName(), "Cross-section area")
 
         # Make a plot series node for this column.
         plotSeriesNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLPlotSeriesNode", segmentName)
         plotSeriesNode.SetAndObserveTableNodeID(tableNode.GetID())
-        plotSeriesNode.SetXColumnName(axis+" number")
+        plotSeriesNode.SetXColumnName("Index")
         plotSeriesNode.SetYColumnName(segmentName)
         plotSeriesNode.SetUniqueColor()
 
