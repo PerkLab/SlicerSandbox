@@ -71,6 +71,8 @@ class SegmentCrossSectionAreaWidget(ScriptedLoadableModuleWidget, VTKObservation
     # Connections
     self.ui.parameterNodeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.setParameterNode)
     self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
+    self.ui.showTablePushButton.connect('clicked(bool)', self.onShowTableButton)
+    self.ui.showChartPushButton.connect('clicked(bool)', self.onShowChartButton)
 
     # These connections ensure that whenever user changes some settings on the GUI, that is saved in the MRML scene
     # (in the selected parameter node).
@@ -97,6 +99,12 @@ class SegmentCrossSectionAreaWidget(ScriptedLoadableModuleWidget, VTKObservation
 
     if inputParameterNode:
       self.logic.setDefaultParameters(inputParameterNode)
+      # TODO: uncomment this when nodeFromIndex method will be available in Python
+      # # Select first segmentation node by default
+      # if not inputParameterNode.GetNodeReference("Segmentation"):
+      #   segmentationNode = self.ui.segmentationSelector.nodeFromIndex(0)
+      #   if segmentationNode:
+      #     inputParameterNode.SetNodeReferenceID(segmentationNode.GetID())
 
     # Set parameter node in the parameter node selector widget
     wasBlocked = self.ui.parameterNodeSelector.blockSignals(True)
@@ -204,6 +212,21 @@ class SegmentCrossSectionAreaWidget(ScriptedLoadableModuleWidget, VTKObservation
       import traceback
       traceback.print_exc()
 
+  def onShowTableButton(self):
+    tableNode = self.ui.tableSelector.currentNode()
+    if not tableNode:
+      self.onApplyButton()
+    tableNode = self.ui.tableSelector.currentNode()
+    if tableNode:
+      self.logic.showTable(tableNode)
+
+  def onShowChartButton(self):
+    plotChartNode = self.ui.chartSelector.currentNode()
+    if not plotChartNode:
+      self.onApplyButton()
+    plotChartNode = self.ui.chartSelector.currentNode()
+    if plotChartNode:
+      self.logic.showChart(plotChartNode)
 
 #
 # SegmentCrossSectionAreaLogic
@@ -394,6 +417,15 @@ class SegmentCrossSectionAreaLogic(ScriptedLoadableModuleLogic):
     plotWidget = layoutManager.plotWidget(0)
     plotViewNode = plotWidget.mrmlPlotViewNode()
     plotViewNode.SetPlotChartNodeID(plotChartNode.GetID())
+
+  def showTable(self, tableNode):
+    # Choose a layout where plots are visible
+    layoutManager = slicer.app.layoutManager()
+    layoutWithPlot = slicer.modules.tables.logic().GetLayoutWithTable(layoutManager.layout)
+    layoutManager.setLayout(layoutWithPlot)
+    # Select chart in plot view
+    tableWidget = layoutManager.tableWidget(0)
+    tableWidget.tableView().setMRMLTableNode(tableNode)
 
 #
 # SegmentCrossSectionAreaTest
