@@ -90,7 +90,8 @@ class CurvedPlanarReformatWidget(ScriptedLoadableModuleWidget):
     sliceResolutionMm = self.ui.sliceResolutionSliderWidget.value
     sliceSizeMm = [float(s) for s in self.ui.sliceSizeCoordinatesWidget.coordinates.split(',')]
     spacingMm = [sliceResolutionMm, sliceResolutionMm, spacingAlongCurveMm]
-    if not logic.straightenVolume(straightenedVolume, curveNode, volumeNode, sliceSizeMm, spacingMm, rotationAngleDeg):
+    outputTransformToStraightenedNode = slicer.ui.outputTransformToStraightenedVolumeSelector.currentNode()
+    if not logic.straightenVolume(straightenedVolume, curveNode, volumeNode, sliceSizeMm, spacingMm, rotationAngleDeg, outputTransformToStraightenedNode):
       logging.error("CPR straightenVolume failed")
       return
 
@@ -116,7 +117,7 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
-  def straightenVolume(self, outputStraightenedVolume, curveNode, volumeNode, sliceSizeMm, outputSpacingMm, rotationAngleDeg=0.0):
+  def straightenVolume(self, outputStraightenedVolume, curveNode, volumeNode, sliceSizeMm, outputSpacingMm, rotationAngleDeg=0.0, outputTransformToStraightenedNode=None):
     """
     Compute straightened volume (useful for example for visualization of curved vessels)
     """
@@ -125,77 +126,70 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     if not slicer.vtkMRMLMarkupsCurveNode.ResamplePoints(originalCurvePoints, sampledPoints, outputSpacingMm[2], False):
       return False
 
-    sliceExtent = [int(sliceSizeMm[0]/outputSpacingMm[0]), int(sliceSizeMm[1]/outputSpacingMm[1])]
+    resampledCurveNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsCurveNode", "CurvedPlanarReformat_resampled_curve_temp")
+    resampledCurveNode.SetNumberOfPointsPerInterpolatingSegment(1)
+    resampledCurveNode.SetCurveTypeToLinear()
+    resampledCurveNode.SetControlPointPositionsWorld(sampledPoints)
+    # TODO: remove from scene after done
+
+    outputStraightenedVolumeDimensions = [int(sliceSizeMm[0]/outputSpacingMm[0]), int(sliceSizeMm[1]/outputSpacingMm[1]), sampledPoints.GetNumberOfPoints()]
     inputSpacing = volumeNode.GetSpacing()
 
-    lines = vtk.vtkCellArray()
-    lines.InsertNextCell(sampledPoints.GetNumberOfPoints())
-    for pointIndex in range(sampledPoints.GetNumberOfPoints()):
-      lines.InsertCellPoint(pointIndex)
-    sampledCurvePoly = vtk.vtkPolyData()
-    sampledCurvePoly.SetPoints(sampledPoints)
-    sampledCurvePoly.SetLines(lines)
+    outputStraightenedImageData = vtk.vtkImageData()
+    outputStraightenedImageData.SetDimensions(outputStraightenedVolumeDimensions)
+    outputStraightenedImageData.AllocateScalars(volumeNode.GetImageData().GetScalarType(), volumeNode.GetImageData().GetNumberOfScalarComponents())
+    outputStraightenedVolume.SetAndObserveImageData(outputStraightenedImageData)
+    outputStraightenedVolume.SetOrigin(-0.5*sliceSizeMm[0], -0.5*sliceSizeMm[1], 0.0)
+    outputStraightenedVolume.SetIToRASDirection(1.0, 0.0, 0.0)
+    outputStraightenedVolume.SetJToRASDirection(0.0, 1.0, 0.0)
+    outputStraightenedVolume.SetKToRASDirection(0.0, 0.0, 1.0)
+    outputStraightenedVolume.SetSpacing(outputSpacingMm)
 
-    # Get physical coordinates from voxel coordinates
-    volumeRasToIjkTransformMatrix = vtk.vtkMatrix4x4()
-    volumeNode.GetRASToIJKMatrix(volumeRasToIjkTransformMatrix)
+    # sanity check
+    columns, rows, slices = outputStraightenedImageData.GetDimensions()
+    cornerShape = (slices, 2, 2, 3)
 
-    transformWorldToVolumeRas = vtk.vtkMatrix4x4()
-    slicer.vtkMRMLTransformNode.GetMatrixTransformBetweenNodes(None, volumeNode.GetParentTransformNode(), transformWorldToVolumeRas)
+    # create a grid transform with one vector at the corner of each slice
+    # the transform is in the same space and orientation as the volume node
+    gridImage = vtk.vtkImageData()
+    gridImage.SetOrigin(outputStraightenedVolume.GetOrigin())
+    gridImage.SetDimensions(2, 2, slices)
+    gridImage.SetSpacing(outputSpacingMm[0] * columns, outputSpacingMm[1] * rows, outputSpacingMm[2])
+    gridImage.AllocateScalars(vtk.VTK_DOUBLE, 3)
+    transform = slicer.vtkOrientedGridTransform()
+    directionMatrix = vtk.vtkMatrix4x4()
+    transform.SetDisplacementGridData(gridImage)
+    outputTransformToStraightenedNode.SetAndObserveTransformFromParent(transform)
+    #volumeNode.SetAndObserveTransformNodeID(outputTransformToStraightenedNode.GetID())
 
-    transformWorldToIjk = vtk.vtkTransform()
-    transformWorldToIjk.Concatenate(transformWorldToVolumeRas)
-    transformWorldToIjk.Scale(inputSpacing)
-    transformWorldToIjk.Concatenate(volumeRasToIjkTransformMatrix)
+    # populate the grid so that each corner of each slice
+    # is mapped from the source corner to the target corner
+    inputToStraightenedDisplacement_RAS = slicer.util.arrayFromGridTransform(outputTransformToStraightenedNode)
 
-    transformPolydataWorldToIjk = vtk.vtkTransformPolyDataFilter()
-    transformPolydataWorldToIjk.SetInputData(sampledCurvePoly)
-    transformPolydataWorldToIjk.SetTransform(transformWorldToIjk)
+    curvePointToWorld = vtk.vtkMatrix4x4()
+    import numpy as np
+    numberOfSlices = sampledPoints.GetNumberOfPoints()
+    # gridI, gridJ, gridK: IJK axis indices of the grid transform image
+    for gridK in range(numberOfSlices):
+      resampledCurveNode.GetCurvePointToWorldTransformAtPointIndex(resampledCurveNode.GetCurvePointIndexFromControlPointIndex(gridK), curvePointToWorld)
+      curvePointToWorldArray = slicer.util.arrayFromVTKMatrix(curvePointToWorld)
+      curveAxisX_RAS = curvePointToWorldArray[0:3, 0]
+      curveAxisY_RAS = curvePointToWorldArray[0:3, 1]
+      curvePoint_RAS = curvePointToWorldArray[0:3, 3]
+      print("curvePoint={0}".format(curvePoint_RAS))
+      for gridJ in range(2):
+        for gridI in range(2):
+          outputStraightenedVolume_RAS = np.array([
+            (gridI-0.5)*sliceSizeMm[0],
+            (gridJ-0.5)*sliceSizeMm[1],
+            gridK * outputSpacingMm[2]])
+          volumeNode_RAS = curvePoint_RAS + (gridI-0.5)*sliceSizeMm[0]*curveAxisX_RAS + (gridJ-0.5)*sliceSizeMm[1]*curveAxisY_RAS
+          #print("{0}   ->   {1}   =    {2}".format(volumeNode_RAS, outputStraightenedVolume_RAS, outputStraightenedVolume_RAS - volumeNode_RAS))
+          inputToStraightenedDisplacement_RAS[gridK][gridJ][gridI] = volumeNode_RAS - outputStraightenedVolume_RAS
 
-    reslicer = vtk.vtkSplineDrivenImageSlicer()
-    append = vtk.vtkImageAppend()
+    slicer.util.arrayFromGridTransformModified(outputTransformToStraightenedNode)
 
-    scaledImageData = vtk.vtkImageData()
-    scaledImageData.ShallowCopy(volumeNode.GetImageData())
-    scaledImageData.SetSpacing(inputSpacing)
-
-    reslicer.SetInputData(scaledImageData)
-    reslicer.SetPathConnection(transformPolydataWorldToIjk.GetOutputPort())
-    reslicer.SetSliceExtent(*sliceExtent)
-    reslicer.SetSliceSpacing(outputSpacingMm[0], outputSpacingMm[1])
-    reslicer.SetIncidence(vtk.vtkMath.RadiansFromDegrees(rotationAngleDeg))
-
-    nbPoints = sampledPoints.GetNumberOfPoints()
-    for ptId in reversed(range(nbPoints)):
-      reslicer.SetOffsetPoint(ptId)
-      reslicer.Update()
-      tempSlice = vtk.vtkImageData()
-      tempSlice.DeepCopy(reslicer.GetOutput(0))
-      append.AddInputData(tempSlice)
-
-    append.SetAppendAxis(2)
-    append.Update()
-    straightenedVolumeImageData = append.GetOutput()
-    straightenedVolumeImageData.SetOrigin(0,0,0)
-    straightenedVolumeImageData.SetSpacing(1.0,1.0,1.0)
-
-    dims = straightenedVolumeImageData.GetDimensions()
-    ijkToRas = vtk.vtkMatrix4x4()
-    ijkToRas.SetElement(0, 0, 0.0)
-    ijkToRas.SetElement(1, 0, 0.0)
-    ijkToRas.SetElement(2, 0, -outputSpacingMm[0])
-
-    ijkToRas.SetElement(0, 1, 0.0)
-    ijkToRas.SetElement(1, 1, outputSpacingMm[1])
-    ijkToRas.SetElement(2, 1, 0.0)
-
-    ijkToRas.SetElement(0, 2, outputSpacingMm[2])
-    ijkToRas.SetElement(1, 2, 0.0)
-    ijkToRas.SetElement(2, 2, 0.0)
-
-    outputStraightenedVolume.SetIJKToRASMatrix(ijkToRas)
-    outputStraightenedVolume.SetAndObserveImageData(straightenedVolumeImageData)
-    outputStraightenedVolume.CreateDefaultDisplayNodes()
+    #outputStraightenedVolume.CreateDefaultDisplayNodes()
 
     return True
 
@@ -286,7 +280,8 @@ class CurvedPlanarReformatTest(ScriptedLoadableModuleTest):
 
     logic = CurvedPlanarReformatLogic()
     straightenedVolume = slicer.modules.volumes.logic().CloneVolume(volumeNode, volumeNode.GetName()+' straightened')
-    self.assertTrue(logic.straightenVolume(straightenedVolume, curveNode, volumeNode, [40.0, 40.0], [0.5,0.5,1.0]))
+    outputTransformToStraightenedNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTransformNode")
+    self.assertTrue(logic.straightenVolume(straightenedVolume, curveNode, volumeNode, [40.0, 40.0], [0.5,0.5,1.0], 0.0, outputTransformToStraightenedNode))
 
     panoramicVolume = slicer.modules.volumes.logic().CloneVolume(straightenedVolume, straightenedVolume.GetName()+' panoramic')
     self.assertTrue(logic.projectVolume(panoramicVolume, straightenedVolume))
