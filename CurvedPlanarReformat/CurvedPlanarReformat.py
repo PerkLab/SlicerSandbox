@@ -89,13 +89,12 @@ class CurvedPlanarReformatWidget(ScriptedLoadableModuleWidget):
     straightenedVolume = self.ui.outputStraightenedVolumeSelector.currentNode()
     curveNode = self.ui.inputCurveSelector.currentNode()
     volumeNode = self.ui.inputVolumeSelector.currentNode()
-    rotationAngleDeg = self.ui.rotationAngleSliderWidget.value
     spacingAlongCurveMm = self.ui.curveResolutionSliderWidget.value
     sliceResolutionMm = self.ui.sliceResolutionSliderWidget.value
     sliceSizeMm = [float(s) for s in self.ui.sliceSizeCoordinatesWidget.coordinates.split(',')]
     spacingMm = [sliceResolutionMm, sliceResolutionMm, spacingAlongCurveMm]
     outputTransformToStraightenedNode = self.ui.outputTransformToStraightenedVolumeSelector.currentNode()
-    if not logic.straightenVolume(straightenedVolume, curveNode, volumeNode, sliceSizeMm, spacingMm, rotationAngleDeg, outputTransformToStraightenedNode):
+    if not logic.straightenVolume(straightenedVolume, curveNode, volumeNode, sliceSizeMm, spacingMm, outputTransformToStraightenedNode):
       logging.error("CPR straightenVolume failed")
       return
 
@@ -121,11 +120,14 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
-  def straightenVolume(self, outputStraightenedVolume, curveNode, volumeNode, sliceSizeMm, outputSpacingMm, rotationAngleDeg=0.0, outputTransformToStraightenedNode=None):
+  def straightenVolume(self, outputStraightenedVolume, curveNode, volumeNode, sliceSizeMm, outputSpacingMm,
+    outputTransformToStraightenedNode=None, resamplingCurveSpacingFactor=5.0):
     """
     Compute straightened volume (useful for example for visualization of curved vessels)
+    resamplingCurveSpacingFactor: there is no need to compute displacement for each slice,
+      we just compute for every n-th to make computation faster and inverse computation more robust
+      (less contradiction because of there is less overlapping between neighbor slices)
     """
-    resamplingCurveSpacingFactor = 5.0  # There is no need to compute a transform for each slice, we just compute for every 10th
     resamplingCurveSpacing = outputSpacingMm[2] * resamplingCurveSpacingFactor
     originalCurvePoints = curveNode.GetCurvePointsWorld()
     sampledPoints = vtk.vtkPoints()
@@ -177,103 +179,43 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
       temporaryOutputTransformToStraightenedNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode', 'CurvedPlanarReformat_straightening_transform_temp')
       outputTransformToStraightenedNode = temporaryOutputTransformToStraightenedNode
 
-    # Grid transform is not invertible and there is an issue when 
-    gridTransform=True
-    if gridTransform:
-      # Create grid transform
-      # Each corner of each slice is mapped from the original volume's reformatted slice
-      # to the straightened volume slice.
-      # The grid transform contains one vector at the corner of each slice.
-      # The transform is in the same space and orientation as the straightened volume.
-      gridImage = vtk.vtkImageData()
-      gridImage.SetOrigin(outputStraightenedVolumeOrigin)
-      gridImage.SetDimensions(2, 2, numberOfSlices)
-      gridImage.SetSpacing(sliceSizeMm[0], sliceSizeMm[1], resamplingCurveSpacing)
-      gridImage.AllocateScalars(vtk.VTK_DOUBLE, 3)
-      transform = slicer.vtkOrientedGridTransform()
-      transform.SetDisplacementGridData(gridImage)
-      gridDirectionMatrix = vtk.vtkMatrix4x4()
-      gridDirectionMatrix.DeepCopy(outputStraightenedVolumeIJKToRAS)
-      scale = [1,1,1]
-      slicer.vtkAddonMathUtilities.NormalizeOrientationMatrixColumns(gridDirectionMatrix, scale)
-      transform.SetGridDirectionMatrix(gridDirectionMatrix)
-      outputTransformToStraightenedNode.SetAndObserveTransformFromParent(transform)
-      inputToStraightenedDisplacement_RAS = slicer.util.arrayFromGridTransform(outputTransformToStraightenedNode)
+    # Create grid transform
+    # Each corner of each slice is mapped from the original volume's reformatted slice
+    # to the straightened volume slice.
+    # The grid transform contains one vector at the corner of each slice.
+    # The transform is in the same space and orientation as the straightened volume.
+    gridImage = vtk.vtkImageData()
+    gridImage.SetOrigin(outputStraightenedVolumeOrigin)
+    gridImage.SetDimensions(2, 2, numberOfSlices)
+    gridImage.SetSpacing(sliceSizeMm[0], sliceSizeMm[1], resamplingCurveSpacing)
+    gridImage.AllocateScalars(vtk.VTK_DOUBLE, 3)
+    transform = slicer.vtkOrientedGridTransform()
+    transform.SetDisplacementGridData(gridImage)
+    gridDirectionMatrix = vtk.vtkMatrix4x4()
+    gridDirectionMatrix.DeepCopy(outputStraightenedVolumeIJKToRAS)
+    scale = [1,1,1]
+    slicer.vtkAddonMathUtilities.NormalizeOrientationMatrixColumns(gridDirectionMatrix, scale)
+    transform.SetGridDirectionMatrix(gridDirectionMatrix)
+    outputTransformToStraightenedNode.SetAndObserveTransformFromParent(transform)
+    inputToStraightenedDisplacement_RAS = slicer.util.arrayFromGridTransform(outputTransformToStraightenedNode)
 
-      # gridI, gridJ, gridK: IJK axis indices of the grid transform image
-      for gridK in range(numberOfSlices):
-        curvePointToWorld = vtk.vtkMatrix4x4()
-        resampledCurveNode.GetCurvePointToWorldTransformAtPointIndex(resampledCurveNode.GetCurvePointIndexFromControlPointIndex(gridK)-1, curvePointToWorld)
-
-        rotatedCurvePointToWorld = vtk.vtkTransform()
-        rotatedCurvePointToWorld.Concatenate(curvePointToWorld)
-        rotatedCurvePointToWorld.RotateZ(rotationAngleDeg)
-        curvePointToWorldArray = slicer.util.arrayFromVTKMatrix(rotatedCurvePointToWorld.GetMatrix())
-
-        curveAxisX_RAS = curvePointToWorldArray[0:3, 0]
-        curveAxisY_RAS = curvePointToWorldArray[0:3, 1]
-        curvePoint_RAS = curvePointToWorldArray[0:3, 3]
-        for gridJ in range(2):
-          for gridI in range(2):
-            outputStraightenedVolume_RAS = outputStraightenedVolumeIJKToRAS.MultiplyPoint([
-              gridI*(outputStraightenedVolumeDimensions[0]-1),
-              gridJ*(outputStraightenedVolumeDimensions[1]-1),
-              gridK * resamplingCurveSpacingFactor, 1])[0:3]
-            volumeNode_RAS = curvePoint_RAS + (gridI-0.5)*sliceSizeMm[0]*curveAxisX_RAS + (gridJ-0.5)*sliceSizeMm[1]*curveAxisY_RAS
-            inputToStraightenedDisplacement_RAS[gridK][gridJ][gridI] = volumeNode_RAS - outputStraightenedVolume_RAS
-      slicer.util.arrayFromGridTransformModified(outputTransformToStraightenedNode)
-
-    else:
-      # Create thin-plate-spline transform
-      # Center and each corner of each slice is mapped from the original volume's reformatted slice
-      # to the straightened volume slice.
-      targetLandmarkPoints = vtk.vtkPoints()
-      sourceLandmarkPoints = vtk.vtkPoints()
-      tps = vtk.vtkThinPlateSplineTransform()
-      tps.SetBasisToR()
-      tps.SetRegularizeBulkTransform(False)
-      tps.SetSourceLandmarks(sourceLandmarkPoints)
-      tps.SetTargetLandmarks(targetLandmarkPoints)
-
-      # corner points are not added for each centerline point
-      # to allow larger weight for centerline points
-      cornerPointsSkip = 8
-      centerVoxelIndex = [math.floor(outputStraightenedVolumeDimensions[0]/2.0), math.floor(outputStraightenedVolumeDimensions[1]/2.0)]
-      for gridK in range(numberOfSlices):
-        curvePointToWorld = vtk.vtkMatrix4x4()
-        curvePointIndex = resampledCurveNode.GetCurvePointIndexFromControlPointIndex(gridK)-1  # TODO: remove -1 after Slicer core bug is fixed
-        resampledCurveNode.GetCurvePointToWorldTransformAtPointIndex(curvePointIndex, curvePointToWorld)
-
-        rotatedCurvePointToWorld = vtk.vtkTransform()
-        rotatedCurvePointToWorld.Concatenate(curvePointToWorld)
-        rotatedCurvePointToWorld.RotateZ(rotationAngleDeg)
-        curvePointToWorldArray = slicer.util.arrayFromVTKMatrix(rotatedCurvePointToWorld.GetMatrix())
-        curveAxisX_RAS = curvePointToWorldArray[0:3, 0]
-        curveAxisY_RAS = curvePointToWorldArray[0:3, 1]
-        curvePoint_RAS = curvePointToWorldArray[0:3, 3]
-        outputStraightenedVolume_RAS = outputStraightenedVolumeIJKToRAS.MultiplyPoint([centerVoxelIndex[0], centerVoxelIndex[1], gridK*resamplingCurveSpacingFactor, 1])[0:3]
-        #outputStraightenedVolume_RAS = [0.0, 0.0, gridK * resamplingCurveSpacing]
-        volumeNode_RAS = curvePoint_RAS
-        targetLandmarkPoints.InsertNextPoint(volumeNode_RAS)
-        sourceLandmarkPoints.InsertNextPoint(outputStraightenedVolume_RAS)
-        # only add corner points at every cornerPointsSkip-th slice, and at the last slice
-        if (gridK % cornerPointsSkip != 0) and (gridK != numberOfSlices-1):
-          continue
-        for gridJ in range(2):
-          for gridI in range(2):
-            #outputStraightenedVolume_RAS = np.array([
-            #  (gridI-0.5)*sliceSizeMm[0],
-            #  (gridJ-0.5)*sliceSizeMm[1],
-            #  gridK * resamplingCurveSpacing])
-            outputStraightenedVolume_RAS = outputStraightenedVolumeIJKToRAS.MultiplyPoint([
-              gridI*(outputStraightenedVolumeDimensions[0]-1),
-              gridJ*(outputStraightenedVolumeDimensions[1]-1),
-              gridK*resamplingCurveSpacingFactor, 1])[0:3]
-            volumeNode_RAS = curvePoint_RAS + (gridI-0.5)*sliceSizeMm[0]*curveAxisX_RAS + (gridJ-0.5)*sliceSizeMm[1]*curveAxisY_RAS
-            targetLandmarkPoints.InsertNextPoint(volumeNode_RAS)
-            sourceLandmarkPoints.InsertNextPoint(outputStraightenedVolume_RAS)
-
-      outputTransformToStraightenedNode.SetAndObserveTransformFromParent(tps)
+    # gridI, gridJ, gridK: IJK axis indices of the grid transform image
+    for gridK in range(numberOfSlices):
+      curvePointToWorld = vtk.vtkMatrix4x4()
+      resampledCurveNode.GetCurvePointToWorldTransformAtPointIndex(resampledCurveNode.GetCurvePointIndexFromControlPointIndex(gridK), curvePointToWorld)
+      curvePointToWorldArray = slicer.util.arrayFromVTKMatrix(curvePointToWorld)
+      curveAxisX_RAS = curvePointToWorldArray[0:3, 0]
+      curveAxisY_RAS = curvePointToWorldArray[0:3, 1]
+      curvePoint_RAS = curvePointToWorldArray[0:3, 3]
+      for gridJ in range(2):
+        for gridI in range(2):
+          outputStraightenedVolume_RAS = outputStraightenedVolumeIJKToRAS.MultiplyPoint([
+            gridI*(outputStraightenedVolumeDimensions[0]-1),
+            gridJ*(outputStraightenedVolumeDimensions[1]-1),
+            gridK * resamplingCurveSpacingFactor, 1])[0:3]
+          volumeNode_RAS = curvePoint_RAS + (gridI-0.5)*sliceSizeMm[0]*curveAxisX_RAS + (gridJ-0.5)*sliceSizeMm[1]*curveAxisY_RAS
+          inputToStraightenedDisplacement_RAS[gridK][gridJ][gridI] = volumeNode_RAS - outputStraightenedVolume_RAS
+    slicer.util.arrayFromGridTransformModified(outputTransformToStraightenedNode)
 
     slicer.mrmlScene.RemoveNode(resampledCurveNode)  # delete temporary curve
 
@@ -403,12 +345,11 @@ class CurvedPlanarReformatTest(ScriptedLoadableModuleTest):
     logic = CurvedPlanarReformatLogic()
     straightenedVolume = slicer.modules.volumes.logic().CloneVolume(volumeNode, volumeNode.GetName()+' straightened')
     outputTransformToStraightenedNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode', 'Straightening transform')
-    self.assertTrue(logic.straightenVolume(straightenedVolume, curveNode, volumeNode, [40.0, 40.0], [0.5,0.5,1.0], 0.0, outputTransformToStraightenedNode))
+    self.assertTrue(logic.straightenVolume(straightenedVolume, curveNode, volumeNode, [40.0, 40.0], [0.5,0.5,1.0], outputTransformToStraightenedNode))
 
     panoramicVolume = slicer.modules.volumes.logic().CloneVolume(straightenedVolume, straightenedVolume.GetName()+' panoramic')
     self.assertTrue(logic.projectVolume(panoramicVolume, straightenedVolume))
 
-    slicer.mrmlScene.GetNodeByID('vtkMRMLSliceNodeRed').SetOrientationToCoronal()
     slicer.util.setSliceViewerLayers(background=straightenedVolume, fit=True, rotateToVolumePlane=True)
 
     self.delayDisplay('Test passed!')

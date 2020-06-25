@@ -11,159 +11,41 @@
    </rect>
   </property>
   <layout class="QFormLayout" name="formLayout">
+   <item row="0" column="0">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string>Input volume:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="qMRMLNodeComboBox" name="inputVolumeSelector">
+     <property name="focusPolicy">
+      <enum>Qt::TabFocus</enum>
+     </property>
+     <property name="toolTip">
+      <string>Background layer of this slice view will be reformatted</string>
+     </property>
+     <property name="nodeTypes">
+      <stringlist>
+       <string>vtkMRMLScalarVolumeNode</string>
+      </stringlist>
+     </property>
+     <property name="showChildNodeTypes">
+      <bool>false</bool>
+     </property>
+     <property name="addEnabled">
+      <bool>false</bool>
+     </property>
+     <property name="removeEnabled">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
    <item row="1" column="0">
     <widget class="QLabel" name="label">
      <property name="text">
       <string>Input curve:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="0">
-    <widget class="QLabel" name="label_6">
-     <property name="text">
-      <string>Curve resolution:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="1">
-    <widget class="qMRMLSliderWidget" name="curveResolutionSliderWidget">
-     <property name="focusPolicy">
-      <enum>Qt::TabFocus</enum>
-     </property>
-     <property name="maximum">
-      <double>10.000000000000000</double>
-     </property>
-     <property name="value">
-      <double>1.000000000000000</double>
-     </property>
-     <property name="quantity">
-      <string>length</string>
-     </property>
-    </widget>
-   </item>
-   <item row="6" column="0">
-    <widget class="QLabel" name="label_3">
-     <property name="text">
-      <string>Slice size:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="7" column="0">
-    <widget class="QLabel" name="label_7">
-     <property name="text">
-      <string>Rotation angle: </string>
-     </property>
-    </widget>
-   </item>
-   <item row="7" column="1">
-    <widget class="qMRMLSliderWidget" name="rotationAngleSliderWidget">
-     <property name="focusPolicy">
-      <enum>Qt::TabFocus</enum>
-     </property>
-     <property name="decimals">
-      <number>1</number>
-     </property>
-     <property name="minimum">
-      <double>-180.000000000000000</double>
-     </property>
-     <property name="maximum">
-      <double>180.000000000000000</double>
-     </property>
-     <property name="suffix">
-      <string> deg</string>
-     </property>
-    </widget>
-   </item>
-   <item row="9" column="0">
-    <widget class="QLabel" name="label_2">
-     <property name="text">
-      <string>Output straightened volume:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="9" column="1">
-    <widget class="qMRMLNodeComboBox" name="outputStraightenedVolumeSelector">
-     <property name="focusPolicy">
-      <enum>Qt::TabFocus</enum>
-     </property>
-     <property name="toolTip">
-      <string>Pick the output to the algorithm.</string>
-     </property>
-     <property name="nodeTypes">
-      <stringlist>
-       <string>vtkMRMLScalarVolumeNode</string>
-      </stringlist>
-     </property>
-     <property name="showChildNodeTypes">
-      <bool>false</bool>
-     </property>
-     <property name="baseName">
-      <string>Straightened volume</string>
-     </property>
-     <property name="noneEnabled">
-      <bool>true</bool>
-     </property>
-     <property name="addEnabled">
-      <bool>true</bool>
-     </property>
-     <property name="removeEnabled">
-      <bool>true</bool>
-     </property>
-     <property name="renameEnabled">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="10" column="0">
-    <widget class="QLabel" name="label_5">
-     <property name="text">
-      <string>Output projected volume:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="10" column="1">
-    <widget class="qMRMLNodeComboBox" name="outputProjectedVolumeSelector">
-     <property name="focusPolicy">
-      <enum>Qt::TabFocus</enum>
-     </property>
-     <property name="toolTip">
-      <string>Pick the output to the algorithm.</string>
-     </property>
-     <property name="nodeTypes">
-      <stringlist>
-       <string>vtkMRMLScalarVolumeNode</string>
-      </stringlist>
-     </property>
-     <property name="showChildNodeTypes">
-      <bool>false</bool>
-     </property>
-     <property name="baseName">
-      <string>Projected volume</string>
-     </property>
-     <property name="noneEnabled">
-      <bool>true</bool>
-     </property>
-     <property name="addEnabled">
-      <bool>true</bool>
-     </property>
-     <property name="removeEnabled">
-      <bool>true</bool>
-     </property>
-     <property name="renameEnabled">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="12" column="0" colspan="2">
-    <widget class="QPushButton" name="applyButton">
-     <property name="enabled">
-      <bool>false</bool>
-     </property>
-     <property name="toolTip">
-      <string>Run the algorithm.</string>
-     </property>
-     <property name="text">
-      <string>Apply</string>
      </property>
     </widget>
    </item>
@@ -201,34 +83,26 @@
      </item>
     </layout>
    </item>
-   <item row="0" column="0">
-    <widget class="QLabel" name="label_4">
+   <item row="4" column="0">
+    <widget class="QLabel" name="label_6">
      <property name="text">
-      <string>Input volume:</string>
+      <string>Curve resolution:</string>
      </property>
     </widget>
    </item>
-   <item row="0" column="1">
-    <widget class="qMRMLNodeComboBox" name="inputVolumeSelector">
+   <item row="4" column="1">
+    <widget class="qMRMLSliderWidget" name="curveResolutionSliderWidget">
      <property name="focusPolicy">
       <enum>Qt::TabFocus</enum>
      </property>
-     <property name="toolTip">
-      <string>Background layer of this slice view will be reformatted</string>
+     <property name="maximum">
+      <double>10.000000000000000</double>
      </property>
-     <property name="nodeTypes">
-      <stringlist>
-       <string>vtkMRMLScalarVolumeNode</string>
-      </stringlist>
+     <property name="value">
+      <double>1.000000000000000</double>
      </property>
-     <property name="showChildNodeTypes">
-      <bool>false</bool>
-     </property>
-     <property name="addEnabled">
-      <bool>false</bool>
-     </property>
-     <property name="removeEnabled">
-      <bool>false</bool>
+     <property name="quantity">
+      <string>length</string>
      </property>
     </widget>
    </item>
@@ -255,6 +129,13 @@
      </property>
     </widget>
    </item>
+   <item row="6" column="0">
+    <widget class="QLabel" name="label_3">
+     <property name="text">
+      <string>Slice size:</string>
+     </property>
+    </widget>
+   </item>
    <item row="6" column="1">
     <widget class="qMRMLCoordinatesWidget" name="sliceSizeCoordinatesWidget">
      <property name="focusPolicy">
@@ -274,7 +155,127 @@
      </property>
     </widget>
    </item>
-   <item row="11" column="0" colspan="2">
+   <item row="8" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>Output straightened volume:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="1">
+    <widget class="qMRMLNodeComboBox" name="outputStraightenedVolumeSelector">
+     <property name="focusPolicy">
+      <enum>Qt::TabFocus</enum>
+     </property>
+     <property name="toolTip">
+      <string>Pick the output to the algorithm.</string>
+     </property>
+     <property name="nodeTypes">
+      <stringlist>
+       <string>vtkMRMLScalarVolumeNode</string>
+      </stringlist>
+     </property>
+     <property name="showChildNodeTypes">
+      <bool>false</bool>
+     </property>
+     <property name="baseName">
+      <string>Straightened volume</string>
+     </property>
+     <property name="noneEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="addEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="removeEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="renameEnabled">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="0">
+    <widget class="QLabel" name="label_5">
+     <property name="text">
+      <string>Output projected volume:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
+    <widget class="qMRMLNodeComboBox" name="outputProjectedVolumeSelector">
+     <property name="focusPolicy">
+      <enum>Qt::TabFocus</enum>
+     </property>
+     <property name="toolTip">
+      <string>Pick the output to the algorithm.</string>
+     </property>
+     <property name="nodeTypes">
+      <stringlist>
+       <string>vtkMRMLScalarVolumeNode</string>
+      </stringlist>
+     </property>
+     <property name="showChildNodeTypes">
+      <bool>false</bool>
+     </property>
+     <property name="baseName">
+      <string>Projected volume</string>
+     </property>
+     <property name="noneEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="addEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="removeEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="renameEnabled">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="0">
+    <widget class="QLabel" name="label_10">
+     <property name="text">
+      <string>Output transform:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="1">
+    <widget class="qMRMLNodeComboBox" name="outputTransformToStraightenedVolumeSelector">
+     <property name="focusPolicy">
+      <enum>Qt::TabFocus</enum>
+     </property>
+     <property name="toolTip">
+      <string>Computed transform from original volume to straightened volume</string>
+     </property>
+     <property name="nodeTypes">
+      <stringlist>
+       <string>vtkMRMLTransformNode</string>
+      </stringlist>
+     </property>
+     <property name="showChildNodeTypes">
+      <bool>true</bool>
+     </property>
+     <property name="baseName">
+      <string>Straightening transform</string>
+     </property>
+     <property name="noneEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="addEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="removeEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="renameEnabled">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="0" colspan="2">
     <widget class="ctkCollapsibleButton" name="CollapsibleButton">
      <property name="text">
       <string>Advanced</string>
@@ -296,7 +297,7 @@
       <item row="0" column="1">
        <widget class="ctkCheckBox" name="showOutputCheckBox">
         <property name="text">
-         <string> </string>
+         <string/>
         </property>
         <property name="checked">
          <bool>true</bool>
@@ -304,6 +305,19 @@
        </widget>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item row="13" column="0" colspan="2">
+    <widget class="QPushButton" name="applyButton">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="toolTip">
+      <string>Run the algorithm.</string>
+     </property>
+     <property name="text">
+      <string>Apply</string>
+     </property>
     </widget>
    </item>
   </layout>
@@ -363,7 +377,6 @@
   <tabstop>curveResolutionSliderWidget</tabstop>
   <tabstop>sliceResolutionSliderWidget</tabstop>
   <tabstop>sliceSizeCoordinatesWidget</tabstop>
-  <tabstop>rotationAngleSliderWidget</tabstop>
   <tabstop>outputStraightenedVolumeSelector</tabstop>
   <tabstop>outputProjectedVolumeSelector</tabstop>
   <tabstop>applyButton</tabstop>
@@ -377,12 +390,12 @@
    <slot>setCurrentNode(vtkMRMLNode*)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>280</x>
-     <y>14</y>
+     <x>286</x>
+     <y>49</y>
     </hint>
     <hint type="destinationlabel">
-     <x>358</x>
-     <y>15</y>
+     <x>402</x>
+     <y>50</y>
     </hint>
    </hints>
   </connection>
