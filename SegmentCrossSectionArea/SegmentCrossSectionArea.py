@@ -374,7 +374,7 @@ class SegmentCrossSectionAreaLogic(ScriptedLoadableModuleLogic):
 
         # Convert number of voxels to area in mm2
         spacing = tempSegmentLabelmapVolumeNode.GetSpacing()
-        areaOfPixelMm2 = spacing[0] * spacing[1] * spacing[2] / spacing[2]
+        areaOfPixelMm2 = spacing[0] * spacing[1] * spacing[2] / spacing[axisIndex]
 
         # Count number of >0 voxels for each slice
         for i in range(numSlices):
