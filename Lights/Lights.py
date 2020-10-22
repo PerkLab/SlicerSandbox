@@ -19,7 +19,31 @@ class Lights(ScriptedLoadableModule):
     self.parent.categories = ["Utilities"]
     self.parent.dependencies = []
     self.parent.contributors = ["Andras Lasso (PerkLab)"]
-    self.parent.helpText = """This module allows setting up multiple lights in 3D views
+    self.parent.helpText = """This module allows setting up multiple lights in 3D views to make general purpose lighting of vtk scenes simple, flexible, and attractive.
+Default light in a 3D view is a headlight located at the camera. HeadLights are very simple to use, but they don't show the shape of objects very well, don't give a good sense of "up" and "down",
+and don't evenly light the object.<br>
+A LightKit consists of three lights, a key light, a fill light, and a headlight. The main light is the key light. The other lights in the kit (the fill light, headlight, and a pair of back lights) are weaker sources that provide extra illumination
+to fill in the spots that the key light misses.
+<ul>
+  <li>
+    Key light is usually positioned so that it appears like an overhead light (like the sun, or a ceiling light).
+    It is generally positioned to shine down on the scene from about a 45 degree angle vertically and at least a little offset side to side.
+    The key light usually at least about twice as bright as the total of all other lights in the scene to provide good modeling of object features.
+  </li>
+  <li>
+    Fill light is usually positioned across from or opposite from the key light (though still on the same side of the object as the camera)
+    in order to simulate diffuse reflections from other objects in the scene.
+  </li>
+  <li>
+    Headlight, always located at the position of the camera, reduces the contrast between areas lit by the key and fill light.
+  </li>
+  <li>
+    Two back lights, one on the left of the object as seen from the observer and one on the right, fill on the high-contrast areas behind the object.
+    To enforce the relationship between the different lights, the intensity of the fill, back and headlights are set as a ratio to the key light brightness.
+    Thus, the brightness of all the lights in the scene can be changed by changing the key light intensity.
+  </li>
+</ul>
+All lights are directional lights (infinitely far away with no falloff). Lights move with the camera.
 """
     self.parent.helpText += self.getDefaultModuleDocumentationLink()
     self.parent.acknowledgementText = """
@@ -48,6 +72,12 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     # connections
     self.ui.viewNodeComboBox.setMRMLScene( slicer.mrmlScene )
     self.ui.setupLightkitButton.connect('clicked(bool)', self.onSetupLighkit)
+
+    self.ui.presetDefault.connect('clicked(bool)', self.onPresetDefault)
+    self.ui.presetCeilingLighting.connect('clicked(bool)', self.onPresetCeilingLighting)
+    self.ui.presetSideLighting.connect('clicked(bool)', self.onPresetSideLighting)
+    self.ui.presetSunset.connect('clicked(bool)', self.onPresetSunset)
+    self.ui.presetOpera.connect('clicked(bool)', self.onPresetOpera)
 
     self.ui.keyIntensitySliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyLightIntensity(value))
     self.ui.keyWarmthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyLightWarmth(value))
@@ -83,6 +113,121 @@ class LightsWidget(ScriptedLoadableModuleWidget):
 
   def onSetupLighkit(self):
     self.logic.setLightkitInView(self.ui.viewNodeComboBox.currentNode())
+
+  def onPresetDefault(self):
+    # Key
+    self.logic.lightKit.SetKeyLightIntensity(0.75)
+    self.logic.lightKit.SetKeyLightWarmth(0.6)
+    self.logic.lightKit.SetKeyLightElevation(50)
+    self.logic.lightKit.SetKeyLightAzimuth(10)
+    # Head
+    self.logic.lightKit.SetKeyToHeadRatio(1.0/0.33)
+    self.logic.lightKit.SetHeadLightWarmth(0.5)
+    # Fill
+    self.logic.lightKit.SetKeyToFillRatio(1.0/0.33)
+    self.logic.lightKit.SetFillLightWarmth(0.4)
+    self.logic.lightKit.SetFillLightElevation(-75)
+    self.logic.lightKit.SetFillLightAzimuth(-10)
+    # Back
+    self.logic.lightKit.SetKeyToBackRatio(1.0/0.29)
+    self.logic.lightKit.SetBackLightWarmth(0.5)
+    self.logic.lightKit.SetBackLightElevation(0)
+    self.logic.lightKit.SetBackLightAzimuth(90)
+    # Update logic and GUI
+    self.logic.lightKit.Modified()
+    self.updateWidgetFromLightkit(self.logic.lightKit)
+
+  def onPresetSunset(self):
+    # Key
+    self.logic.lightKit.SetKeyLightIntensity(1.08)
+    self.logic.lightKit.SetKeyLightWarmth(0.7)
+    self.logic.lightKit.SetKeyLightElevation(50)
+    self.logic.lightKit.SetKeyLightAzimuth(-50)
+    # Head
+    self.logic.lightKit.SetKeyToHeadRatio(1.0/0.23)
+    self.logic.lightKit.SetHeadLightWarmth(0.5)
+    # Fill
+    self.logic.lightKit.SetKeyToFillRatio(1.0/0.25)
+    self.logic.lightKit.SetFillLightWarmth(0.4)
+    self.logic.lightKit.SetFillLightElevation(-75)
+    self.logic.lightKit.SetFillLightAzimuth(-10)
+    # Back
+    self.logic.lightKit.SetKeyToBackRatio(1.0/0.05)
+    self.logic.lightKit.SetBackLightWarmth(0.5)
+    self.logic.lightKit.SetBackLightElevation(0)
+    self.logic.lightKit.SetBackLightAzimuth(90)
+    # Update logic and GUI
+    self.logic.lightKit.Modified()
+    self.updateWidgetFromLightkit(self.logic.lightKit)
+
+  def onPresetOpera(self):
+    # Key
+    self.logic.lightKit.SetKeyLightIntensity(0.75)
+    self.logic.lightKit.SetKeyLightWarmth(0.5)
+    self.logic.lightKit.SetKeyLightElevation(10)
+    self.logic.lightKit.SetKeyLightAzimuth(10)
+    # Head
+    self.logic.lightKit.SetKeyToHeadRatio(1.0/1.0)
+    self.logic.lightKit.SetHeadLightWarmth(0.5)
+    # Fill
+    self.logic.lightKit.SetKeyToFillRatio(1.0/0.1)
+    self.logic.lightKit.SetFillLightWarmth(0.4)
+    self.logic.lightKit.SetFillLightElevation(-75)
+    self.logic.lightKit.SetFillLightAzimuth(-10)
+    # Back
+    self.logic.lightKit.SetKeyToBackRatio(1.0/0.1)
+    self.logic.lightKit.SetBackLightWarmth(0.5)
+    self.logic.lightKit.SetBackLightElevation(0)
+    self.logic.lightKit.SetBackLightAzimuth(90)
+    # Update logic and GUI
+    self.logic.lightKit.Modified()
+    self.updateWidgetFromLightkit(self.logic.lightKit)
+
+  def onPresetCeilingLighting(self):
+    # Key
+    self.logic.lightKit.SetKeyLightIntensity(1.5)
+    self.logic.lightKit.SetKeyLightWarmth(0.6)
+    self.logic.lightKit.SetKeyLightElevation(70)
+    self.logic.lightKit.SetKeyLightAzimuth(10)
+    # Head
+    self.logic.lightKit.SetKeyToHeadRatio(1.0/0.1)
+    self.logic.lightKit.SetHeadLightWarmth(0.5)
+    # Fill
+    self.logic.lightKit.SetKeyToFillRatio(1.0/0.33)
+    self.logic.lightKit.SetFillLightWarmth(0.4)
+    self.logic.lightKit.SetFillLightElevation(-75)
+    self.logic.lightKit.SetFillLightAzimuth(-10)
+    # Back
+    self.logic.lightKit.SetKeyToBackRatio(1.0/0.29)
+    self.logic.lightKit.SetBackLightWarmth(0.5)
+    self.logic.lightKit.SetBackLightElevation(0)
+    self.logic.lightKit.SetBackLightAzimuth(90)
+    # Update logic and GUI
+    self.logic.lightKit.Modified()
+    self.updateWidgetFromLightkit(self.logic.lightKit)
+
+  def onPresetSideLighting(self):
+    # Key
+    self.logic.lightKit.SetKeyLightIntensity(0.9)
+    self.logic.lightKit.SetKeyLightWarmth(0.6)
+    self.logic.lightKit.SetKeyLightElevation(50)
+    self.logic.lightKit.SetKeyLightAzimuth(10)
+    # Head
+    self.logic.lightKit.SetKeyToHeadRatio(1.0/0.05)
+    self.logic.lightKit.SetHeadLightWarmth(0.5)
+    # Fill
+    self.logic.lightKit.SetKeyToFillRatio(1.0/0.05)
+    self.logic.lightKit.SetFillLightWarmth(0.4)
+    self.logic.lightKit.SetFillLightElevation(-75)
+    self.logic.lightKit.SetFillLightAzimuth(-10)
+    # Back
+    self.logic.lightKit.SetKeyToBackRatio(1.0/1.2)
+    self.logic.lightKit.SetBackLightWarmth(0.7)
+    self.logic.lightKit.SetBackLightElevation(0)
+    self.logic.lightKit.SetBackLightAzimuth(90)
+    # Update logic and GUI
+    self.logic.lightKit.Modified()
+    self.updateWidgetFromLightkit(self.logic.lightKit)
 
   def updateWidgetFromLightkit(self, lightkit):
     self.ui.keyIntensitySliderWidget.value = lightkit.GetKeyLightIntensity()
