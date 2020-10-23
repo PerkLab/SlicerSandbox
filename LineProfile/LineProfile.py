@@ -125,6 +125,14 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     parametersFormLayout.addRow("Line resolution", self.lineResolutionSliderWidget)
 
     #
+    # Proportional percent distance from start
+    #
+    self.proportionalDistanceCheckBox = qt.QCheckBox(" ")
+    self.proportionalDistanceCheckBox.checked = False
+    self.proportionalDistanceCheckBox.setToolTip("If checked, reported distance along the line is not absolute, but the percent distance from the start of the line.")
+    parametersFormLayout.addRow("Proportional distance (%):", self.proportionalDistanceCheckBox)
+
+    #
     # Apply Button
     #
     self.applyButton = ctk.ctkCheckablePushButton()
@@ -142,6 +150,7 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     self.outputPlotSeriesSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
     self.outputTableSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
     self.lineResolutionSliderWidget.connect("valueChanged(double)", self.onSetLineResolution)
+    self.proportionalDistanceCheckBox.connect("clicked()", self.onProportionalDistance)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -179,6 +188,9 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     if toggle:
       self.createOutputNodes()
     self.logic.setEnableAutoUpdate(toggle)
+    
+  def onProportionalDistance(self):
+    self.logic.proportionalDistance = self.proportionalDistanceCheckBox.checked
 
 #
 # LineProfileLogic
@@ -202,6 +214,7 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     self.outputPlotSeriesNode = None
     self.outputTableNode = None
     self.plotChartNode = None
+    self.proportionalDistance = False
 
   def __del__(self):
     self.setEnableAutoUpdate(False)
@@ -348,8 +361,12 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     x = range(0, probedPoints.GetNumberOfPoints())
     xStep = curveLengthMm/(probedPoints.GetNumberOfPoints()-1)
     probedPointScalars = probedPoints.GetPointData().GetScalars()
+    xLength = x[len(x) - 1] * xStep
     for i in range(len(x)):
-      distanceArray.SetValue(i, x[i]*xStep)
+      if self.proportionalDistance:
+        distanceArray.SetValue(i, (x[i]*xStep / xLength) * 100)
+      else:
+        distanceArray.SetValue(i, x[i]*xStep)
       intensityArray.SetValue(i, probedPointScalars.GetTuple(i)[0])
     distanceArray.Modified()
     intensityArray.Modified()
@@ -376,6 +393,10 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
       self.plotChartNode.SetXAxisTitle(DISTANCE_ARRAY_NAME+" (mm)")
       self.plotChartNode.SetYAxisTitle(INTENSITY_ARRAY_NAME)
       self.plotChartNode.AddAndObservePlotSeriesNodeID(self.outputPlotSeriesNode.GetID())
+    if self.proportionalDistance:
+      self.plotChartNode.SetXAxisTitle("Proportional distance (%)")
+    else:
+      self.plotChartNode.SetXAxisTitle(DISTANCE_ARRAY_NAME+" (mm)")
 
     # Show plot in layout
     slicer.modules.plots.logic().ShowChartInLayout(self.plotChartNode)
