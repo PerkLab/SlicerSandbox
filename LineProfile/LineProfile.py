@@ -280,6 +280,8 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     return newArray
 
   def updateOutputTable(self, inputVolume, inputCurve, outputTable, lineResolution):
+    if inputCurve is None or inputVolume is None or outputTable is None:
+        return
     if inputCurve.GetNumberOfDefinedControlPoints() < 2:
       outputTable.GetTable().SetNumberOfRows(0)
       return
