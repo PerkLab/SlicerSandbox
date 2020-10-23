@@ -356,6 +356,7 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
 
     # Create arrays of data
     distanceArray = self.getArrayFromTable(outputTable, DISTANCE_ARRAY_NAME)
+    relativeDistanceArray = self.getArrayFromTable(outputTable, RELATIVE_DISTANCE_ARRAY_NAME)
     intensityArray = self.getArrayFromTable(outputTable, INTENSITY_ARRAY_NAME)
     outputTable.GetTable().SetNumberOfRows(probedPoints.GetNumberOfPoints())
     x = range(0, probedPoints.GetNumberOfPoints())
@@ -363,12 +364,11 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     probedPointScalars = probedPoints.GetPointData().GetScalars()
     xLength = x[len(x) - 1] * xStep
     for i in range(len(x)):
-      if self.proportionalDistance:
-        distanceArray.SetValue(i, (x[i]*xStep / xLength) * 100)
-      else:
-        distanceArray.SetValue(i, x[i]*xStep)
+      distanceArray.SetValue(i, x[i]*xStep)
+      relativeDistanceArray.SetValue(i, (x[i]*xStep / xLength) * 100)
       intensityArray.SetValue(i, probedPointScalars.GetTuple(i)[0])
     distanceArray.Modified()
+    relativeDistanceArray.Modified()
     intensityArray.Modified()
     outputTable.GetTable().Modified()
 
@@ -378,7 +378,10 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     if name:
       outputPlotSeries.SetName(name)
     outputPlotSeries.SetAndObserveTableNodeID(outputTable.GetID())
-    outputPlotSeries.SetXColumnName(DISTANCE_ARRAY_NAME)
+    if self.proportionalDistance:
+      outputPlotSeries.SetXColumnName(RELATIVE_DISTANCE_ARRAY_NAME)
+    else:
+      outputPlotSeries.SetXColumnName(DISTANCE_ARRAY_NAME)
     outputPlotSeries.SetYColumnName(INTENSITY_ARRAY_NAME)
     outputPlotSeries.SetPlotType(slicer.vtkMRMLPlotSeriesNode.PlotTypeScatter)
     outputPlotSeries.SetMarkerStyle(slicer.vtkMRMLPlotSeriesNode.MarkerStyleNone)
@@ -446,4 +449,5 @@ class LineProfileTest(ScriptedLoadableModuleTest):
     self.delayDisplay('Test passed!')
 
 DISTANCE_ARRAY_NAME = "Distance"
+RELATIVE_DISTANCE_ARRAY_NAME = "RelativeDistance"
 INTENSITY_ARRAY_NAME = "Intensity"
