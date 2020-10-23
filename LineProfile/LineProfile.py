@@ -256,6 +256,8 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     self.update()
 
   def getArrayFromTable(self, outputTable, arrayName):
+    if outputTable is None:
+      return None;
     distanceArray = outputTable.GetTable().GetColumnByName(arrayName)
     if distanceArray:
       return distanceArray
