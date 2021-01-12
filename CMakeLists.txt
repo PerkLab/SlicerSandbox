@@ -28,6 +28,7 @@ add_subdirectory(ImportOsirixROI)
 add_subdirectory(VolumeRenderingSpecialEffects)
 add_subdirectory(SegmentCrossSectionArea)
 add_subdirectory(DocumentationTools)
+add_subdirectory(StyleTester)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_GENERATE_CONFIG})
