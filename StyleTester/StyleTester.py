@@ -22,8 +22,18 @@ class StyleTester(ScriptedLoadableModule):
     self.parent.contributors = ["Sam Horvath (Kitware, Inc"]  # TODO: replace with "Firstname Lastname (Organization)"
     # TODO: update with short description of the module and a link to online module documentation
     self.parent.helpText = """
-This is a utility module for testing QSS styling with 3D Slicer.
+This is a utility module for editing/testing QSS styling with 3D Slicer.
 You can find the details for QSS <a href="https://doc.qt.io/Qt-5/stylesheet.html">on the Qt website</a>.
+<br><br>
+Load - load an existing .qss file into the editor <br>
+Save - save the contents of the editor to a .qss file <br>
+Apply - apply the stylesheet in the editor to the selected target (examples or all of Slicer) <br>
+Clear - clear the stylesheet from the selected target <br>
+<br>
+The examples section includes the most widely used widgets, each with a checkbox that controls
+the enabled/disabled state, allowing testing of state-based styling. <br>
+<br>
+When testing stylesheets, check the Slicer error log for Qt related messages if things go wrong. <br>
 """
     # TODO: replace with organization, grant and thanks
     self.parent.acknowledgementText = """

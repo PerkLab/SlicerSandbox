@@ -12,11 +12,28 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QPushButton" name="loadButton">
-     <property name="text">
-      <string>Load Style Sheet</string>
-     </property>
-    </widget>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QPushButton" name="loadButton">
+       <property name="toolTip">
+        <string>Load stylesheet from a file into the editor</string>
+       </property>
+       <property name="text">
+        <string>Load Style Sheet</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="saveButton">
+       <property name="toolTip">
+        <string>Save contents of editor to file</string>
+       </property>
+       <property name="text">
+        <string>Save Style Sheet</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <widget class="QPlainTextEdit" name="plainTextEdit">
@@ -27,18 +44,14 @@ QPushButton{border: 2px solid blue}</string>
     </widget>
    </item>
    <item>
-    <widget class="QPushButton" name="saveButton">
-     <property name="text">
-      <string>Save Style Sheet</string>
-     </property>
-    </widget>
-   </item>
-   <item>
     <layout class="QHBoxLayout" name="styleTargetLayout">
      <item>
       <widget class="QRadioButton" name="examplesRadio">
+       <property name="toolTip">
+        <string>Apply style only to example section below</string>
+       </property>
        <property name="text">
-        <string>Apply to Examples</string>
+        <string>Apply to examples</string>
        </property>
        <property name="checked">
         <bool>true</bool>
@@ -50,6 +63,9 @@ QPushButton{border: 2px solid blue}</string>
      </item>
      <item>
       <widget class="QRadioButton" name="slicerRadio">
+       <property name="toolTip">
+        <string>Apply style to all of Slicer</string>
+       </property>
        <property name="text">
         <string>Apply to Slicer</string>
        </property>
@@ -61,24 +77,31 @@ QPushButton{border: 2px solid blue}</string>
     </layout>
    </item>
    <item>
-    <widget class="QPushButton" name="applyButton">
-     <property name="enabled">
-      <bool>true</bool>
-     </property>
-     <property name="toolTip">
-      <string>Run the algorithm.</string>
-     </property>
-     <property name="text">
-      <string>Apply Style</string>
-     </property>
-    </widget>
-   </item>
-   <item>
-    <widget class="QPushButton" name="clearButton">
-     <property name="text">
-      <string>Clear Style</string>
-     </property>
-    </widget>
+    <layout class="QHBoxLayout" name="horizontalLayout_3">
+     <item>
+      <widget class="QPushButton" name="applyButton">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="toolTip">
+        <string>Apply stylesheet in editor to the selected target</string>
+       </property>
+       <property name="text">
+        <string>Apply Style</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="clearButton">
+       <property name="toolTip">
+        <string>Clear style from the selected target</string>
+       </property>
+       <property name="text">
+        <string>Clear Style</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
    <item>
     <widget class="ctkCollapsibleButton" name="Examples">
@@ -103,7 +126,7 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
+      <item row="3" column="0">
        <widget class="QCheckBox" name="checkCheckBox">
         <property name="text">
          <string/>
@@ -113,14 +136,14 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
+      <item row="3" column="1">
        <widget class="QCheckBox" name="checkBox">
         <property name="text">
          <string>CheckBox</string>
         </property>
        </widget>
       </item>
-      <item row="3" column="0">
+      <item row="4" column="0">
        <widget class="QCheckBox" name="spinCheckBox">
         <property name="text">
          <string/>
@@ -130,10 +153,10 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="3" column="1">
+      <item row="4" column="1">
        <widget class="QSpinBox" name="spinBox"/>
       </item>
-      <item row="4" column="0">
+      <item row="5" column="0">
        <widget class="QCheckBox" name="hsliderCheckBox">
         <property name="text">
          <string/>
@@ -143,7 +166,7 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="4" column="1">
+      <item row="5" column="1">
        <widget class="QSlider" name="horizontalSlider">
         <property name="value">
          <number>50</number>
@@ -153,7 +176,7 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="5" column="0">
+      <item row="6" column="0">
        <widget class="QCheckBox" name="toolCheckBox">
         <property name="text">
          <string/>
@@ -163,14 +186,14 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="5" column="1">
+      <item row="6" column="1">
        <widget class="QToolButton" name="toolButton">
         <property name="text">
          <string>...</string>
         </property>
        </widget>
       </item>
-      <item row="6" column="0">
+      <item row="7" column="0">
        <widget class="QCheckBox" name="labelCheckBox">
         <property name="text">
          <string/>
@@ -182,6 +205,9 @@ QPushButton{border: 2px solid blue}</string>
       </item>
       <item row="0" column="0">
        <widget class="QLabel" name="enabledLabel">
+        <property name="toolTip">
+         <string>Checkboxes control the enabled/disabled state of their corresponding widgets</string>
+        </property>
         <property name="text">
          <string>Enabled?</string>
         </property>
@@ -200,14 +226,14 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="6" column="1">
+      <item row="7" column="1">
        <widget class="QLabel" name="label">
         <property name="text">
          <string>TextLabel</string>
         </property>
        </widget>
       </item>
-      <item row="7" column="0">
+      <item row="8" column="0">
        <widget class="QCheckBox" name="comboCheckBox">
         <property name="text">
          <string/>
@@ -217,7 +243,7 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="7" column="1">
+      <item row="8" column="1">
        <widget class="QComboBox" name="comboBox">
         <item>
          <property name="text">
@@ -236,7 +262,7 @@ QPushButton{border: 2px solid blue}</string>
         </item>
        </widget>
       </item>
-      <item row="8" column="0">
+      <item row="9" column="0">
        <widget class="QCheckBox" name="nodeCheckBox">
         <property name="text">
          <string/>
@@ -246,10 +272,10 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="8" column="1">
+      <item row="9" column="1">
        <widget class="qMRMLNodeComboBox" name="MRMLNodeComboBox"/>
       </item>
-      <item row="9" column="0">
+      <item row="10" column="0">
        <widget class="QCheckBox" name="radioCheckBox">
         <property name="text">
          <string/>
@@ -259,7 +285,7 @@ QPushButton{border: 2px solid blue}</string>
         </property>
        </widget>
       </item>
-      <item row="9" column="1">
+      <item row="10" column="1">
        <layout class="QHBoxLayout" name="horizontalLayout_2">
         <item>
          <widget class="QRadioButton" name="radioButton">
@@ -285,6 +311,23 @@ QPushButton{border: 2px solid blue}</string>
          </widget>
         </item>
        </layout>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="lineEdit">
+        <property name="text">
+         <string>LineEdit</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QCheckBox" name="lineEditCheckBox">
+        <property name="text">
+         <string/>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -498,6 +541,22 @@ QPushButton{border: 2px solid blue}</string>
     <hint type="destinationlabel">
      <x>236</x>
      <y>472</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lineEditCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>lineEdit</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>24</x>
+     <y>308</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>243</x>
+     <y>311</y>
     </hint>
    </hints>
   </connection>
