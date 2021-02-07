@@ -29,6 +29,7 @@ add_subdirectory(VolumeRenderingSpecialEffects)
 add_subdirectory(SegmentCrossSectionArea)
 add_subdirectory(DocumentationTools)
 add_subdirectory(StyleTester)
+add_subdirectory(CombineModels)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_GENERATE_CONFIG})
