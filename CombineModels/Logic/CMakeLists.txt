@@ -12,25 +12,32 @@ set(${KIT}_INCLUDE_DIRECTORIES
   ${CMAKE_CURRENT_SOURCE_DIR}/libs/vp
   )
 
-ADD_LIBRARY(vtkboolutil STATIC
-  Utilities.cxx
-  libs/decomp/Decomposer.cxx
-  libs/merger/Merger.cxx
-  libs/vp/RmTrivials.cxx
-  libs/vp/Tools.cxx
-  libs/vp/VisPoly.cxx
-)
-
 set(${KIT}_SRCS
   vtkPolyDataBooleanFilter.cxx
   vtkPolyDataBooleanFilter.h
   vtkPolyDataContactFilter.cxx
   vtkPolyDataContactFilter.h
+  # private details
+  Utilities.cxx
+  Decomposer.cxx
+  Merger.cxx
+  RmTrivials.cxx
+  Tools.cxx
+  VisPoly.cxx
   )
+
+set_source_files_properties(
+  Utilities.cxx
+  Decomposer.cxx
+  Merger.cxx
+  RmTrivials.cxx
+  Tools.cxx
+  VisPoly.cxx
+  WRAP_EXCLUDE
+  ) 
 
 set(${KIT}_TARGET_LIBRARIES
   ${ITK_LIBRARIES}
-  vtkboolutil
   )
 
 #-----------------------------------------------------------------------------

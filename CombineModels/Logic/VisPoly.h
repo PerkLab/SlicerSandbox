@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#ifndef __VTK_WRAP__
+
 #ifndef __VisPoly_h
 #define __VisPoly_h
 
@@ -174,3 +176,5 @@ void GetVisPoly (PolyType &poly, Tracker &tr, PolyType &res, int ind = 0);
 void GetVisPoly_wrapper (PolyType &poly, PolyType &res, int ind);
 
 #endif
+
+#endif // __VTK_WRAP__

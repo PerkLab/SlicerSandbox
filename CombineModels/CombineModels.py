@@ -29,7 +29,7 @@ The module uses https://github.com/zippy84/vtkbool for processing.
 """
 
     for subfolder in ['Release', 'Debug', 'RelWithDebInfo', 'MinSizeRel', '.']:
-      logicPath = os.path.realpath(os.path.join(os.path.dirname(__file__), '../qt-loadable-modules/Release')).replace('\\','/')
+      logicPath = os.path.realpath(os.path.join(os.path.dirname(__file__), '../qt-loadable-modules/'+subfolder)).replace('\\','/')
       if os.path.exists(logicPath):
         import sys
         sys.path.append(logicPath)

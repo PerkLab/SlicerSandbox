@@ -29,7 +29,9 @@ limitations under the License.
 #include <vtkPolyDataAlgorithm.h>
 #include <vtkKdTreePointLocator.h>
 
+#ifndef __VTK_WRAP__
 #include "Utilities.h"
+#endif // __VTK_WRAP__
 
 #define LOC_NONE 0
 #define LOC_INSIDE 1

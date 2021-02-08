@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#ifndef __VTK_WRAP__
+
 #include <map>
 #include <deque>
 #include <vector>
@@ -3522,3 +3524,5 @@ void vtkPolyDataBooleanFilter::DecPolys_ (vtkPolyData *pd, InvolvedType &involve
     cells->Delete();
 
 }
+
+#endif // __VTK_WRAP__

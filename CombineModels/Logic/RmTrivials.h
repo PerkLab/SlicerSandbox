@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#ifndef __VTK_WRAP__
+
 #ifndef __RmTrivials_h
 #define __RmTrivials_h
 
@@ -129,3 +131,5 @@ private:
 };
 
 #endif
+
+#endif // __VTK_WRAP__

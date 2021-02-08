@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#ifndef __VTK_WRAP__
+
 #include <memory>
 #include <utility>
 #include <string>
@@ -736,3 +738,5 @@ void TrivialRm::RemoveRedundants (const VertsType3 &good) {
     }
 
 }
+
+#endif // __VTK_WRAP__

@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#ifndef __VTK_WRAP__
+
 #include <cassert>
 #include <algorithm>
 #include <tuple>
@@ -56,6 +58,9 @@ void SubP::RestoreS () {
     S_head.clear();
     S_tail.clear();
 }
+
+#endif // __VTK_WRAP__
+
 
 Decomposer::Decomposer (const PolyType &_orig) : orig(_orig), savedPts(new SavedPtsType) {
     #ifndef NDEBUG
