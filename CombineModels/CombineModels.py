@@ -91,9 +91,10 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.operationIntersectionRadioButton.connect("toggled(bool)", lambda toggled, op="intersection": self.operationButtonToggled(op))
     self.ui.operationDifferenceRadioButton.connect("toggled(bool)", lambda toggled, op="difference": self.operationButtonToggled(op))
     self.ui.operationDifference2RadioButton.connect("toggled(bool)", lambda toggled, op="difference2": self.operationButtonToggled(op))
-    
+
     # Buttons
     self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
+    self.ui.toggleVisibilityButton.connect('clicked(bool)', self.onToggleVisibilityButton)
 
     # Make sure parameter node is initialized (needed for module reload)
     self.initializeParameterNode()
@@ -195,6 +196,8 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       self.ui.applyButton.toolTip = "Select input model nodes"
       self.ui.applyButton.enabled = False
 
+    self.ui.toggleVisibilityButton.enabled = (self._parameterNode.GetNodeReference("OutputModel") is not None)
+
     # All the GUI updates are done
     self._updatingGUIFromParameterNode = False
 
@@ -216,7 +219,6 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._parameterNode.EndModify(wasModified)
 
   def operationButtonToggled(self, operation):
-    print("Operation: "+repr(operation))
     self._parameterNode.SetParameter("Operation", operation)
 
   def onApplyButton(self):
@@ -243,6 +245,18 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       traceback.print_exc()
     finally:
       qt.QApplication.restoreOverrideCursor()
+
+  def onToggleVisibilityButton(self):
+    outputModel = self._parameterNode.GetNodeReference("OutputModel")
+    inputModelA = self._parameterNode.GetNodeReference("InputModelA")
+    inputModelB = self._parameterNode.GetNodeReference("InputModelB")
+    if not outputModel:
+      return
+    outputModel.CreateDefaultDisplayNodes()
+    showOutput = not outputModel.GetDisplayNode().GetVisibility()
+    inputModelA.GetDisplayNode().SetVisibility(not showOutput)
+    inputModelB.GetDisplayNode().SetVisibility(not showOutput)
+    outputModel.GetDisplayNode().SetVisibility(showOutput)
 
 
 #
@@ -304,14 +318,35 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     else:
       raise ValueError("Invalid operation: "+operation)
 
-    combine.SetInputConnection(0, inputModelA.GetPolyDataConnection())
-    combine.SetInputConnection(1, inputModelB.GetPolyDataConnection())
+    if inputModelA.GetParentTransformNode() == outputModel.GetParentTransformNode():
+      combine.SetInputConnection(0, inputModelA.GetPolyDataConnection())
+    else:
+      transformToOutput = vtk.vtkGeneralTransform()
+      slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(inputModelA.GetParentTransformNode(), outputModel.GetParentTransformNode(), transformToOutput)
+      transformer = vtk.vtkTransformPolyDataFilter()
+      transformer.SetTransform(transformToOutput)
+      transformer.SetInputConnection(inputModelA.GetPolyDataConnection())
+      combine.SetInputConnection(0, transformer.GetOutputPort())
+
+    if inputModelB.GetParentTransformNode() == outputModel.GetParentTransformNode():
+      combine.SetInputConnection(1, inputModelB.GetPolyDataConnection())
+    else:
+      transformToOutput = vtk.vtkGeneralTransform()
+      slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(inputModelB.GetParentTransformNode(), outputModel.GetParentTransformNode(), transformToOutput)
+      transformer = vtk.vtkTransformPolyDataFilter()
+      transformer.SetTransform(transformToOutput)
+      transformer.SetInputConnection(inputModelB.GetPolyDataConnection())
+      combine.SetInputConnection(1, transformer.GetOutputPort())
+
     # These parameters might be useful to expose:
     # combine.MergeRegsOn()  # default off
     # combine.DecPolysOff()  # default on
     combine.Update()
+
     outputModel.SetAndObservePolyData(combine.GetOutput())
     outputModel.CreateDefaultDisplayNodes()
+    # The filter creates a few scalars, don't show them by default, as they would be somewhat distracting
+    outputModel.GetDisplayNode().SetScalarVisibility(False)
 
     stopTime = time.time()
     logging.info('Processing completed in {0:.2f} seconds'.format(stopTime-startTime))
