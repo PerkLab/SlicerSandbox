@@ -43,7 +43,7 @@ limitations under the License.
 #include "vtkPolyDataContactFilter.h"
 #include "Utilities.h"
 
-// #undef DEBUG
+#undef DEBUG
 
 vtkStandardNewMacro(vtkPolyDataContactFilter);
 

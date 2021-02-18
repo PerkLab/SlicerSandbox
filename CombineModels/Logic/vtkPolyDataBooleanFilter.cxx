@@ -16,6 +16,8 @@ limitations under the License.
 
 #ifndef __VTK_WRAP__
 
+#undef DEBUG
+
 #include <map>
 #include <deque>
 #include <vector>
