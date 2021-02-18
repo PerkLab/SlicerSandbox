@@ -84,10 +84,13 @@ void TrivialRm::RemovePockets (VertsType3 &good, double *rot, double d, Src src)
                 std::reverse(_poly.begin(), _poly.end());
             }
 
-            if ((*(_s.begin()) == 1) ^ TestCW(_poly)) {
+            if (!_s.empty()) {
+              if ((*(_s.begin()) == 1) ^ TestCW(_poly)) {
                 p.dir = Dir::BACKWARD;
-            } else {
+              }
+              else {
                 p.dir = Dir::FORWARD;
+              }
             }
 
         } else {
@@ -354,13 +357,15 @@ void TrivialRm::RemovePockets (VertsType3 &good, double *rot, double d, Src src)
 
             }
 
-            assert(grps.size() == 1);
+            for (auto grp : grps) {
+              if (grp.dir != Dir::UNDEFINED) {
+                IdsType& result = grp.ids;
 
-            IdsType &result = grps.front().ids;
-
-            std::transform(result.begin(), result.end(), std::back_inserter(newPairs), [&pairs](const int id) {
-                return pairs[id];
-            });
+                std::transform(result.begin(), result.end(), std::back_inserter(newPairs), [&pairs](const int id) {
+                  return pairs[id];
+                  });
+              }
+            }
 
         }
 
