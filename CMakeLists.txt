@@ -30,6 +30,7 @@ add_subdirectory(SegmentCrossSectionArea)
 add_subdirectory(DocumentationTools)
 add_subdirectory(StyleTester)
 add_subdirectory(CombineModels)
+add_subdirectory(SliceOmaticImporter)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_GENERATE_CONFIG})
