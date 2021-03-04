@@ -1264,8 +1264,8 @@ void vtkPolyDataBooleanFilter::CutCells (vtkPolyData *pd, PolyStripsType &polySt
 #ifdef DEBUG
                             // std::cout << "dA=" << dA << ", dB=" << dB << std::endl;
 #endif
-
-                            return dB < dA;
+                            bool result = dB < dA;
+                            return result;
                         } else {
                             RefsType poly_;
 
@@ -1348,7 +1348,8 @@ void vtkPolyDataBooleanFilter::CutCells (vtkPolyData *pd, PolyStripsType &polySt
                     }
 
                 } else {
-                    return a_.t < b_.t;
+                    bool result = a_.t < b_.t;
+                    return result;
                 }
             });
 

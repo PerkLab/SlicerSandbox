@@ -87,7 +87,15 @@ typedef std::vector<InterPt> InterPtsType;
 
 typedef std::vector<std::pair<InterPt, InterPt>> OverlapsType;
 
-class VTK_SLICER_COMBINEMODELS_MODULE_LOGIC_EXPORT vtkPolyDataContactFilter : public vtkPolyDataAlgorithm {
+class LonePt {
+public:
+    LonePt (vtkIdType _i, vtkIdType _srcA, vtkIdType _srcB) : i(_i), srcA(_srcA), srcB(_srcB) {}
+    vtkIdType i, srcA, srcB;
+};
+
+typedef std::map<Pair, std::vector<LonePt>> LonePtsType;
+
+class VTK_EXPORT vtkPolyDataContactFilter : public vtkPolyDataAlgorithm {
 
     void PreparePolyData (vtkPolyData *pd);
 
@@ -95,6 +103,8 @@ class VTK_SLICER_COMBINEMODELS_MODULE_LOGIC_EXPORT vtkPolyDataContactFilter : pu
     static void InterPolyLine (InterPtsType &interPts, vtkPolyData *pd, vtkIdType num, const vtkIdType *poly, const double *r, const double *pt, Src src, const double *n);
     void InterPolys (vtkIdType idA, vtkIdType idB);
     static void OverlapLines (OverlapsType &ols, InterPtsType &intersA, InterPtsType &intersB);
+
+    void AddMissingLines (vtkPolyData *lines);
 
     vtkIntArray *contA, *contB;
 
@@ -117,6 +127,8 @@ protected:
     ~vtkPolyDataContactFilter ();
 
     int ProcessRequest (vtkInformation *request, vtkInformationVector **inputVector, vtkInformationVector *outputVector);
+
+    void PrintSelf (ostream&, vtkIndent) override {};
 
 private:
     vtkPolyDataContactFilter (const vtkPolyDataContactFilter&) = delete;
