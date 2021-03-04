@@ -28,6 +28,8 @@ limitations under the License.
 #include <cfloat>
 #include <exception>
 
+#include <vtkType.h> // for vtkIdType
+
 #define NO_USE -1
 #define PI std::acos(-1)
 
@@ -39,9 +41,9 @@ inline void Cpy (double *a, const double *b, const int n = 2) {
 
 class Pair {
 public:
-    int f, g;
+    vtkIdType f, g;
     Pair () {}
-    Pair (int _f, int _g) : f(_f), g(_g) {}
+    Pair (vtkIdType _f, vtkIdType _g) : f(_f), g(_g) {}
     bool operator< (const Pair &other) const {
         return std::tie(f, g) < std::tie(other.f, other.g);
     }

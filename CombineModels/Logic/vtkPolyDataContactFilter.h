@@ -17,6 +17,8 @@ limitations under the License.
 #ifndef __vtkPolyDataContactFilter_h
 #define __vtkPolyDataContactFilter_h
 
+#include <map>
+
 #include "vtkSlicerCombineModelsModuleLogicExport.h"
 
 #include <vtkPolyDataAlgorithm.h>
