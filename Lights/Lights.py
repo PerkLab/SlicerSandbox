@@ -70,8 +70,9 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.logic = LightsLogic()
 
     # connections
-    self.ui.viewNodeComboBox.setMRMLScene( slicer.mrmlScene )
-    self.ui.setupLightkitButton.connect('clicked(bool)', self.onSetupLighkit)
+    self.ui.managedViewsCheckableNodeComboBox.setMRMLScene(slicer.mrmlScene)
+    self.ui.managedViewsCheckableNodeComboBox.connect('checkedNodesChanged()', self.onUpdateManagedViewList)
+    self.ui.selectAllViewsPushButton.connect('clicked(bool)', self.onSelectAllViews)
 
     self.ui.presetDefault.connect('clicked(bool)', self.onPresetDefault)
     self.ui.presetCeilingLighting.connect('clicked(bool)', self.onPresetCeilingLighting)
@@ -106,8 +107,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.ssaoCheckBox.connect('toggled(bool)', lambda value: self.logic.setUseSSAO(value))
     self.ui.ssaoSizeScaleSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setSSAOSizeScaleLog(value))
 
-    self.updateWidgetFromLightkit(self.logic.lightKit)
-    self.updateWidgetFromView(None)
+    self.updateWidgetFromLogic()
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -115,9 +115,18 @@ class LightsWidget(ScriptedLoadableModuleWidget):
   def cleanup(self):
     pass
 
-  def onSetupLighkit(self):
-    self.logic.setLightkitInView(self.ui.viewNodeComboBox.currentNode())
-    self.updateWidgetFromView(self.ui.viewNodeComboBox.currentNode())
+  def onUpdateManagedViewList(self):
+    checkedNodes = self.ui.managedViewsCheckableNodeComboBox.checkedNodes()
+    uncheckedNodes = self.ui.managedViewsCheckableNodeComboBox.uncheckedNodes()
+    for viewNode in checkedNodes:
+      self.logic.addManagedView(viewNode)
+    for viewNode in uncheckedNodes:
+      self.logic.removeManagedView(viewNode)
+
+  def onSelectAllViews(self):
+    uncheckedNodes = self.ui.managedViewsCheckableNodeComboBox.uncheckedNodes()
+    for viewNode in uncheckedNodes:
+      self.ui.managedViewsCheckableNodeComboBox.setCheckState(viewNode, qt.Qt.Checked)
 
   def onPresetDefault(self):
     # Key
@@ -140,7 +149,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.logic.lightKit.SetBackLightAzimuth(90)
     # Update logic and GUI
     self.logic.lightKit.Modified()
-    self.updateWidgetFromLightkit(self.logic.lightKit)
+    self.updateWidgetFromLogic()
 
   def onPresetSunset(self):
     # Key
@@ -163,7 +172,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.logic.lightKit.SetBackLightAzimuth(90)
     # Update logic and GUI
     self.logic.lightKit.Modified()
-    self.updateWidgetFromLightkit(self.logic.lightKit)
+    self.updateWidgetFromLogic()
 
   def onPresetOpera(self):
     # Key
@@ -186,7 +195,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.logic.lightKit.SetBackLightAzimuth(90)
     # Update logic and GUI
     self.logic.lightKit.Modified()
-    self.updateWidgetFromLightkit(self.logic.lightKit)
+    self.updateWidgetFromLogic()
 
   def onPresetCeilingLighting(self):
     # Key
@@ -209,7 +218,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.logic.lightKit.SetBackLightAzimuth(90)
     # Update logic and GUI
     self.logic.lightKit.Modified()
-    self.updateWidgetFromLightkit(self.logic.lightKit)
+    self.updateWidgetFromLogic()
 
   def onPresetSideLighting(self):
     # Key
@@ -232,9 +241,11 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.logic.lightKit.SetBackLightAzimuth(90)
     # Update logic and GUI
     self.logic.lightKit.Modified()
-    self.updateWidgetFromLightkit(self.logic.lightKit)
+    self.updateWidgetFromLogic()
 
-  def updateWidgetFromLightkit(self, lightkit):
+  def updateWidgetFromLogic(self):
+    lightkit = self.logic.lightKit
+
     self.ui.keyIntensitySliderWidget.value = lightkit.GetKeyLightIntensity()
     self.ui.keyWarmthSliderWidget.value = lightkit.GetKeyLightWarmth()
     self.ui.keyElevationSliderWidget.value = lightkit.GetKeyLightElevation()
@@ -253,16 +264,9 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.backElevationSliderWidget.value = lightkit.GetBackLightElevation()
     self.ui.backAzimuthSliderWidget.value = lightkit.GetBackLightAzimuth()
 
-  def updateWidgetFromView(self, viewNode):
     if vtk.vtkVersion().GetVTKMajorVersion()>=9:
-      self.ui.ssaoCheckBox.enabled = viewNode is not None
-      self.ui.ssaoSizeScaleSliderWidget.enabled = viewNode is not None
-      if viewNode:
-        self.ui.ssaoCheckBox.checked = self.logic.getUseSSAO(viewNode)
-        self.ui.ssaoCheckBox.toolTip = ""
-        self.ui.ssaoSizeScaleSliderWidget.value = self.logic.getSSAOSizeScaleLog(viewNode)
-      else:
-        self.ui.ssaoCheckBox.toolTip = "Select a view and click Setup lights to allow adjustment."
+      self.ui.ssaoCheckBox.checked = self.logic.ssaoEnabled
+      self.ui.ssaoSizeScaleSliderWidget.value = self.logic.ssaoSizeScaleLog
     else:
       self.ui.SSAOCollapsibleButton.hide()
 
@@ -277,6 +281,8 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     self.lightKit = vtk.vtkLightKit()
     self.lightKit.MaintainLuminanceOn()
     lightkitObserverTag = self.lightKit.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onLightkitModified)
+    self.ssaoEnabled = False
+    self.ssaoSizeScaleLog = 0.0
     self.managedViewNodes = []
 
   def __del__(self):
@@ -296,7 +302,7 @@ class LightsLogic(ScriptedLoadableModuleLogic):
         return view.renderWindow()
     raise ValueError('Selected 3D view is not visible in the current layout.')
 
-  def setLightkitInView(self, viewNode):
+  def addManagedView(self, viewNode):
     if viewNode in self.managedViewNodes:
       return
     self.managedViewNodes.append(viewNode)
@@ -304,20 +310,37 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     renderer = renderWindow.GetRenderers().GetFirstRenderer()
     renderer.RemoveAllLights()
     self.lightKit.AddLightsToRenderer(renderer)
+
+    renderer.SSAOBlurOn()  # reduce noise in SSAO mode
+    self.setUseSSAO(self.ssaoEnabled)
+    self.setSSAOSizeScaleLog(self.ssaoSizeScaleLog)
+
     renderWindow.Render()
 
+  def removeManagedView(self, viewNode):
+    if viewNode not in self.managedViewNodes:
+      return
+    self.managedViewNodes.remove(viewNode)
+    renderWindow = self.renderWindowFromViewNode(viewNode)
+    renderer = renderWindow.GetRenderers().GetFirstRenderer()
+    # Make a copy of current lightkit
+    currentLightKit = vtk.vtkLightKit()
+    currentLightKit.DeepCopy(self.lightKit)
+    renderer.RemoveAllLights()
+    currentLightKit.AddLightsToRenderer(renderer)
+
   def setUseSSAO(self, enable):
+    self.ssaoEnabled = enable
     for viewNode in self.managedViewNodes:
       renderWindow = self.renderWindowFromViewNode(viewNode)
       renderer = renderWindow.GetRenderers().GetFirstRenderer()
-      if enable:
-        renderer.SSAOBlurOn()  # reduce noise in SSAO mode
-      renderer.SetUseSSAO(enable)
+      renderer.SetUseSSAO(self.ssaoEnabled)
       renderWindow.Render()
 
   def setSSAOSizeScaleLog(self, scaleLog):
+    self.ssaoSizeScaleLog = scaleLog
     # ScaleLog = 0.0 corresponds to 100mm scene size
-    sceneSize = 100.0 * pow(10, scaleLog)
+    sceneSize = 100.0 * pow(10, self.ssaoSizeScaleLog)
     # Bias and radius are from example in https://blog.kitware.com/ssao/.
     # These values have been tested on different kind of meshes and found to work well.
     for viewNode in self.managedViewNodes:
@@ -326,18 +349,6 @@ class LightsLogic(ScriptedLoadableModuleLogic):
       renderer.SetSSAORadius(0.1 * sceneSize);  # comparison radius
       renderer.SetSSAOBias(0.001 * sceneSize);  # comparison bias (how much distance difference will be made visible)
       renderWindow.Render()
-
-  def getUseSSAO(self, viewNode):
-    renderWindow = self.renderWindowFromViewNode(viewNode)
-    renderer = renderWindow.GetRenderers().GetFirstRenderer()
-    return renderer.GetUseSSAO()
-
-  def getSSAOSizeScaleLog(self, viewNode):
-    renderWindow = self.renderWindowFromViewNode(viewNode)
-    renderer = renderWindow.GetRenderers().GetFirstRenderer()
-    sceneSize = renderer.SetSSAORadius(sceneSize) / 0.1
-    scaleLog = log10(sceneSize / 100.0)
-    return scaleLog
 
 
 class LightsTest(ScriptedLoadableModuleTest):

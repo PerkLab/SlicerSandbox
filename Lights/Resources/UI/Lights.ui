@@ -6,473 +6,40 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>445</width>
-    <height>732</height>
+    <width>261</width>
+    <height>308</height>
    </rect>
   </property>
-  <layout class="QFormLayout" name="formLayout">
+  <layout class="QGridLayout" name="gridLayout_2">
+   <item row="0" column="1">
+    <widget class="qMRMLCheckableNodeComboBox" name="managedViewsCheckableNodeComboBox">
+     <property name="nodeTypes">
+      <stringlist>
+       <string>vtkMRMLViewNode</string>
+      </stringlist>
+     </property>
+    </widget>
+   </item>
    <item row="0" column="0">
     <widget class="QLabel" name="label_17">
      <property name="text">
-      <string>3D view:</string>
+      <string>Managed 3D views:</string>
      </property>
     </widget>
    </item>
-   <item row="3" column="0" colspan="2">
-    <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton">
+   <item row="0" column="2">
+    <widget class="QPushButton" name="selectAllViewsPushButton">
      <property name="text">
-      <string>Key light</string>
+      <string>Select all</string>
      </property>
-     <layout class="QFormLayout" name="formLayout_2">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_3">
-        <property name="text">
-         <string>Intensity:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="ctkSliderWidget" name="keyIntensitySliderWidget">
-        <property name="toolTip">
-         <string>Scales intensity of all lights</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>0.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>10.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.500000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_5">
-        <property name="text">
-         <string>Warmth:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="ctkSliderWidget" name="keyWarmthSliderWidget">
-        <property name="toolTip">
-         <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>0.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.500000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_6">
-        <property name="text">
-         <string>Elevation:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="ctkSliderWidget" name="keyElevationSliderWidget">
-        <property name="toolTip">
-         <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>-90.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>90.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_7">
-        <property name="text">
-         <string>Azimuth</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1">
-       <widget class="ctkSliderWidget" name="keyAzimuthSliderWidget">
-        <property name="toolTip">
-         <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>-90.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>90.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-     </layout>
     </widget>
    </item>
-   <item row="4" column="0" colspan="2">
-    <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_4">
-     <property name="text">
-      <string>Head light</string>
-     </property>
-     <layout class="QFormLayout" name="formLayout_5">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_15">
-        <property name="text">
-         <string>Intensity:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="ctkSliderWidget" name="headIntensitySliderWidget">
-        <property name="toolTip">
-         <string>Relative intensity compared to key light</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>2.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>1.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_16">
-        <property name="text">
-         <string>Warmth:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="ctkSliderWidget" name="headWarmthSliderWidget">
-        <property name="toolTip">
-         <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>0.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.500000000000000</double>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="5" column="0" colspan="2">
-    <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_2">
-     <property name="text">
-      <string>Fill light</string>
-     </property>
-     <layout class="QFormLayout" name="formLayout_3">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_4">
-        <property name="text">
-         <string>Intensity:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="ctkSliderWidget" name="fillIntensitySliderWidget">
-        <property name="toolTip">
-         <string>Relative intensity compared to key light</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>2.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>1.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_8">
-        <property name="text">
-         <string>Warmth:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="ctkSliderWidget" name="fillWarmthSliderWidget">
-        <property name="toolTip">
-         <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>0.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.500000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_9">
-        <property name="text">
-         <string>Elevation:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="ctkSliderWidget" name="fillElevationSliderWidget">
-        <property name="toolTip">
-         <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>-90.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>90.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_10">
-        <property name="text">
-         <string>Azimuth</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1">
-       <widget class="ctkSliderWidget" name="fillAzimuthSliderWidget">
-        <property name="toolTip">
-         <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>-90.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>90.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="6" column="0" colspan="2">
-    <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_3">
-     <property name="text">
-      <string>Back light</string>
-     </property>
-     <layout class="QFormLayout" name="formLayout_4">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_11">
-        <property name="text">
-         <string>Intensity:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="ctkSliderWidget" name="backIntensitySliderWidget">
-        <property name="toolTip">
-         <string>Relative intensity compared to key light</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>2.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>1.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_12">
-        <property name="text">
-         <string>Warmth:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="ctkSliderWidget" name="backWarmthSliderWidget">
-        <property name="toolTip">
-         <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>0.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.500000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_13">
-        <property name="text">
-         <string>Elevation:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="ctkSliderWidget" name="backElevationSliderWidget">
-        <property name="toolTip">
-         <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>-90.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>90.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0">
-       <widget class="QLabel" name="label_14">
-        <property name="text">
-         <string>Azimuth</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1">
-       <widget class="ctkSliderWidget" name="backAzimuthSliderWidget">
-        <property name="toolTip">
-         <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>-90.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>90.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="2" column="0" colspan="2">
+   <item row="2" column="0" colspan="3">
     <widget class="ctkCollapsibleButton" name="CollapsibleButton">
      <property name="text">
-      <string>Presets</string>
+      <string>Lighting</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="1" column="0">
-       <widget class="QPushButton" name="presetCeilingLighting">
-        <property name="text">
-         <string>Ceiling lighting</string>
-        </property>
-       </widget>
-      </item>
       <item row="1" column="1">
        <widget class="QPushButton" name="presetSideLighting">
         <property name="text">
@@ -494,6 +61,13 @@
         </property>
        </widget>
       </item>
+      <item row="1" column="0">
+       <widget class="QPushButton" name="presetCeilingLighting">
+        <property name="text">
+         <string>Ceiling lighting</string>
+        </property>
+       </widget>
+      </item>
       <item row="0" column="0" colspan="2">
        <widget class="QPushButton" name="presetDefault">
         <property name="text">
@@ -501,35 +75,467 @@
         </property>
        </widget>
       </item>
+      <item row="3" column="0" colspan="2">
+       <widget class="ctkCollapsibleGroupBox" name="CollapsibleGroupBox">
+        <property name="title">
+         <string>Advanced</string>
+        </property>
+        <property name="collapsed">
+         <bool>true</bool>
+        </property>
+        <property name="collapsedHeight">
+         <number>6</number>
+        </property>
+        <layout class="QVBoxLayout" name="verticalLayout">
+         <item>
+          <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton">
+           <property name="text">
+            <string>Key light</string>
+           </property>
+           <layout class="QFormLayout" name="formLayout_2">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_3">
+              <property name="text">
+               <string>Intensity:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="ctkSliderWidget" name="keyIntensitySliderWidget">
+              <property name="toolTip">
+               <string>Scales intensity of all lights</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>0.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>10.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.500000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_5">
+              <property name="text">
+               <string>Warmth:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="ctkSliderWidget" name="keyWarmthSliderWidget">
+              <property name="toolTip">
+               <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>0.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>1.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.500000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_6">
+              <property name="text">
+               <string>Elevation:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="ctkSliderWidget" name="keyElevationSliderWidget">
+              <property name="toolTip">
+               <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>-90.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>90.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_7">
+              <property name="text">
+               <string>Azimuth</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="ctkSliderWidget" name="keyAzimuthSliderWidget">
+              <property name="toolTip">
+               <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>-90.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>90.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_4">
+           <property name="text">
+            <string>Head light</string>
+           </property>
+           <layout class="QFormLayout" name="formLayout_5">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_15">
+              <property name="text">
+               <string>Intensity:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="ctkSliderWidget" name="headIntensitySliderWidget">
+              <property name="toolTip">
+               <string>Relative intensity compared to key light</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>2.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>1.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_16">
+              <property name="text">
+               <string>Warmth:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="ctkSliderWidget" name="headWarmthSliderWidget">
+              <property name="toolTip">
+               <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>0.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>1.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.500000000000000</double>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_2">
+           <property name="text">
+            <string>Fill light</string>
+           </property>
+           <layout class="QFormLayout" name="formLayout_3">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_4">
+              <property name="text">
+               <string>Intensity:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="ctkSliderWidget" name="fillIntensitySliderWidget">
+              <property name="toolTip">
+               <string>Relative intensity compared to key light</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>2.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>1.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_8">
+              <property name="text">
+               <string>Warmth:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="ctkSliderWidget" name="fillWarmthSliderWidget">
+              <property name="toolTip">
+               <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>0.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>1.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.500000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_9">
+              <property name="text">
+               <string>Elevation:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="ctkSliderWidget" name="fillElevationSliderWidget">
+              <property name="toolTip">
+               <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>-90.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>90.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_10">
+              <property name="text">
+               <string>Azimuth</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="ctkSliderWidget" name="fillAzimuthSliderWidget">
+              <property name="toolTip">
+               <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>-90.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>90.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_3">
+           <property name="text">
+            <string>Back light</string>
+           </property>
+           <layout class="QFormLayout" name="formLayout_4">
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_11">
+              <property name="text">
+               <string>Intensity:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="ctkSliderWidget" name="backIntensitySliderWidget">
+              <property name="toolTip">
+               <string>Relative intensity compared to key light</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>2.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>1.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_12">
+              <property name="text">
+               <string>Warmth:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="ctkSliderWidget" name="backWarmthSliderWidget">
+              <property name="toolTip">
+               <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>0.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>1.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.500000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="label_13">
+              <property name="text">
+               <string>Elevation:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="ctkSliderWidget" name="backElevationSliderWidget">
+              <property name="toolTip">
+               <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>-90.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>90.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QLabel" name="label_14">
+              <property name="text">
+               <string>Azimuth</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="ctkSliderWidget" name="backAzimuthSliderWidget">
+              <property name="toolTip">
+               <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
+              </property>
+              <property name="singleStep">
+               <double>0.010000000000000</double>
+              </property>
+              <property name="pageStep">
+               <double>0.100000000000000</double>
+              </property>
+              <property name="minimum">
+               <double>-90.000000000000000</double>
+              </property>
+              <property name="maximum">
+               <double>90.000000000000000</double>
+              </property>
+              <property name="value">
+               <double>0.000000000000000</double>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
-   <item row="1" column="1">
-    <widget class="QPushButton" name="setupLightkitButton">
-     <property name="toolTip">
-      <string>Replace all lights in the selected view with the lightkit defined in this module.</string>
-     </property>
-     <property name="text">
-      <string>Setup lights</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="1">
-    <widget class="qMRMLNodeComboBox" name="viewNodeComboBox">
-     <property name="nodeTypes">
-      <stringlist>
-       <string>vtkMRMLViewNode</string>
-      </stringlist>
-     </property>
-     <property name="addEnabled">
-      <bool>false</bool>
-     </property>
-     <property name="removeEnabled">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="7" column="0" colspan="2">
+   <item row="3" column="0" colspan="3">
     <widget class="ctkCollapsibleButton" name="SSAOCollapsibleButton">
      <property name="text">
       <string>Ambient shadows (SSAO)</string>
@@ -587,20 +593,9 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>ctkCheckBox</class>
-   <extends>QCheckBox</extends>
-   <header>ctkCheckBox.h</header>
-  </customwidget>
-  <customwidget>
-   <class>ctkCollapsibleButton</class>
-   <extends>QWidget</extends>
-   <header>ctkCollapsibleButton.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>ctkSliderWidget</class>
-   <extends>QWidget</extends>
-   <header>ctkSliderWidget.h</header>
+   <class>qMRMLCheckableNodeComboBox</class>
+   <extends>qMRMLNodeComboBox</extends>
+   <header>qMRMLCheckableNodeComboBox.h</header>
   </customwidget>
   <customwidget>
    <class>qMRMLCollapsibleButton</class>
@@ -612,6 +607,28 @@
    <class>qMRMLNodeComboBox</class>
    <extends>QWidget</extends>
    <header>qMRMLNodeComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ctkCheckBox</class>
+   <extends>QCheckBox</extends>
+   <header>ctkCheckBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>ctkCollapsibleButton</class>
+   <extends>QWidget</extends>
+   <header>ctkCollapsibleButton.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkCollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>ctkCollapsibleGroupBox.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkSliderWidget</class>
+   <extends>QWidget</extends>
+   <header>ctkSliderWidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
