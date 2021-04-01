@@ -103,7 +103,11 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.backAzimuthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetBackLightAzimuth(value))
     self.ui.backAzimuthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.Modified())
 
+    self.ui.ssaoCheckBox.connect('toggled(bool)', lambda value: self.logic.setUseSSAO(value))
+    self.ui.ssaoSizeScaleSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setSSAOSizeScaleLog(value))
+
     self.updateWidgetFromLightkit(self.logic.lightKit)
+    self.updateWidgetFromView(None)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -113,6 +117,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
 
   def onSetupLighkit(self):
     self.logic.setLightkitInView(self.ui.viewNodeComboBox.currentNode())
+    self.updateWidgetFromView(self.ui.viewNodeComboBox.currentNode())
 
   def onPresetDefault(self):
     # Key
@@ -248,6 +253,19 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.backElevationSliderWidget.value = lightkit.GetBackLightElevation()
     self.ui.backAzimuthSliderWidget.value = lightkit.GetBackLightAzimuth()
 
+  def updateWidgetFromView(self, viewNode):
+    if vtk.vtkVersion().GetVTKMajorVersion()>=9:
+      self.ui.ssaoCheckBox.enabled = viewNode is not None
+      self.ui.ssaoSizeScaleSliderWidget.enabled = viewNode is not None
+      if viewNode:
+        self.ui.ssaoCheckBox.checked = self.logic.getUseSSAO(viewNode)
+        self.ui.ssaoCheckBox.toolTip = ""
+        self.ui.ssaoSizeScaleSliderWidget.value = self.logic.getSSAOSizeScaleLog(viewNode)
+      else:
+        self.ui.ssaoCheckBox.toolTip = "Select a view and click Setup lights to allow adjustment."
+    else:
+      self.ui.SSAOCollapsibleButton.hide()
+
 
 #
 # LightsLogic
@@ -287,6 +305,39 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     renderer.RemoveAllLights()
     self.lightKit.AddLightsToRenderer(renderer)
     renderWindow.Render()
+
+  def setUseSSAO(self, enable):
+    for viewNode in self.managedViewNodes:
+      renderWindow = self.renderWindowFromViewNode(viewNode)
+      renderer = renderWindow.GetRenderers().GetFirstRenderer()
+      if enable:
+        renderer.SSAOBlurOn()  # reduce noise in SSAO mode
+      renderer.SetUseSSAO(enable)
+      renderWindow.Render()
+
+  def setSSAOSizeScaleLog(self, scaleLog):
+    # ScaleLog = 0.0 corresponds to 100mm scene size
+    sceneSize = 100.0 * pow(10, scaleLog)
+    # Bias and radius are from example in https://blog.kitware.com/ssao/.
+    # These values have been tested on different kind of meshes and found to work well.
+    for viewNode in self.managedViewNodes:
+      renderWindow = self.renderWindowFromViewNode(viewNode)
+      renderer = renderWindow.GetRenderers().GetFirstRenderer()
+      renderer.SetSSAORadius(0.1 * sceneSize);  # comparison radius
+      renderer.SetSSAOBias(0.001 * sceneSize);  # comparison bias (how much distance difference will be made visible)
+      renderWindow.Render()
+
+  def getUseSSAO(self, viewNode):
+    renderWindow = self.renderWindowFromViewNode(viewNode)
+    renderer = renderWindow.GetRenderers().GetFirstRenderer()
+    return renderer.GetUseSSAO()
+
+  def getSSAOSizeScaleLog(self, viewNode):
+    renderWindow = self.renderWindowFromViewNode(viewNode)
+    renderer = renderWindow.GetRenderers().GetFirstRenderer()
+    sceneSize = renderer.SetSSAORadius(sceneSize) / 0.1
+    scaleLog = log10(sceneSize / 100.0)
+    return scaleLog
 
 
 class LightsTest(ScriptedLoadableModuleTest):
