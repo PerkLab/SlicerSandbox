@@ -101,7 +101,7 @@ class DocumentationToolsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin
   def onGenerateDocumentation(self):
     try:
       self.ui.inputSlicerRepositoryPathLineEdit.addCurrentPathToHistory()
-      self.ui.outputDocumentationPathLineEdit.addCurrentPathToHistory() 
+      self.ui.outputDocumentationPathLineEdit.addCurrentPathToHistory()
       DocumentationToolsLogic.generateDocumentation(
         self.ui.inputSlicerRepositoryPathLineEdit.currentPath,
         self.ui.outputDocumentationPathLineEdit.currentPath)
@@ -140,7 +140,7 @@ class DocumentationToolsLogic(ScriptedLoadableModuleLogic):
     wikiText = re.sub(re.escape("[[Documentation/{{documentation/version}}/Modules/")+"(.+[^\|])\|(.+[^\]])\]\]","[\\2](Module_\\1)",wikiText)
     # From: [[Documentation/{{documentation/version}}/Modules/SegmentEditor|Segment Editor]]
     # To: [Segment Editor](module_SegmentEditor)
-                      
+
     wikiText = re.sub("\[\[\:File\:([^\|\[]+)\|([^\[]+)\]\]", "[\\2](https://www.slicer.org/wiki/File:\\1)", wikiText)  # wiki File: links
     # From: [[:File:20160526_Segmentations.pptx|these slides]]
     # To: https://www.slicer.org/wiki/File:20160526_Segmentations.pptx
@@ -156,7 +156,7 @@ class DocumentationToolsLogic(ScriptedLoadableModuleLogic):
     wikiSections = {}
     otherWikiSections = []
     for wikiSection in wikiTextSectionList:
-        wikiSection = wikiSection.strip(" \r\n\t")   
+        wikiSection = wikiSection.strip(" \r\n\t")
         if not wikiSection:
             continue
         sectionName, sectionText = extract_wiki_section_name(wikiSection)
@@ -213,9 +213,9 @@ class DocumentationToolsLogic(ScriptedLoadableModuleLogic):
   @staticmethod
   def generateDocumentation(slicerRepositoryDir, documentationOutputDir):
     try:
-      import sphinx, sphinx_rtd_theme, recommonmark, sphinx_markdown_tables
+      import sphinx, sphinx_rtd_theme, recommonmark, sphinx_markdown_tables, notfound
     except ImportError:
-      slicer.util.pip_install('sphinx sphinx_rtd_theme recommonmark sphinx-markdown-tables')
+      slicer.util.pip_install('sphinx sphinx_rtd_theme recommonmark sphinx-markdown-tables sphinx-notfound-page')
 
     import sys
     sphinxBuild = slicer.util.launchConsoleProcess([sys.exec_prefix+"/Scripts/sphinx-build", "-M", "html",
