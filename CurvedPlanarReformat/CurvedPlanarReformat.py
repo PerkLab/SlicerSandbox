@@ -178,7 +178,7 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     originalCurvePoints = curveNode.GetCurvePointsWorld()
     sampledPoints = vtk.vtkPoints()
     if not slicer.vtkMRMLMarkupsCurveNode.ResamplePoints(originalCurvePoints, sampledPoints, resamplingCurveSpacing, False):
-      raise("Redampling curve failed")
+      raise ValueError("Resampling curve failed")
     resampledCurveNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsCurveNode", "CurvedPlanarReformat_resampled_curve_temp")
     resampledCurveNode.SetNumberOfPointsPerInterpolatingSegment(1)
     resampledCurveNode.SetCurveTypeToLinear()
