@@ -105,6 +105,23 @@ class ImportOCTFileReader(object):
       volumeNode.SetAttribute("oct.laterality", octVolume.laterality)
       volumeNode.SetAttribute("oct.patient_id", octVolume.patient_id)
       volumeNode.SetAttribute("oct.patient_dob", octVolume.DOB)
+
+      # Set up IJK to RAS so that the axis slice shows the usual orientation of the image and the matrix is right-handed.
+      # The converter does not provide voxel spacing information, so we just use 1.0 and log a warning message.
+      spacingNotSetMessage = "File importer for .fda OCT images does not set voxel size. Length measurement in physical unit will not be accurate."
+      try:
+        self.parent.userMessages().AddMessage(vtk.vtkCommand.WarningEvent, spacingNotSetMessage)
+      except:
+        # In Slicer-4.11 and earlier versions userMessages() method was not exposed.
+        logging.warning(f"Note for {filePath}: {spacingNotSetMessage}")
+      ijkToRasArray = np.array([
+        [ 0.0, 1.0, 0.0, 0.0],
+        [ 0.0, 0.0,-1.0, 0.0],
+        [-1.0, 0.0, 0.0, 0.0],
+        [ 0.0, 0.0, 0.0, 1.0]
+        ])
+      volumeNode.SetIJKToRASMatrix(slicer.util.vtkMatrixFromArray(ijkToRasArray))
+
       slicer.util.updateVolumeFromArray(volumeNode, octVolumeArray)
 
     except Exception as e:
@@ -116,7 +133,7 @@ class ImportOCTFileReader(object):
     # Show volume
     selectionNode = slicer.app.applicationLogic().GetSelectionNode()
     selectionNode.SetActiveVolumeID(volumeNode.GetID())
-    slicer.app.applicationLogic().PropagateVolumeSelection(0) 
+    slicer.app.applicationLogic().PropagateVolumeSelection()
 
     self.parent.loadedNodes = [volumeNode.GetID()]
     return True
