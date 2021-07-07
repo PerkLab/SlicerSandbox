@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------
-set(MODULE_NAME SliceOmaticImporter)
+set(MODULE_NAME ImportSliceOmatic)
 
 #-----------------------------------------------------------------------------
 set(MODULE_PYTHON_SCRIPTS

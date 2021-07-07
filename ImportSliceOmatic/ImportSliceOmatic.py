@@ -5,13 +5,13 @@ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 
 #
-# SliceOmaticImporter
+# ImportSliceOmatic
 #
 
-class SliceOmaticImporter(ScriptedLoadableModule):
+class ImportSliceOmatic(ScriptedLoadableModule):
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "SliceOmaticImporter"
+    self.parent.title = "ImportSliceOmatic"
     self.parent.categories = ["Informatics"]
     self.parent.dependencies = []
     self.parent.contributors = ["Andras Lasso (PerkLab)"]
@@ -25,7 +25,7 @@ class SliceOmaticImporter(ScriptedLoadableModule):
 # (identified by its special name <moduleName>FileReader)
 #
 
-class SliceOmaticImporterFileReader(object):
+class ImportSliceOmaticFileReader(object):
 
   def __init__(self, parent):
     self.parent = parent
@@ -37,11 +37,11 @@ class SliceOmaticImporterFileReader(object):
     return 'SliceOmaticTag'
 
   def extensions(self):
-    return ['SlicerOmatic tag file (*.tag)']
+    return ['SliceOmatic tag file (*.tag)']
 
   def canLoadFile(self, filePath):
     try:
-      headerInfo = SliceOmaticImporterFileReader.readHeader(filePath)
+      headerInfo = ImportSliceOmaticFileReader.readHeader(filePath)
       if not headerInfo:
         return False
       dims = headerInfo['dims']
@@ -54,7 +54,7 @@ class SliceOmaticImporterFileReader(object):
   def load(self, properties):
     try:
       filePath = properties['fileName']
-      headerInfo = SliceOmaticImporterFileReader.readHeader(filePath)
+      headerInfo = ImportSliceOmaticFileReader.readHeader(filePath)
 
       scalarType = vtk.VTK_CHAR
       numberOfComponents = 1
@@ -211,19 +211,19 @@ class SliceOmaticImporterFileReader(object):
 
 
 #
-# SliceOmaticImporterTest
+# ImportSliceOmaticTest
 #
 
-class SliceOmaticImporterTest(ScriptedLoadableModuleTest):
+class ImportSliceOmaticTest(ScriptedLoadableModuleTest):
 
   def setUp(self):
     slicer.mrmlScene.Clear()
 
   def runTest(self):
     self.setUp()
-    self.test_SliceOmaticImporter1()
+    self.test_ImportSliceOmatic1()
 
-  def test_SliceOmaticImporter1(self):
+  def test_ImportSliceOmatic1(self):
 
     self.delayDisplay("Loading test image as segmentation")
     testDataPath = os.path.join(os.path.dirname(__file__), 'Resources')
