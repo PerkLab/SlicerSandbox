@@ -213,9 +213,9 @@ class DocumentationToolsLogic(ScriptedLoadableModuleLogic):
   @staticmethod
   def generateDocumentation(slicerRepositoryDir, documentationOutputDir):
     try:
-      import sphinx, sphinx_rtd_theme, recommonmark, sphinx_markdown_tables, notfound
+      import docutils, linkify_it, lxml, myst_parser, pygments, sphinx, sphinx_issues, sphinx_markdown_tables, sphinx_rtd_theme
     except ImportError:
-      slicer.util.pip_install('sphinx sphinx_rtd_theme recommonmark sphinx-markdown-tables sphinx-notfound-page')
+      slicer.util.pip_install('docutils linkify-it-py lxml myst-parser pygments sphinx sphinx-issues sphinx-markdown-tables sphinx-notfound-page sphinx_rtd_theme>=0.5.2')
 
     import sys
     sphinxBuild = slicer.util.launchConsoleProcess([sys.exec_prefix+"/Scripts/sphinx-build", "-M", "html",
