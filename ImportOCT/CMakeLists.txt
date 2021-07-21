@@ -8,8 +8,6 @@ set(MODULE_PYTHON_SCRIPTS
 
 set(MODULE_PYTHON_RESOURCES
   Resources/Icons/${MODULE_NAME}.png
-  Resources/test01.dcm
-  Resources/test01.dcm.tag
   )
 
 #-----------------------------------------------------------------------------
