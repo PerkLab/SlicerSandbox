@@ -211,22 +211,21 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
 
     logging.info('Processing started')
 
-    inputRoiJson = None
-    inputRoiPlist = None
+    inputRoiData = None
     import json
     import plistlib
     if isinstance(inputRoi,str):
       filename, ext = os.path.splitext(inputRoi)
       if ext.lower() == '.json':
         with open(inputRoi) as f:
-          inputRoiJson = json.load(f)
+          inputRoiData = json.load(f)
       else:
-        inputRoiPlist = plistlib.readPlist(inputRoi)
+        inputRoiData = plistlib.readPlist(inputRoi)
     elif isinstance(inputRoi, slicer.vtkMRMLTextNode):
       try:
-        inputRoiJson = json.loads(inputRoi.GetText())
+        inputRoiData = json.loads(inputRoi.GetText())
       except:
-        inputRoiPlist = plistlib.readPlistFromBytes(inputRoi.GetText())
+        inputRoiData = plistlib.readPlistFromBytes(inputRoi.GetText())
     else:
       raise TypeError("inputRoi is expected to be a string or vtkMRMLTextNode")
 
@@ -240,8 +239,8 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
     name = None
     color = [ 1.0, 0.0, 0.0 ]
 
-    if inputRoiJson:
-      for contour in inputRoiJson:
+    if "Images" not in inputRoiData:
+      for contour in inputRoiData:
         roiPoints = contour["ROI3DPoints"]
         cellPointIds = []
         for roiPoint in roiPoints:
@@ -253,7 +252,8 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
         roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
       name = inputRoiJson[0]["Name"]
     else:
-      for image in inputRoiPlist['Images']:
+      # Output of Export ROIs plugin
+      for image in inputRoiData['Images']:
         rois = image['ROIs']
         for roi in rois:
           if not name:
