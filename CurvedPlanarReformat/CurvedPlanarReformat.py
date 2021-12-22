@@ -308,6 +308,9 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     parameters["outputVolume"] = outputStraightenedVolume.GetID()
     parameters["referenceVolume"] = outputStraightenedVolume.GetID()
     parameters["transformationFile"] = straighteningTransformNode.GetID()
+    # Use nearest neighbor interpolation for label volumes (to avoid incorrect labels at boundaries)
+    # and higher-order (bspline) interpolation for scalar volumes.
+    parameters["interpolationType"] = "nn" if volumeNode.IsA('vtkMRMLLabelMapVolumeNode') else "bs"
     resamplerModule = slicer.modules.resamplescalarvectordwivolume
     parameterNode = slicer.cli.runSync(resamplerModule, None, parameters)
 
