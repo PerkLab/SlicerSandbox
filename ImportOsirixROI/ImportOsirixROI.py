@@ -79,6 +79,7 @@ class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     self.ui.inputRoiPathLineEdit.connect("currentPathChanged(QString)", self.updateParameterNodeFromGUI)
     self.ui.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
+    self.ui.smoothingCheckBox.connect("toggled(bool)", self.updateParameterNodeFromGUI)
 
     self.ui.progressBar.hide()
 
@@ -109,7 +110,7 @@ class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       # No change
       return
 
-    # Unobserve previusly selected parameter node and add an observer to the newly selected.
+    # Unobserve previously selected parameter node and add an observer to the newly selected.
     # Changes of parameter node are observed so that whenever parameters are changed by a script or any other module
     # those are reflected immediately in the GUI.
     if self._parameterNode is not None:
@@ -144,6 +145,10 @@ class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.outputSelector.setCurrentNode(self._parameterNode.GetNodeReference("OutputSegmentation"))
     self.ui.outputSelector.blockSignals(wasBlocked)
 
+    wasBlocked = self.ui.smoothingCheckBox.blockSignals(True)
+    self.ui.smoothingCheckBox.checked = self._parameterNode.GetParameter("Smoothing") == "true"
+    self.ui.smoothingCheckBox.blockSignals(wasBlocked)
+
     # Update buttons states and tooltips
     if self._parameterNode.GetParameter("InputRoiFilePath") and self._parameterNode.GetNodeReference("OutputSegmentation"):
       self.ui.applyButton.toolTip = "Convert"
@@ -163,6 +168,7 @@ class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self._parameterNode.SetParameter("InputRoiFilePath", self.ui.inputRoiPathLineEdit.currentPath)
     self._parameterNode.SetNodeReferenceID("OutputSegmentation", self.ui.outputSelector.currentNodeID)
+    self._parameterNode.SetParameter("Smoothing", "true" if self.ui.smoothingCheckBox.checked else "false")
 
   def onApplyButton(self):
     """
@@ -177,7 +183,9 @@ class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.progressBar.show()
     self.ui.inputRoiPathLineEdit.addCurrentPathToHistory()
     try:
-      self.logic.importOsirixRoiFileToSegmentation(self.ui.inputRoiPathLineEdit.currentPath, self._parameterNode.GetNodeReference("OutputSegmentation"))
+      self.logic.importOsirixRoiFileToSegmentation(self.ui.inputRoiPathLineEdit.currentPath,
+                                                   self.ui.outputSelector.currentNode(),
+                                                   self.ui.smoothingCheckBox.checked)
       self.ui.progressLabel.text = "Import completed."
     except Exception as e:
       slicer.util.errorDisplay("Import failed: "+str(e))
@@ -216,9 +224,42 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
     """
     Initialize parameter node with default settings.
     """
-    pass
+    parameterNode.SetParameter("Smoothing", "true")
 
-  def importOsirixRoiFileToSegmentation(self, inputRoi, outputSegmentationNode, labelmapOutput=False):
+  def _pointCoordinatesFromStringList(self, roiPointsStr, separators):
+    # Get points as numpy array in RAS coordinate system
+    # from string list in LPS coordinate system
+    import numpy as np
+    roiPoints = np.zeros([len(roiPointsStr), 3])
+    for pointIndex, roiPointStr in enumerate(roiPointsStr):
+      roiPointStrList = roiPointStr.strip(separators).split(',')
+      roiPoints[pointIndex] = [-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])]
+    return roiPoints
+
+  def _smoothCurve(self, rawPointsArray):
+    # Convert numpy array to vtkPoints
+    rawPoints = vtk.vtkPoints()
+    for rawPoint in rawPointsArray:
+      rawPoints.InsertNextPoint(rawPoint)
+    # Interpolate
+    rawPolyData = vtk.vtkPolyData()
+    rawPolyData.SetPoints(rawPoints)
+    curveGenerator = slicer.vtkCurveGenerator()
+    curveGenerator.SetInputData(rawPolyData)
+    curveGenerator.SetCurveTypeToKochanekSpline()
+    curveGenerator.CurveIsClosedOn()
+    curveGenerator.Update()
+    smoothedPolyData = curveGenerator.GetOutput()
+    smoothedPoints = smoothedPolyData.GetPoints()
+    # Export to numpy array
+    numberOfPoints = smoothedPoints.GetNumberOfPoints()
+    import numpy as np
+    smoothedPointsArray = np.zeros([numberOfPoints, 3])
+    for pointIndex in range(numberOfPoints):
+      smoothedPointsArray[pointIndex] = smoothedPoints.GetPoint(pointIndex)
+    return smoothedPointsArray
+
+  def importOsirixRoiFileToSegmentation(self, inputRoi, outputSegmentationNode, smoothing=True, labelmapOutput=False):
     """
     Run the processing algorithm.
     Can be used without GUI widget.
@@ -259,46 +300,47 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
       def __init__(self):
         self.roiContourPoints = vtk.vtkPoints()
         self.roiContourCells = vtk.vtkCellArray()
+      def addRoiPoints(self, roiPoints):
+        cellPointIds = []
+        for roiPoint in roiPoints:
+          cellPointIds.append(self.roiContourPoints.InsertNextPoint(roiPoint))
+        contourIndex = self.roiContourCells.InsertNextCell(len(cellPointIds)+1)
+        for cellPointId in cellPointIds:
+          self.roiContourCells.InsertCellPoint(cellPointId)
+        self.roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
 
     if "Images" not in inputRoiData:
       for contourIndex, contour in enumerate(inputRoiData):
+        # Get/create ROI description
         name = contour["Name"]
         try:
           roiDescription = roiDescriptions[name]
         except KeyError:
           roiDescription = RoiDescription()
           roiDescriptions[name] = roiDescription
-        roiPoints = contour["ROI3DPoints"]
-        cellPointIds = []
-        for roiPoint in roiPoints:
-          roiPointStrList = roiPoint.strip('[]').split(',')
-          cellPointIds.append(roiDescription.roiContourPoints.InsertNextPoint(-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])))
-        contourIndex = roiDescription.roiContourCells.InsertNextCell(len(cellPointIds)+1)
-        for cellPointId in cellPointIds:
-          roiDescription.roiContourCells.InsertCellPoint(cellPointId)
-        roiDescription.roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
+        # Add points
+        roiPoints = self._pointCoordinatesFromStringList(contour["ROI3DPoints"], '[]')
+        if smoothing:
+          roiPoints = self._smoothCurve(roiPoints)
+        roiDescription.addRoiPoints(roiPoints)
         self.log(f"Importing {len(roiDescriptions)} ROIs", 25.0 * contourIndex / len(inputRoiData))
     else:
-      # Output of Export ROIs plugin
+      # Output of OsiriX "Export ROIs" plugin
       for imageIndex, image in enumerate(inputRoiData['Images']):
         rois = image['ROIs']
         for roiIndex, roi in enumerate(rois):
-          name = roi['Name']
+          # Get/create ROI description
+          name = roi["Name"]
           try:
             roiDescription = roiDescriptions[name]
           except KeyError:
             roiDescription = RoiDescription()
             roiDescriptions[name] = roiDescription
-
-          roiPoints = roi['Point_mm']
-          cellPointIds = []
-          for roiPoint in roiPoints:
-            roiPointStrList = roiPoint.strip('()').split(',')
-            cellPointIds.append(roiDescription.roiContourPoints.InsertNextPoint(-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])))
-          contourIndex = roiDescription.roiContourCells.InsertNextCell(len(cellPointIds)+1)
-          for cellPointId in cellPointIds:
-            roiDescription.roiContourCells.InsertCellPoint(cellPointId)
-          roiDescription.roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
+          # Add points
+          roiPoints = self._pointCoordinatesFromStringList(roi['Point_mm'], '()')
+          if smoothing:
+            roiPoints = self._smoothCurve(roiPoints)
+          roiDescription.addRoiPoints(roiPoints)
           self.log(f"Importing {len(roiDescriptions)} ROIs", 25.0 * imageIndex / len(inputRoiData["Images"]))
 
     colorNode = slicer.mrmlScene.GetNodeByID(slicer.modules.colors.logic().GetDefaultLabelMapColorNodeID())
@@ -314,6 +356,10 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
       roiPolyData = vtk.vtkPolyData()
       roiPolyData.SetPoints(roiDescription.roiContourPoints)
       roiPolyData.SetLines(roiDescription.roiContourCells)
+
+      normals = vtk.vtkPolyDataNormals()
+      normals.SetInputData(roiPolyData)
+      normals.Update()
 
       segment = slicer.vtkSegment()
       segment.SetName(name)
