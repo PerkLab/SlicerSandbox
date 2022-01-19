@@ -66,6 +66,7 @@ class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # This parameterNode stores all user choices in parameter values, node selections, etc.
     # so that when the scene is saved and reloaded, these settings are restored.
     self.logic = ImportOsirixROILogic()
+    self.logic.logCallback = self.logCallback
     self.ui.parameterNodeSelector.addAttribute("vtkMRMLScriptedModuleNode", "ModuleName", self.moduleName)
     self.setParameterNode(self.logic.getParameterNode())
 
@@ -78,6 +79,8 @@ class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     
     self.ui.inputRoiPathLineEdit.connect("currentPathChanged(QString)", self.updateParameterNodeFromGUI)
     self.ui.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
+
+    self.ui.progressBar.hide()
 
     # Initial GUI update
     self.updateGUIFromParameterNode()
@@ -169,14 +172,24 @@ class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     if not hasattr(slicer.modules, 'dicomrtimportexport'):
       slicer.util.warningDisplay("SlicerRT extension is not installed. Segmentation will be imported as a set of parallel contours. Install SlicerRT extension to create segmentation as a solid object.")
 
+    self.ui.progressBar.value = 0
+    self.ui.progressLabel.text = ""
+    self.ui.progressBar.show()
     self.ui.inputRoiPathLineEdit.addCurrentPathToHistory()
     try:
       self.logic.importOsirixRoiFileToSegmentation(self.ui.inputRoiPathLineEdit.currentPath, self._parameterNode.GetNodeReference("OutputSegmentation"))
+      self.ui.progressLabel.text = "Import completed."
     except Exception as e:
       slicer.util.errorDisplay("Import failed: "+str(e))
       import traceback
       traceback.print_exc()
+      self.ui.progressLabel.text = "Import failed."
+    self.ui.progressBar.hide()
 
+  def logCallback(self, message, percentComplete):
+    self.ui.progressBar.value = int(percentComplete)
+    self.ui.progressLabel.text = message
+    slicer.app.processEvents()
 
 #
 # ImportOsirixROILogic
@@ -191,6 +204,13 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
   Uses ScriptedLoadableModuleLogic base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
+  def __init__(self):
+    ScriptedLoadableModuleLogic.__init__(self)
+    self.logCallback = None
+
+  def log(self, msg, percentComplete):
+    if self.logCallback:
+      self.logCallback(msg, percentComplete)
 
   def setDefaultParameters(self, parameterNode):
     """
@@ -198,7 +218,7 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
     """
     pass
 
-  def importOsirixRoiFileToSegmentation(self, inputRoi, outputSegmentationNode):
+  def importOsirixRoiFileToSegmentation(self, inputRoi, outputSegmentationNode, labelmapOutput=False):
     """
     Run the processing algorithm.
     Can be used without GUI widget.
@@ -233,57 +253,87 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
     segmentation = outputSegmentationNode.GetSegmentation()
     segmentation.SetMasterRepresentationName(slicer.vtkSegmentationConverter.GetPlanarContourRepresentationName())
 
-    roiContourPoints = vtk.vtkPoints()
-    roiContourCells = vtk.vtkCellArray()
+    roiDescriptions = {}  # map from ROI name to RoiDescription
 
-    name = None
-    color = [ 1.0, 0.0, 0.0 ]
+    class RoiDescription(object):
+      def __init__(self):
+        self.roiContourPoints = vtk.vtkPoints()
+        self.roiContourCells = vtk.vtkCellArray()
 
     if "Images" not in inputRoiData:
-      for contour in inputRoiData:
+      for contourIndex, contour in enumerate(inputRoiData):
+        name = contour["Name"]
+        try:
+          roiDescription = roiDescriptions[name]
+        except KeyError:
+          roiDescription = RoiDescription()
+          roiDescriptions[name] = roiDescription
         roiPoints = contour["ROI3DPoints"]
         cellPointIds = []
         for roiPoint in roiPoints:
           roiPointStrList = roiPoint.strip('[]').split(',')
-          cellPointIds.append(roiContourPoints.InsertNextPoint(-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])))
-        contourIndex = roiContourCells.InsertNextCell(len(cellPointIds)+1)
+          cellPointIds.append(roiDescription.roiContourPoints.InsertNextPoint(-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])))
+        contourIndex = roiDescription.roiContourCells.InsertNextCell(len(cellPointIds)+1)
         for cellPointId in cellPointIds:
-          roiContourCells.InsertCellPoint(cellPointId)
-        roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
-      name = inputRoiJson[0]["Name"]
+          roiDescription.roiContourCells.InsertCellPoint(cellPointId)
+        roiDescription.roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
+        self.log(f"Importing {len(roiDescriptions)} ROIs", 25.0 * contourIndex / len(inputRoiData))
     else:
       # Output of Export ROIs plugin
-      for image in inputRoiData['Images']:
+      for imageIndex, image in enumerate(inputRoiData['Images']):
         rois = image['ROIs']
-        for roi in rois:
-          if not name:
-            if roi['Name']:
-              name = roi['Name']
+        for roiIndex, roi in enumerate(rois):
+          name = roi['Name']
+          try:
+            roiDescription = roiDescriptions[name]
+          except KeyError:
+            roiDescription = RoiDescription()
+            roiDescriptions[name] = roiDescription
+
           roiPoints = roi['Point_mm']
           cellPointIds = []
           for roiPoint in roiPoints:
             roiPointStrList = roiPoint.strip('()').split(',')
-            cellPointIds.append(roiContourPoints.InsertNextPoint(-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])))
-          contourIndex = roiContourCells.InsertNextCell(len(cellPointIds)+1)
+            cellPointIds.append(roiDescription.roiContourPoints.InsertNextPoint(-float(roiPointStrList[0]), -float(roiPointStrList[1]), float(roiPointStrList[2])))
+          contourIndex = roiDescription.roiContourCells.InsertNextCell(len(cellPointIds)+1)
           for cellPointId in cellPointIds:
-            roiContourCells.InsertCellPoint(cellPointId)
-          roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
+            roiDescription.roiContourCells.InsertCellPoint(cellPointId)
+          roiDescription.roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
+          self.log(f"Importing {len(roiDescriptions)} ROIs", 25.0 * imageIndex / len(inputRoiData["Images"]))
 
-    roiPolyData = vtk.vtkPolyData()
-    roiPolyData.SetPoints(roiContourPoints)
-    roiPolyData.SetLines(roiContourCells)
+    colorNode = slicer.mrmlScene.GetNodeByID(slicer.modules.colors.logic().GetDefaultLabelMapColorNodeID())
 
-    segment = slicer.vtkSegment()
-    segment.SetName(name)
-    segment.SetColor(color)
-    segment.AddRepresentation(slicer.vtkSegmentationConverter.GetPlanarContourRepresentationName(), roiPolyData)
+    for segmentIndex, name in enumerate(roiDescriptions):
+      self.log(f"Creating segment {segmentIndex+1} of {len(roiDescriptions)}", 25.0 + 50.0 * segmentIndex / len(roiDescriptions))
 
-    segmentation.AddSegment(segment)
+      roiDescription = roiDescriptions[name]
 
-    outputSegmentationNode.CreateBinaryLabelmapRepresentation()
-    outputSegmentationNode.CreateClosedSurfaceRepresentation()
-    outputSegmentationNode.GetDisplayNode().SetPreferredDisplayRepresentationName2D(slicer.vtkSegmentationConverter.GetBinaryLabelmapRepresentationName())
-    outputSegmentationNode.GetDisplayNode().SetPreferredDisplayRepresentationName3D(slicer.vtkSegmentationConverter.GetClosedSurfaceRepresentationName())
+      colorRGBA = [0,0,0,0]
+      colorNode.GetColor(segmentIndex + 1, colorRGBA)
+
+      roiPolyData = vtk.vtkPolyData()
+      roiPolyData.SetPoints(roiDescription.roiContourPoints)
+      roiPolyData.SetLines(roiDescription.roiContourCells)
+
+      segment = slicer.vtkSegment()
+      segment.SetName(name)
+      segment.SetColor(colorRGBA[:3])
+      segment.AddRepresentation(slicer.vtkSegmentationConverter.GetPlanarContourRepresentationName(), roiPolyData)
+
+      segmentation.AddSegment(segment)
+
+    self.log("Creating representations...", 80)
+    if labelmapOutput:
+      outputSegmentationNode.CreateBinaryLabelmapRepresentation()
+      outputSegmentationNode.CreateClosedSurfaceRepresentation()
+      outputSegmentationNode.GetDisplayNode().SetPreferredDisplayRepresentationName2D(slicer.vtkSegmentationConverter.GetBinaryLabelmapRepresentationName())
+      outputSegmentationNode.GetDisplayNode().SetPreferredDisplayRepresentationName3D(slicer.vtkSegmentationConverter.GetClosedSurfaceRepresentationName())
+    else:
+      outputSegmentationNode.CreateClosedSurfaceRepresentation()
+      outputSegmentationNode.GetDisplayNode().SetPreferredDisplayRepresentationName2D(
+        slicer.vtkSegmentationConverter.GetClosedSurfaceRepresentationName())
+      outputSegmentationNode.GetDisplayNode().SetPreferredDisplayRepresentationName3D(
+        slicer.vtkSegmentationConverter.GetClosedSurfaceRepresentationName())
 
     logging.info('Processing completed')
 
