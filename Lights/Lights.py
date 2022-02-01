@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 import os
 import unittest
 import vtk, qt, ctk, slicer
@@ -106,6 +107,11 @@ class LightsWidget(ScriptedLoadableModuleWidget):
 
     self.ui.ssaoCheckBox.connect('toggled(bool)', lambda value: self.logic.setUseSSAO(value))
     self.ui.ssaoSizeScaleSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setSSAOSizeScaleLog(value))
+
+    self.ui.imageNone.connect('clicked(bool)', lambda: self.logic.setImageBasedLighting(None))
+
+    # Find more images at https://polyhaven.com
+    self.ui.imageHospitalRoom.connect('clicked(bool)', lambda: self.logic.setImageBasedLighting(self.resourcePath('hospital_room.jpg')))
 
     self.updateWidgetFromLogic()
 
@@ -284,6 +290,7 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     self.ssaoEnabled = False
     self.ssaoSizeScaleLog = 0.0
     self.managedViewNodes = []
+    self.imageBasedLightingImageFile = None
 
   def __del__(self):
     self.lightKit.RemoveObserver(lightkitObserverTag)
@@ -314,7 +321,7 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     renderer.SSAOBlurOn()  # reduce noise in SSAO mode
     self.setUseSSAO(self.ssaoEnabled)
     self.setSSAOSizeScaleLog(self.ssaoSizeScaleLog)
-
+    self.setImageBasedLighting(self.imageBasedLightingImageFile)
     renderWindow.Render()
 
   def removeManagedView(self, viewNode):
@@ -328,6 +335,10 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     currentLightKit.DeepCopy(self.lightKit)
     renderer.RemoveAllLights()
     currentLightKit.AddLightsToRenderer(renderer)
+    renderer.UseSphericalHarmonicsOn()
+    renderer.SetEnvironmentTexture(None)
+    renderer.UseImageBasedLightingOff()
+    renderWindow.Render()
 
   def setUseSSAO(self, enable):
     self.ssaoEnabled = enable
@@ -348,8 +359,52 @@ class LightsLogic(ScriptedLoadableModuleLogic):
       renderer = renderWindow.GetRenderers().GetFirstRenderer()
       renderer.SetSSAORadius(0.1 * sceneSize);  # comparison radius
       renderer.SetSSAOBias(0.001 * sceneSize);  # comparison bias (how much distance difference will be made visible)
+      renderer.SetSSAOBlur(True)  # reduce noise
+      renderer.SetSSAOKernelSize(320)  # larger kernel size reduces noise pattern in the darkened region
       renderWindow.Render()
 
+  def setImageBasedLighting(self, imageFilePath):
+    self.imageBasedLightingImageFile = imageFilePath
+
+    # Get cubemap
+    if self.imageBasedLightingImageFile:
+      name, extension = os.path.splitext(self.imageBasedLightingImageFile)
+      if extension.lower() == '.jpg':
+        reader = vtk.vtkJPEGReader()
+      elif extension.lower() == '.hdr':
+        reader = vtk.vtkHDRReader()
+      else:
+        raise ValueError("Only jpg and hdr image is accepted for image-based lighting")
+      reader.SetFileName(self.imageBasedLightingImageFile)
+      texture = vtk.vtkTexture()
+      texture.SetInputConnection(reader.GetOutputPort())
+      texture.SetColorModeToDirectScalars()
+      texture.MipmapOn()
+      texture.InterpolateOn()
+      cubemap = vtk.vtkEquirectangularToCubeMapTexture()
+      cubemap.SetInputTexture(texture)
+      cubemap.MipmapOn()
+      cubemap.InterpolateOn()
+    else:
+      cubemap = None
+
+    for viewNode in self.managedViewNodes:
+      renderWindow = self.renderWindowFromViewNode(viewNode)
+      renderer = renderWindow.GetRenderers().GetFirstRenderer()
+      if cubemap:
+        renderer.UseSphericalHarmonicsOff()
+        renderer.SetEnvironmentTexture(cubemap)
+        renderer.UseImageBasedLightingOn()
+      else:
+        renderer.UseSphericalHarmonicsOn()
+        renderer.SetEnvironmentTexture(None)
+        renderer.UseImageBasedLightingOff()
+      renderWindow.Render()
+
+    # To display skybox in the view:
+    #world = vtk.vtkSkybox()
+    #world.SetTexture(cubemap)
+    #renderer.AddActor(world)
 
 class LightsTest(ScriptedLoadableModuleTest):
 
