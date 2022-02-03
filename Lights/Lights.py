@@ -357,8 +357,8 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     for viewNode in self.managedViewNodes:
       renderWindow = self.renderWindowFromViewNode(viewNode)
       renderer = renderWindow.GetRenderers().GetFirstRenderer()
-      renderer.SetSSAORadius(0.1 * sceneSize);  # comparison radius
-      renderer.SetSSAOBias(0.001 * sceneSize);  # comparison bias (how much distance difference will be made visible)
+      renderer.SetSSAOBias(0.001 * sceneSize);  # how much distance difference will be made visible
+      renderer.SetSSAORadius(0.1 * sceneSize);  # determines the spread of shadows cast by ambient occlusion
       renderer.SetSSAOBlur(True)  # reduce noise
       renderer.SetSSAOKernelSize(320)  # larger kernel size reduces noise pattern in the darkened region
       renderWindow.Render()
