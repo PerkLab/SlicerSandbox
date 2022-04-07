@@ -286,14 +286,14 @@ class LightsLogic(ScriptedLoadableModuleLogic):
   def __init__(self):
     self.lightKit = vtk.vtkLightKit()
     self.lightKit.MaintainLuminanceOn()
-    lightkitObserverTag = self.lightKit.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onLightkitModified)
+    self.lightkitObserverTag = self.lightKit.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onLightkitModified)
     self.ssaoEnabled = False
     self.ssaoSizeScaleLog = 0.0
     self.managedViewNodes = []
     self.imageBasedLightingImageFile = None
 
   def __del__(self):
-    self.lightKit.RemoveObserver(lightkitObserverTag)
+    self.lightKit.RemoveObserver(self.lightkitObserverTag)
 
   def onLightkitModified(self, caller, event):
     for viewNode in self.managedViewNodes:
