@@ -1,7 +1,7 @@
 # SlicerSandbox
 ![Logo](Sandbox_Logo_128.png)
 
-Collection of utilities that are not polished implementations but may still be useful as they are.
+Collection of modules for 3D Slicer, which are already useful, but not finalized, polished, or proven to be useful enough to be included in Slicer core.
 
 ## Lights
 
