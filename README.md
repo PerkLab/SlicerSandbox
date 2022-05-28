@@ -27,10 +27,6 @@ This module can be used to adjust lighting and rendering options in 3D views. Se
 
 ![](https://aws1.discourse-cdn.com/standard17/uploads/slicer/optimized/2X/d/d3bbe21f7cd59394cf9bd00e6bb513ba6fba30e0_2_1035x628.jpeg)
 
-## Curved Planar Reformat
-
-Curved planar reformat module allows "straightening" a curved volume for visualization or quantification. The module provides two-way spatial mapping between the original and straightened space.
-
 ## Remove CT table
 
 Remove patient table from CT images by blanking out (filling with -1000 HU) voxels that are not included in an automatically determined convex region of interest. The CT table is assumed to have slightly lower radiologic density than the preserved region of interest.
@@ -38,6 +34,10 @@ Remove patient table from CT images by blanking out (filling with -1000 HU) voxe
 If boundary of the extracted region is chipped away in the output image then either add a fixed-size `padding` and/or increase the computation `accuracy` (in `Advanced` section).
 
 ![](RemovePatientTable.jpg)
+
+## Curved Planar Reformat
+
+Curved planar reformat module allows "straightening" a curved volume for visualization or quantification. The module provides two-way spatial mapping between the original and straightened space.
 
 ### Adjust reformatting parameters for robust mapping
 
