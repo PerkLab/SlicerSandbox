@@ -33,6 +33,7 @@ add_subdirectory(SegmentCrossSectionArea)
 add_subdirectory(StyleTester)
 add_subdirectory(UserStatistics)
 add_subdirectory(VolumeRenderingSpecialEffects)
+add_subdirectory(RemoveCtTable)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_GENERATE_CONFIG})
