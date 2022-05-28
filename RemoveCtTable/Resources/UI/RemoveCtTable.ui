@@ -64,7 +64,7 @@
       <item row="2" column="1">
        <widget class="ctkSliderWidget" name="imageThresholdSliderWidget">
         <property name="toolTip">
-         <string>Higher value makes region of interest extraction more accurate but slower. Increase this value if relevant details are blanked out at the extracted region's boundary.</string>
+         <string>The largest connected region that has voxel values above this threshold will be preserved in the output. Lower the value if relevant regions are blanked out in the output.</string>
         </property>
         <property name="singleStep">
          <double>0.100000000000000</double>
