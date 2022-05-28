@@ -29,7 +29,7 @@ This module can be used to adjust lighting and rendering options in 3D views. Se
 
 ## Remove CT table
 
-Remove patient table from CT images by blanking out (filling with -1000 HU) voxels that are not included in an automatically determined convex region of interest. The CT table is assumed to have slightly lower radiologic density than the preserved region of interest.
+Remove patient table from CT images fully automatically, by blanking out (filling with -1000 HU) voxels that are not included in an automatically determined convex-shaped region of interest.
 
 If boundary of the extracted region is chipped away in the output image then either add a fixed-size `padding` and/or increase the computation `accuracy` (in `Advanced` section).
 
