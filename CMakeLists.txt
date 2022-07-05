@@ -9,7 +9,7 @@ set(EXTENSION_CATEGORY "Examples")
 set(EXTENSION_CONTRIBUTORS "Csaba Pinter (Queen's University), Andras Lasso (Queen's University)")
 set(EXTENSION_DESCRIPTION "Collection of utilities that are not polished implementations but can be useful to users")
 set(EXTENSION_ICONURL "https://github.com/PerkLab/SlicerSandbox/raw/master/Sandbox_Logo_128.png")
-set(EXTENSION_SCREENSHOTURLS "")
+set(EXTENSION_SCREENSHOTURLS "https://raw.githubusercontent.com/PerkLab/SlicerSandbox/master/RemovePatientTable.jpg https://raw.githubusercontent.com/PerkLab/SlicerSandbox/master/Lights.jpg")
 set(EXTENSION_DEPENDS "NA") # Specified as a space separated string, a list or 'NA' if any
 
 #-----------------------------------------------------------------------------
