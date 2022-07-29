@@ -14,6 +14,7 @@ Collection of modules for 3D Slicer, which are already useful, but not finalized
 - Line Profile: compute and plot image intensity profile along a line.
 - Scene Recorder: record all MRML node change events into a json document.
 - Segment Cross-Section Area: Measure cross-section of a segmentation along one of its axis. Note there are more advanced tools for this now in [Segment Geometry](https://github.com/jmhuie/Slicer-SegmentGeometry) and [SlicerVMTK](https://github.com/vmtk/SlicerExtension-VMTK#the-vmtk-extension-for-3d-slicer) extensions.
+- [Stitch Volumes](#stitch-volumes): stitch together image volumes which share physical coordinate systems (e.g. CT scans with different stations)
 - Style Tester: test Qt style sheet changes.
 - User Statistics: collect statistics about what modules and tools are used and for how long.
 - Volume Rendering Special Effects: custom shaders for special volume rendering effects.
@@ -119,3 +120,10 @@ decompositionResults = CharacterizeTransformMatrix.CharacterizeTransformMatrixLo
 |scaleMatrixList|list of three 4x4 symmetric (likely non-uniform) scale matrices (`S1*S2*S3=K`)|
 |stretchEigenvectorMatrix|4x4 matrix with the stretch direction eigenvectors as the first 3 columns|
 
+## Stitch Volumes
+
+This module allows a user to stitch together two or more image volumes. A set of volumes to stitch, as well as a rectangular ROI (to define the output geometry) is supplied, and this module produces an output volume which represents all the input volumes cropped, resampled, and stitched together. Areas of overlap between original volumes are handled by finding the center of the overlap region, and assigning each half of the overlap to the closer original volume.
+
+The resolution (voxel dimensions) of the output stitched volume is set to match the first input image. If other image volumes are at the same resolution, the stitched volume uses nearest-neighbor interpolation in order to avoid any image degradation due to interpolation, but please note that this could mean that there is a physical space shift of up to 1/2 voxel in each dimension for the positioning of one original volume compared to where it appears in the stitched volume's physical space. If original volumes are not at the same voxel resolution, then interpolation is definitely required, and linear interpolation is used. Voxels in the stitched image which are outside all original image volumes are assigned a voxel value of zero.
+
+![StitchVolumesScreenshot](https://user-images.githubusercontent.com/3981795/181861227-60ef19c8-8e62-4b19-b71a-5b74f77773ca.jpg)
