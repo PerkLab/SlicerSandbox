@@ -3,7 +3,7 @@
 
 Collection of modules for 3D Slicer, which are already useful, but not finalized, polished, or proven to be useful enough to be included in Slicer core.
 - Auto Save: automatically save the scene at specified time intervals.
-- Characterize Transform Matrix: quick geometric interpretations of a transformation matrix
+- [Characterize Transform Matrix](#characterize-transform-matrix): quick geometric interpretations of a transformation matrix
 - Combine Models: Boolean operations(union, intersection, difference) for models.
 - [Curved Planar Reformat](#curved-planar-reformat): straighten vessels, bones, or other structures for easier visualization, quantification, creating panoramic dental X-ray, etc.
 - Documentation Tools: tools for creating documentation on read-the-docs. It can generate html documentation from a Slicer source tree, convert module documentation from MediaWiki to markdown, etc.
