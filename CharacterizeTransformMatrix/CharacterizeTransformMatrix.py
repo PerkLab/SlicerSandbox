@@ -175,11 +175,7 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
             percentChange = 100 * (factor - 1)
             percentChanges.append(percentChange)
             scaleDirections.append(axis)
-            line = "  f%i: %+0.3f%% change in direction [%0.2f, %0.2f, %0.2f]" % (
-                idx,
-                percentChange,
-                *axis[:3],
-            )
+            line = f"  f{idx}: {percentChange:+0.3f}% change in direction [{axis[0]:0.2f}, {axis[1]:0.2f}, {axis[2]:0.2f}"
             textResults.append(line)
             if verbose:
                 print(line)
@@ -188,19 +184,13 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         volumePercentChange = (np.prod(f) - 1) * 100
         if np.abs(largestPercentChange) < 0.1:
             isRigid = True
-            line = (
-                "This transform is essentially rigid (largest percent scale changes is %+0.3f%%, volume percent change is %+0.3f%%)."
-                % (largestPercentChange, volumePercentChange)
-            )
+            line = f"This transform is essentially rigid (largest percent scale changes is {largestPercentChange:+0.3f}%, volume percent change is {volumePercentChange:+0.3f}%)."
             textResults.append(line)
             if verbose:
                 print(line)
         else:
             isRigid = False
-            line = (
-                "This transform is not rigid! Total volume changes by %+0.3f%%, and maximal change in one direction is %+0.3f%%"
-                % (volumePercentChange, largestPercentChange)
-            )
+            line = f"This transform is not rigid! Total volume changes by {volumePercentChange:+0.3f}%, and maximal change in one direction is {largestPercentChange:+0.3f}%"
             textResults.append(line)
             if verbose:
                 print(line)
@@ -217,16 +207,13 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         )  # length of rotvec is rotation angle in radians
         if rotation_angle_deg < 1e-4:
             # No rotation!
-            line = (
-                "There is essentially no rotation (rotation angle =  %0.1g degrees (less than < 1e-4 degrees threshold))."
-                % (rotation_angle_deg)
-            )
+            line = f"There is essentially no rotation (rotation angle =  {rotation_angle_deg:0.1g} degrees (less than < 1e-4 degrees threshold))."
             textResults.append(line)
             if verbose:
                 print(line)
             # expected outputs need to be filled with NaNs
-            rotation_axis = [np.NaN] * 3  # no rotation axis
-            euler_angles_xyz = [np.NaN] * 3  # no rotations...
+            rotation_axis = [np.NaN, np.NaN, np.NaN]  # no rotation axis
+            euler_angles_xyz = [np.NaN, np.NaN, np.NaN]  # no rotations...
         else:
             # There is rotation
             # If you look in the direction of the rotation axis vector, positive angles mean counter-clockwise rotation.
@@ -237,12 +224,9 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
             )  # unit vector version of rotation axis
             #
             line = (
-                "The rotation matrix portion of this transformation rotates %0.1f degrees %s (if you look in the direction the vector points) around a vector which points to [%0.2f, %0.2f, %0.2f] (RAS)"
-                % (
-                    np.abs(rotation_angle_deg),
-                    "ccw" if rotation_angle_deg >= 0 else "cw",
-                    *rotation_axis,
-                )
+                f"The rotation matrix portion of this transformation rotates {np.abs(rotation_angle_deg):0.1f} degrees "
+                f"{'ccw' if rotation_angle_deg >= 0 else 'cw'} (if you look in the direction the vector points) "
+                f"around a vector which points to [{rotation_axis[0]:0.2f}, {rotation_axis[1]:0.2f}, {rotation_axis[2]:0.2f}] (RAS)"
             )
             textResults.append(line)
             if verbose:
@@ -256,15 +240,10 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
             # axis.
             Rrot, Arot, Srot = euler_angles_xyz
             line = (
-                "Broken down into a series of rotations around axes, the rotation matrix portion of the transformation rotates \n  %0.1f degrees %s around the positive R axis, then \n  %0.1f degrees %s around the positive A axis, then \n  %0.1f degrees %s around the positive S axis"
-                % (
-                    np.abs(Rrot),
-                    "ccw" if Rrot >= 0 else "cw",
-                    np.abs(Arot),
-                    "ccw" if Arot >= 0 else "cw",
-                    np.abs(Srot),
-                    "ccw" if Srot >= 0 else "cw",
-                )
+                f"Broken down into a series of rotations around axes, the rotation matrix portion of the transformation rotates \n"
+                f"  {np.abs(Rrot):0.1f} degrees {'ccw' if Rrot >=0 else 'cw'} around the positive R axis, then \n"
+                f"  {np.abs(Arot):0.1f} degrees {'ccw' if Arot >=0 else 'cw'} around the positive A axis, then \n"
+                f"  {np.abs(Srot):0.1f} degrees {'ccw' if Srot >=0 else 'cw'} around the positive S axis"
             )
             textResults.append(line)
             if verbose:
@@ -273,9 +252,14 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         #### Translation
         translationVector = T[:3, 3]
         line = (
-            "Lastly, this transformation translates, shifting:\n  %+0.1f mm in the R direction\n  %+0.1f mm in the A direction\n  %+0.1f mm in the S direction"
-            % (*translationVector,)
+            f"This transformation matrix translates by shifting: \n"
+            f"  {translationVector[0]:+0.1f} mm in the R direction\n"
+            f"  {translationVector[1]:+0.1f} mm in the A direction\n"
+            f"  {translationVector[2]:+0.1f} mm in the S direction"
         )
+        textResults.append(line)
+        #### Order of operations
+        line = "The order of application of the decomposed operations is stretch, then rotate, then translate. A different order of transform application would generally lead to a different set of decomposition matrices."
         textResults.append(line)
         if verbose:
             print(line)
