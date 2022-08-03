@@ -63,7 +63,7 @@ Probably you can find a parameter set that works for a large group of patients. 
 
 ## Characterize Transform Matrix
 
-It is often difficult to understand what a transform matrix is doing just by inspection.  All the information is in those 12 numbers, but not in an easily understood format. CharacterizeTransformMatrix is a simple utility module which tries to quickly give you any information you might want to know about what a transformation matrix is doing.  For example, is it a rigid transformation or is there scaling?  If there is scaling, what are the scale factors and stretch directions?  Is there rotation?  If so, what is the axis of rotation and how much rotation occurs around that axis?  Alternatively, if we break down the rotation into a sequence of rotations around coordinate axes, what is the rotation about each axis?
+It is often difficult to understand what a transform matrix is doing just by inspecting the numerical values.  All the information is in those 12 numbers, but not in an easily understood format. Characterize Transform Matrix module provides information on what a transformation matrix is doing.  For example, is it a rigid transformation or is there scaling?  If there is scaling, what are the scale factors and stretch directions?  Is there rotation?  If so, what is the axis of rotation and how much rotation occurs around that axis?  Alternatively, if we break down the rotation into a sequence of rotations around coordinate axes, what is the rotation about each axis?
 
 ### To use
 Open the module and select the transform node you want to know about.  An analysis such as the following will appear in the text box below:
