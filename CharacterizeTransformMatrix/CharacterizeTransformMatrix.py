@@ -316,7 +316,8 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         T[:3, 3] = H[:3, 3]
         L = H.copy()
         L[:3, 3] = 0
-        assert np.allclose(H, T @ L), "T*L should equal H, but it does not!"
+        if not np.allclose(H, T @ L):
+            raise Exception("T*L should equal H, but it does not!")
         return T, L
 
     def polarDecompose(self, H):
@@ -346,8 +347,10 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
             R[:3, :3] = -R[:3, :3]
             K[:3, :3] = -K[:3, :3]
         # Check answer still OK
-        assert np.allclose(L, R @ K), "R*K should equal L, but it does not!"
-        assert np.allclose(H, T @ R @ K), "T*R*K should equal H, but it does not!"
+        if not np.allclose(L, R @ K):
+            raise Exception("R*K should equal L, but it does not!")
+        if not np.allclose(H, T @ R @ K):
+            raise Exception("T*R*K should equal H, but it does not!")
         # Decompose stretch matrix K into scale matrices
         f, X = np.linalg.eig(K)  # eigenvalues and eigenvectors of stretch matrix
         S = []
@@ -359,12 +362,13 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         scale_prod = np.eye(4)
         for scale in S:
             scale_prod = scale_prod @ scale
+        # At this level of decomposition, these are more like warnings than definite errors, so don't throw exception
         if not np.allclose(K, scale_prod):
-            print(
+            logging.warn(
                 "Product of scale matrices should equal stretch matrix K, but it does not!"
             )
         if not np.allclose(H, T @ R @ scale_prod):
-            print(
+            logging.warn(
                 "T*R*(product of scale matrices) should equal stretch matrix K, but it does not!"
             )
         # Return all interesting outputs
