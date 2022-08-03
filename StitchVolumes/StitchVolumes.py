@@ -109,6 +109,9 @@ class StitchVolumesWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.volumeSelector5.connect(
             "currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI
         )
+        self.ui.outputSelector.connect(
+            "currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI
+        )
 
         # Initial GUI update
         self.updateGUIFromParameterNode()
@@ -207,7 +210,7 @@ class StitchVolumesWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # What about other values? (current text, e.g.)?  The example code did not update them here
 
         # Update buttons states and tooltips
-        # Enable the Stitch Volumes button if there is an ROI, at least two original volumes, and a name for the output vol
+        # Enable the Stitch Volumes button if there is an ROI, at least two original volumes
         if (
             self._parameterNode.GetNodeReference("StitchedVolumeROI")
             and self._parameterNode.GetNodeReference("InputVol1")
@@ -247,8 +250,8 @@ class StitchVolumesWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetNodeReferenceID(
             "InputVol5", self.ui.volumeSelector5.currentNodeID
         )
-        self._parameterNode.SetParameter(
-            "OutputVolName", self.ui.stitchVolNameLineEdit.text
+        self._parameterNode.SetNodeReferenceID(
+            "OutputVolume", self.ui.outputSelector.currentNodeID
         )
 
         # self._parameterNode.SetNodeReferenceID("InputVolume", self.ui.inputSelector.currentNodeID)
@@ -265,10 +268,10 @@ class StitchVolumesWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             # Gather inputs
             orig_nodes = self.gather_original_nodes()
             roi_node = self.ui.roiSelector.currentNode()
-            stitched_vol_name = self.ui.stitchVolNameLineEdit.text
+            output_node = self.ui.outputSelector.currentNode()
             # Run the stitching
             self.logic.stitch_volumes(
-                orig_nodes, roi_node, stitched_vol_name, keep_intermediate_volumes=False
+                orig_nodes, roi_node, output_node, keep_intermediate_volumes=False
             )
 
         except Exception as e:
@@ -315,7 +318,7 @@ class StitchVolumesLogic(ScriptedLoadableModuleLogic):
             parameterNode.SetParameter("OutputVolName", "S")
 
     def stitch_volumes(
-        self, orig_nodes, roi_node, stitched_vol_name, keep_intermediate_volumes=False
+        self, orig_nodes, roi_node, output_node, keep_intermediate_volumes=False
     ):
         # Stitch together the supplied original volumes, resampling them
         # into the space defined by the supplied roi, putting the stitched
@@ -333,11 +336,22 @@ class StitchVolumesLogic(ScriptedLoadableModuleLogic):
             slicer.util.arrayFromVolume(resamp_vol_node)
             for resamp_vol_node in resamp_vol_nodes
         ]
-        # Create output stitched volume node, create by cloning one of the resamp nodes
-        # (it doesn't matter which one, it's just being used to get orientation and spacing)
-        stitched_vol_node = slicer.vtkSlicerVolumesLogic().CloneVolume(
-            slicer.mrmlScene, resamp_vol_nodes[0], stitched_vol_name
-        )
+        if not output_node:
+            # Create output volume node to hold stitched image
+            output_node_name = slicer.mrmlScene.GenerateUniqueName("Stitched_Volume")
+            output_node = slicer.mrmlScene.AddNewNodeByClass(
+                "vtkMRMLScalarVolumeNode", output_node_name
+            )
+        # Copy all image and orientation data from the reference volume to the output volume
+        output_node.SetOrigin(ref_vol_node.GetOrigin())
+        output_node.SetSpacing(ref_vol_node.GetSpacing())
+        imageDirections = vtk.vtkMatrix4x4()
+        ref_vol_node.GetIJKToRASDirectionMatrix(imageDirections)
+        output_node.SetIJKToRASDirectionMatrix(imageDirections)
+        imageData = vtk.vtkImageData()
+        imageData.DeepCopy(ref_vol_node.GetImageData())
+        output_node.SetAndObserveImageData(imageData)
+
         # Find the dimension to stitch together (I,J,or K)
         dim_to_stitch = find_dim_to_stitch(orig_nodes, resamp_vol_nodes[0])
         # dim_to_stitch is 0, 1, or 2, depending on whether the dimension to stitch is
@@ -386,14 +400,14 @@ class StitchVolumesLogic(ScriptedLoadableModuleLogic):
             # print(sliceIndexTuple)
 
         # Put the result into the stitched volume
-        slicer.util.updateVolumeFromArray(stitched_vol_node, imCombined)
+        slicer.util.updateVolumeFromArray(output_node, imCombined)
         # Clean up
         if not keep_intermediate_volumes:
             for resamp_vol_node in resamp_vol_nodes:
                 slicer.mrmlScene.RemoveNode(resamp_vol_node)
             slicer.mrmlScene.RemoveNode(ref_vol_node)
         # Return stitched volume node
-        return stitched_vol_node
+        return output_node
 
 
 #
@@ -505,7 +519,7 @@ class StitchVolumesTest(ScriptedLoadableModuleTest):
         stitched_node = logic.stitch_volumes(
             [inputVolume, volumeCopy],
             roiNode,
-            "stitched",
+            None,
             keep_intermediate_volumes=False,
         )
 

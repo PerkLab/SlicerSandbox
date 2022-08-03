@@ -102,14 +102,7 @@
       <item row="7" column="0">
        <widget class="QLabel" name="StitchedVolLabel">
         <property name="text">
-         <string>Stitched Volume Name:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="7" column="1">
-       <widget class="QLineEdit" name="stitchVolNameLineEdit">
-        <property name="text">
-         <string>Stitched_Volume</string>
+         <string>Stitched Output</string>
         </property>
        </widget>
       </item>
@@ -261,6 +254,30 @@
         </property>
         <property name="renameEnabled">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="1">
+       <widget class="qMRMLNodeComboBox" name="outputSelector">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="nodeTypes">
+         <stringlist>
+          <string>vtkMRMLScalarVolumeNode</string>
+         </stringlist>
+        </property>
+        <property name="noneEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="renameEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="selectNodeUponCreation">
+         <bool>false</bool>
+        </property>
+        <property name="noneDisplay">
+         <string>Create new volume</string>
         </property>
        </widget>
       </item>
@@ -425,6 +442,22 @@
     <hint type="destinationlabel">
      <x>174</x>
      <y>66</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>StitchVolumes</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>outputSelector</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>125</x>
+     <y>157</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>181</x>
+     <y>239</y>
     </hint>
    </hints>
   </connection>
