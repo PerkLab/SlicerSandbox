@@ -92,7 +92,7 @@ This analysis is for the matrix
 0 0 0 1 
 ```
 ### Some Decomposition Details
-This module uses polar decomposition to describe the components of a 4x4 transform matrix. The decomposition has the form: `H = T * R * K`, where `H` is the full homogeneous transformation matrix (with 0,0,0,1 as the bottom row), `T` is a translation-only matrix, `R` is a rotation-only matrix, and `K` is a stretch matrix. `K` can further be decompsed into three scale matrices, which can each be characterized by a stretch direction (an eigenvector) and a stretch factor (the associated eigenvalue). Points to be transformed are on the right, so the order of operations is stretching first, then rotation, then translation. 
+This module uses polar decomposition to describe the components of a 4x4 transform matrix. The decomposition has the form: `H = T * R * K`, where `H` is the full homogeneous transformation matrix (with 0,0,0,1 as the bottom row), `T` is a translation-only matrix, `R` is a rotation-only matrix, and `K` is a stretch matrix. `K` can further be decomposed into three scale matrices, which can each be characterized by a stretch direction (an eigenvector) and a stretch factor (the associated eigenvalue). Points to be transformed are on the right, so the order of operations is stretching first, then rotation, then translation. 
 
 If you would like access to the decomposed components of the matrix, you can call the relevant logic function of this module as follows: 
 ```
