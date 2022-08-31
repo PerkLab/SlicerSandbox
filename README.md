@@ -7,6 +7,7 @@ Collection of modules for 3D Slicer, which are already useful, but not finalized
 - Combine Models: Boolean operations(union, intersection, difference) for models.
 - [Curved Planar Reformat](#curved-planar-reformat): straighten vessels, bones, or other structures for easier visualization, quantification, creating panoramic dental X-ray, etc.
 - Documentation Tools: tools for creating documentation on read-the-docs. It can generate html documentation from a Slicer source tree, convert module documentation from MediaWiki to markdown, etc.
+- [Import ITK-Snap label description file](#ImportItkSnapLabel): import label description (*.label, *.txt) files as a color table node
 - Import OCT: Load Topcon OCT image file (`*.fda`).
 - Import Osirix ROI: Load Osirix ROI files as segmentation.
 - Import SliceOmatic: Load SliceOmatic segmentation files.
@@ -127,3 +128,19 @@ This module allows a user to stitch together two or more image volumes. A set of
 The resolution (voxel dimensions) of the output stitched volume is set to match the first input image. If other image volumes are at the same resolution, the stitched volume uses nearest-neighbor interpolation in order to avoid any image degradation due to interpolation, but please note that this could mean that there is a physical space shift of up to 1/2 voxel in each dimension for the positioning of one original volume compared to where it appears in the stitched volume's physical space. If original volumes are not at the same voxel resolution, then interpolation is definitely required, and linear interpolation is used. Voxels in the stitched image which are outside all original image volumes are assigned a voxel value of zero.
 
 ![StitchVolumesScreenshot](https://user-images.githubusercontent.com/3981795/181861227-60ef19c8-8e62-4b19-b71a-5b74f77773ca.jpg)
+
+## ImportItkSnapLabel
+
+This module registers a file reader for label description files (`*.label`, `*.txt`, see [example](https://github.com/PerkLab/SlicerSandbox/blob/master/ImportItkSnapLabel/Resources/Untitled.label)) created by ITK-Snap. The reader creates a color table node that can be used for loading labelmap volume or segmentation files (`*.nrrd`, `*.nii.gz`, etc.).
+
+How to use:
+- Load the `*.label` or `*.txt` file as a color table node:
+  - Drag-and-drop the label description file over the Slicer main window (or choose `Add Data` in the `File` menu and choose the file to add)
+  - Make sure that in the description column `ITK-Snap Label Description` is selected
+  - Click OK
+- Load the image or segmentation `*.nii.gz` or `*.nrrd` file
+  - Drag-and-drop the image file over the Slicer main window (or choose `Add Data` in the `File` menu and choose the file to add)
+  - Check `Show Options` checkbox
+  - Make sure that in the description column `Segmentation` is selected (or `Volume` is selected and `Label` checkbox is checked)
+  - Choose the loaded color table node in the options column (rightmost widget)
+  - Click OK
