@@ -129,6 +129,19 @@ The resolution (voxel dimensions) of the output stitched volume is set to match 
 
 ![StitchVolumesScreenshot](https://user-images.githubusercontent.com/3981795/181861227-60ef19c8-8e62-4b19-b71a-5b74f77773ca.jpg)
 
+
+### How to use
+
+The input image volumes must already be positioned in their correct location. Fiducial Registration Wizard module in SlicerIGT extension can be used for moving the images to correct location, based on matching langmarks.
+
+A region of interest (ROI) markup needs to be defined to designate the region that the stitched volume should fill. This is typically done in two steps:
+- Go to `Crop Volumes` module, select first volume to stitch as input volume, select `Create new ROI` as ROI, and then click `Fit to Volume`. This creates an ROI which is oriented the same way and with the same dimensions as the input volume. (The volume is not cropped, Crop Volumes module is used just because of the handy `Fit to Volume` button).
+- Next, extend the ROI as needed to encompass the desired regions of all image volumes to stitch using the interaction handles in the slice views or in 3D.
+
+This ROI definition works well if connecting a series of image volumes along one axis (e.g., a series of bed positions) and it works well to mostly extend an ROI in one direction (and often also bring in the sides to reduce the number of air voxels), but a rectilinear ROI can be created any other way.
+
+Once the ROI is created, go to the `Stitch Volumes` module, select the image volumes to be stitched together, select the ROI, select or create the output to put the stitched volume in, and click the `Create Stitched Volume` button. The selected output will be a new image volume with the same orientation and extent as the ROI, with the same voxel size as the first image volume listed to stitch.
+
 ## ImportItkSnapLabel
 
 This module registers a file reader for label description files (`*.label`, `*.txt`, see [example](https://github.com/PerkLab/SlicerSandbox/blob/master/ImportItkSnapLabel/Resources/Untitled.label)) created by ITK-Snap. The reader creates a color table node that can be used for loading labelmap volume or segmentation files (`*.nrrd`, `*.nii.gz`, etc.).
