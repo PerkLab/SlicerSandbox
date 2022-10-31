@@ -48,17 +48,17 @@ If the slice size is too large or curve resolution is too fine then in some regi
 
 To reduce these ambiguously mapped regions, decrease `Slice size`. If necessary `Curve resolution` can be slightly increased as well (it controls how densely the curve is sampled to generate the displacement field, if samples are farther from each other then it may reduce chance of contradicting samples).
 
-![image|561x379](https://aws1.discourse-cdn.com/standard17/uploads/slicer/original/2X/3/3c6ee214e10415a6eb1fb53638c02e44bc93d4a1.png)
+![image|561x379](CurvedPlanarReformat_1.png)
 
 You can quickly validate the transform, by going to Transforms module and in Display/Visualization section check all 3 checkboxes, the straightened image as `Region` and visualization mode to `Grid`.
 
 For example, this transform results in a smooth displacement field, it is invertible in the visualized region:
 
-![image|690x420](https://aws1.discourse-cdn.com/standard17/uploads/slicer/optimized/2X/0/045048696d683fffafbea801edeb05cc1349abd5_2_1035x630.png)
+![image|690x420](CurvedPlanarReformat_2.png)
 
 If the slice size is increased then folding occurs:
 
-![image|489x500](https://aws1.discourse-cdn.com/standard17/uploads/slicer/optimized/2X/e/e6c2b020c07ed52c5b37b665bf424d9e82738cd0_2_733x750.png)
+![image|489x500](CurvedPlanarReformat_3.png)
 
 Probably you can find a parameter set that works for a large group of patients. Maybe one parameter set works for all, but maybe you need to have a few different presets (small, medium, large)
 
@@ -76,28 +76,28 @@ Scale factors and stretch directions (eigenvalues and eigenvectors of stretch ma
   f2: +3.248% change in direction [0.04, -0.99, 0.10]
 This transform is not rigid! Total volume changes by +0.325%, and maximal change in one direction is +3.248%
 The rotation matrix portion of this transformation rotates 15.0 degrees ccw (if you look in the direction the vector points) around a vector which points to [0.76, -0.59, -0.27] (RAS)
-Broken down into a series of rotations around axes, the rotation matrix portion of the transformation rotates 
-  11.8 degrees ccw around the positive R axis, then 
-  8.4 degrees cw around the positive A axis, then 
+Broken down into a series of rotations around axes, the rotation matrix portion of the transformation rotates
+  11.8 degrees ccw around the positive R axis, then
+  8.4 degrees cw around the positive A axis, then
   5.0 degrees cw around the positive S axis
 Lastly, this transformation translates, shifting:
   +194.2 mm in the R direction
   +73.4 mm in the A direction
   -1170.3 mm in the S direction
 ```
-This analysis is for the matrix 
+This analysis is for the matrix
 ```
-0.985821 0.0570188 -0.157817 194.155 
--0.0873217 1.01 -0.192319 73.4412 
-0.14329 0.203373 0.94 -1170.25 
-0 0 0 1 
+0.985821 0.0570188 -0.157817 194.155
+-0.0873217 1.01 -0.192319 73.4412
+0.14329 0.203373 0.94 -1170.25
+0 0 0 1
 ```
 ### Some Decomposition Details
-This module uses polar decomposition to describe the components of a 4x4 transform matrix. The decomposition has the form: `H = T * R * K`, where `H` is the full homogeneous transformation matrix (with 0,0,0,1 as the bottom row), `T` is a translation-only matrix, `R` is a rotation-only matrix, and `K` is a stretch matrix. `K` can further be decomposed into three scale matrices, which can each be characterized by a stretch direction (an eigenvector) and a stretch factor (the associated eigenvalue). Points to be transformed are on the right, so the order of operations is stretching first, then rotation, then translation. 
+This module uses polar decomposition to describe the components of a 4x4 transform matrix. The decomposition has the form: `H = T * R * K`, where `H` is the full homogeneous transformation matrix (with 0,0,0,1 as the bottom row), `T` is a translation-only matrix, `R` is a rotation-only matrix, and `K` is a stretch matrix. `K` can further be decomposed into three scale matrices, which can each be characterized by a stretch direction (an eigenvector) and a stretch factor (the associated eigenvalue). Points to be transformed are on the right, so the order of operations is stretching first, then rotation, then translation.
 
-If you would like access to the decomposed components of the matrix, you can call the relevant logic function of this module as follows: 
+If you would like access to the decomposed components of the matrix, you can call the relevant logic function of this module as follows:
 ```
-import CharacterizeTransformMatrix 
+import CharacterizeTransformMatrix
 decompositionResults = CharacterizeTransformMatrix.CharacterizeTransformMatrixLogic().characterizeLinearTransformNode(transformNode)
 ```
 `decompositionResults` will then be a namedTuple with all the information from the decomposition. For example, `decompositionResults.rotationAngleDegrees` will have the angle the transformation rotates by around the rotation axis.  The named fields of the results are
