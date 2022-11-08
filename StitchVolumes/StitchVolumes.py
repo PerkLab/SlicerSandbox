@@ -30,13 +30,11 @@ class StitchVolumes(ScriptedLoadableModule):
     of the overlap to the closer original volume.  If all input images are the same resolution and orientation,
     nearest neighbor interpolation is used to avoid resampling; otherwise linear interpolation is used 
     in resampling.
-"""
-        self.parent.helpText += (
-            self.getDefaultModuleDocumentationLink()
-        )  # TODO: verify that the default URL is correct or change it to the actual documentation
+    """
+        self.parent.helpText += '<p>For more information see the <a href="https://github.com/PerkLab/SlicerSandbox#stitch-volumes">online documentation</a>.</p>'
         self.parent.acknowledgementText = """
     This work was funded by Seattle Children's Hospital.
-"""
+    """
 
 
 #
@@ -317,6 +315,28 @@ class StitchVolumesLogic(ScriptedLoadableModuleLogic):
         if not parameterNode.GetParameter("OutputVolName"):
             parameterNode.SetParameter("OutputVolName", "S")
 
+    def clone_node(self, node_to_clone):
+        """Node to clone must be in mrml scene subject hierarchy"""
+        # Clone the node (from script repository)
+        shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(
+            slicer.mrmlScene
+        )
+        itemIDToClone = shNode.GetItemByDataNode(node_to_clone)
+        clonedItemID = (
+            slicer.modules.subjecthierarchy.logic().CloneSubjectHierarchyItem(
+                shNode, itemIDToClone
+            )
+        )
+        clonedNode = shNode.GetItemDataNode(clonedItemID)
+        return clonedNode
+
+    def clone_and_harden(self, input_node):
+        """Create clone of input node and harden any parent transforms on the cloned copy"""
+        cloned_node = self.clone_node(input_node)
+        cloned_node.SetAndObserveTransformNodeID(input_node.GetTransformNodeID())
+        cloned_node.HardenTransform()
+        return cloned_node
+
     def stitch_volumes(
         self, orig_nodes, roi_node, output_node, keep_intermediate_volumes=False
     ):
@@ -324,14 +344,22 @@ class StitchVolumesLogic(ScriptedLoadableModuleLogic):
         # into the space defined by the supplied roi, putting the stitched
         # output into a volume with the given stitched volume name
 
+        ch_roi_node = self.clone_and_harden(roi_node)
+        ch_orig_node = self.clone_and_harden(orig_nodes[0])
+
         # Crop/Resample first orig node
-        ref_vol_node = resample_volume(roi_node, orig_nodes[0], "ReferenceVolume")
+        ref_vol_node = resample_volume(ch_roi_node, ch_orig_node, "ReferenceVolume")
+        # Clean up cloned ROI node
+        slicer.mrmlScene.RemoveNode(ch_roi_node)
         # Resample other nodes
         resamp_vol_nodes = []
         for orig_node in orig_nodes:
             resampled_name = "Resamp_" + orig_node.GetName()
             resamp_node = createOrReplaceNode(resampled_name)
-            resamp_vol_nodes.append(resample(orig_node, ref_vol_node, resamp_node))
+            ch_orig_node = self.clone_and_harden(orig_node)
+            resamp_vol_nodes.append(resample(ch_orig_node, ref_vol_node, resamp_node))
+            # Clean up cloned/hardened orig node
+            slicer.mrmlScene.RemoveNode(ch_orig_node)
         imArrays = [
             slicer.util.arrayFromVolume(resamp_vol_node)
             for resamp_vol_node in resamp_vol_nodes
@@ -430,6 +458,7 @@ class StitchVolumesTest(ScriptedLoadableModuleTest):
         """Run as few or as many tests as needed here."""
         self.setUp()
         self.test_StitchVolumes1()
+        self.test_StitchVolumes2()
 
     def test_StitchVolumes1(self):
         """Ideally you should have several levels of tests.  At the lowest level
@@ -546,6 +575,117 @@ class StitchVolumesTest(ScriptedLoadableModuleTest):
 
         self.delayDisplay("Test passed")
 
+    def test_StitchVolumes2(self):
+        """
+        This test is identical to test_StitchVolumes1(), except that the transform on the
+        translated cloned copy of MRHead is not hardened.  The result should be identical
+        to the result from test_StitchVolumes1 (but won't be if soft transforms are not
+        respected, that's the test).
+        This test loads the MRHead sample image volume, clones it, and a applies a
+        soft transform which translates it 50 mm in the superior direction, and then
+        stitches it together with the untransformed original.  An ROI is created which is
+        fitted to the original image volume and then
+        symmetrically expanded 50 mm in the Superior-Inferior direction.  The stitched
+        image volume size is set by the ROI, so there is a 25 mm inferior region which is
+        all zeros because it is outside both image volumes. The top 25 mm of the
+        translated image is cropped off because it is outside the ROI. Finally, there
+        is a visible seam halfway into the overlap region (which is correct in this case
+        because they should not seamlessly meet).  All that is verified by the current
+        test is that the stitching runs without error, and that the bounds of the
+        stitched volume are very close to the bounds of the ROI.
+        """
+
+        self.delayDisplay("Starting the test")
+
+        # Get/create input data
+
+        import SampleData
+
+        inputVolume = SampleData.downloadFromURL(
+            nodeNames="MRHead",
+            fileNames="MR-Head.nrrd",
+            uris="https://github.com/Slicer/SlicerTestingData/releases/download/MD5/39b01631b7b38232a220007230624c8e",
+            checksums="MD5:39b01631b7b38232a220007230624c8e",
+        )[0]
+        self.delayDisplay("Finished with download and loading")
+
+        volumeCopy = slicer.vtkSlicerVolumesLogic().CloneVolume(
+            slicer.mrmlScene, inputVolume, "cloned_copy"
+        )
+
+        # Create transform matrix with 50mm translation
+        import numpy as np
+
+        transformMatrixForCopy = np.array(
+            [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 50], [0, 0, 0, 1]]
+        )
+        TNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLinearTransformNode")
+        TNode.SetAndObserveMatrixTransformToParent(
+            slicer.util.vtkMatrixFromArray(transformMatrixForCopy)
+        )
+        # Apply transform to cloned copy and harden
+        volumeCopy.SetAndObserveTransformNodeID(TNode.GetID())
+        # slicer.vtkSlicerTransformLogic().hardenTransform(volumeCopy)
+
+        # Create markupsROI and fit to input volume
+        roiNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsROINode")
+        # Set the axes directions of the roi to match those of the image volume
+        # (if we don't do this before fitting using CropVolumes the ROI based image
+        # directions can be permuted versions of the original image directions, and
+        # we want them to match exactly)
+        imageDirectionMatrix = vtk.vtkMatrix4x4()
+        volumeCopy.GetIJKToRASDirectionMatrix(imageDirectionMatrix)
+        roiNode.SetAndObserveObjectToNodeMatrix(imageDirectionMatrix)
+
+        cropVolumeParameters = slicer.mrmlScene.AddNewNodeByClass(
+            "vtkMRMLCropVolumeParametersNode"
+        )
+        cropVolumeParameters.SetInputVolumeNodeID(inputVolume.GetID())
+        cropVolumeParameters.SetROINodeID(roiNode.GetID())
+        slicer.modules.cropvolume.logic().SnapROIToVoxelGrid(
+            cropVolumeParameters
+        )  # optional (rotates the ROI to match the volume axis directions)
+        slicer.modules.cropvolume.logic().FitROIToInputVolume(cropVolumeParameters)
+        slicer.mrmlScene.RemoveNode(cropVolumeParameters)
+
+        # Expand ROI to include some of the copy volume and some empty space
+        sz = list(roiNode.GetSize())
+        sz[1] = sz[1] + 50  # axis 1 is the superior-inferior axis for MRHead
+        roiNode.SetSize(*sz)
+
+        # Test the module logic
+
+        logic = StitchVolumesLogic()
+        stitched_node = logic.stitch_volumes(
+            [inputVolume, volumeCopy],
+            roiNode,
+            None,
+            keep_intermediate_volumes=False,
+        )
+
+        # Check results
+
+        # Check that stitched image bounds are very close to ROI edges
+        stitched_bnds = np.zeros((6))
+        stitched_node.GetBounds(stitched_bnds)
+        roi_bnds = np.zeros((6))
+        roiNode.GetBounds(roi_bnds)
+        maxVoxelSize = np.max(stitched_node.GetSpacing())
+        maxBndsDeviation = np.max(np.abs(roi_bnds - stitched_bnds))
+        self.assertLess(
+            maxBndsDeviation,
+            maxVoxelSize,
+            msg="RAS bounds of stitched volume are greater than 1 voxel off from bounds of ROI!",
+        )
+
+        # TODO: implement more tests, for example
+        # Could also spot check voxel values
+        # - outside both volumes should be 0
+        # - the outer corner voxel values should match
+        # - the inner corner voxel values (in the overlap region) should not
+
+        self.delayDisplay("Test passed")
+
 
 ####################
 #
@@ -557,7 +697,9 @@ class StitchVolumesTest(ScriptedLoadableModuleTest):
 def get_RAS_center(vol_node):
     """Find the RAS coordinate center of the image volume from the RAS bounds"""
     b = [0] * 6
-    vol_node.GetBounds(b)
+    vol_node.GetRASBounds(
+        b
+    )  # GetRASBounds() takes parent transforms into account, unlike GetBounds()!
     cen = [np.mean([b[0], b[1]]), np.mean([b[2], b[3]]), np.mean([b[4], b[5]])]
     return cen
 
