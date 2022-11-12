@@ -78,7 +78,7 @@ class ImportSliceOmaticFileReader(object):
       reader.SetFileLowerLeft(True) # to match input from NRRD reader
       reader.Update()
 
-      tempLabelmapNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode', "__temp_SliceOmatic__")
+      tempLabelmapNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLLabelMapVolumeNode', 'Segment')
 
       tempLabelmapNode.SetImageDataConnection(reader.GetOutputPort())
       # We assume file is in LPS and invert first and second axes
