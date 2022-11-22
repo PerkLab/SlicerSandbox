@@ -58,6 +58,7 @@ class CurvedPlanarReformatWidget(ScriptedLoadableModuleWidget):
 
     self.ui.outputStraightenedVolumeSelector.setMRMLScene(slicer.mrmlScene)
     self.ui.outputProjectedVolumeSelector.setMRMLScene(slicer.mrmlScene)
+    self.ui.outputReslicingPlanesModelSelector.setMRMLScene(slicer.mrmlScene)
 
     # connections
     self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
@@ -91,12 +92,15 @@ class CurvedPlanarReformatWidget(ScriptedLoadableModuleWidget):
 
     curveNode = self.ui.inputCurveSelector.currentNode()
     volumeNode = self.ui.inputVolumeSelector.currentNode()
+    stretching = self.ui.modeComboBox.currentIndex == 1  # items: straightening = 0, stretching = 1
+    stretchingRotation = self.ui.rotationSliderWidget.value
     straighteningTransformNode = self.ui.outputTransformToStraightenedVolumeSelector.currentNode()
     straightenedVolumeNode = self.ui.outputStraightenedVolumeSelector.currentNode()
     projectedVolumeNode = self.ui.outputProjectedVolumeSelector.currentNode()
     spacingAlongCurveMm = self.ui.curveResolutionSliderWidget.value
     sliceResolutionMm = self.ui.sliceResolutionSliderWidget.value
     sliceSizeMm = [float(s) for s in self.ui.sliceSizeCoordinatesWidget.coordinates.split(',')]
+    reslicingPlanesModelNode = self.ui.outputReslicingPlanesModelSelector.currentNode()
 
     temporaryStraighteningTransformNode = None
     temporaryStraightenedVolumeNode = None
@@ -109,7 +113,7 @@ class CurvedPlanarReformatWidget(ScriptedLoadableModuleWidget):
         temporaryStraighteningTransformNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode', 'CurvedPlanarReformat_straightening_transform_temp')
         straighteningTransformNode = temporaryStraighteningTransformNode
 
-      logic.computeStraighteningTransform(straighteningTransformNode, curveNode, sliceSizeMm, spacingAlongCurveMm)
+      logic.computeStraighteningTransform(straighteningTransformNode, curveNode, sliceSizeMm, spacingAlongCurveMm, stretching, stretchingRotation, reslicingPlanesModelNode)
 
       if straightenedVolumeNode or projectedVolumeNode:
 
@@ -167,10 +171,34 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     # (less contradiction because of there is less overlapping between neighbor slices)
     self.transformSpacingFactor = 5.0
 
-  def computeStraighteningTransform(self, transformToStraightenedNode, curveNode, sliceSizeMm, outputSpacingMm):
+  @staticmethod
+  def getPointsProjectedToPlane(pointsArray, transformWorldToPlane):
+    """
+    Returns points projected to the plane coordinate system (plane normal = plane Z axis).
+    pointsArray contains each point as a column vector.
+    """
+    import numpy as np
+    numberOfPoints = pointsArray.shape[1]
+    # Concatenate a 4th line containing 1s so that we can transform the positions using
+    # a single matrix multiplication.
+    pointsArray_World = np.row_stack((pointsArray,np.ones(numberOfPoints)))
+
+    # Point positions in the plane coordinate system:
+    pointsArray_Plane = np.dot(transformWorldToPlane, pointsArray_World)
+    # Projected point positions in the plane coordinate system:
+    pointsArray_Plane[2,:] = np.zeros(numberOfPoints)
+    # Projected point positions in the world coordinate system:
+    pointsArrayProjected_World = np.dot(np.linalg.inv(transformWorldToPlane), pointsArray_Plane)
+
+    # remove the last row (all ones)
+    pointsArrayProjected_World = pointsArrayProjected_World[0:3,:]
+
+    return pointsArrayProjected_World
+
+  def computeStraighteningTransform(self, transformToStraightenedNode, curveNode, sliceSizeMm, outputSpacingMm, stretching=False, rotationDeg=0.0, reslicingPlanesModelNode=None):
     """
     Compute straightened volume (useful for example for visualization of curved vessels)
-    resamplingCurveSpacingFactor: 
+    stretching: if True then stretching transform will be computed, otherwise straightening
     """
 
     # Create a temporary resampled curve
@@ -183,7 +211,9 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     resampledCurveNode.SetNumberOfPointsPerInterpolatingSegment(1)
     resampledCurveNode.SetCurveTypeToLinear()
     resampledCurveNode.SetControlPointPositionsWorld(sampledPoints)
-    numberOfSlices = resampledCurveNode.GetNumberOfControlPoints()
+
+    curveNodePlane = vtk.vtkPlane()
+    slicer.modules.markups.logic().GetBestFitPlane(resampledCurveNode, curveNodePlane)
 
     # Z axis (from first curve point to last, this will be the straightened curve long axis)
     curveStartPoint = np.zeros(3)
@@ -191,30 +221,84 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     resampledCurveNode.GetNthControlPointPositionWorld(0, curveStartPoint)
     resampledCurveNode.GetNthControlPointPositionWorld(resampledCurveNode.GetNumberOfControlPoints()-1, curveEndPoint)
     transformGridAxisZ = (curveEndPoint-curveStartPoint)/np.linalg.norm(curveEndPoint-curveStartPoint)
-  
-    # X axis = average X axis of curve, to minimize torsion (and so have a simple displacement field, which can be robustly inverted)
-    sumCurveAxisX_RAS = np.zeros(3)
-    for gridK in range(numberOfSlices):
-      curvePointToWorld = vtk.vtkMatrix4x4()
-      resampledCurveNode.GetCurvePointToWorldTransformAtPointIndex(resampledCurveNode.GetCurvePointIndexFromControlPointIndex(gridK), curvePointToWorld)
-      curvePointToWorldArray = slicer.util.arrayFromVTKMatrix(curvePointToWorld)
-      curveAxisX_RAS = curvePointToWorldArray[0:3, 0]
-      sumCurveAxisX_RAS += curveAxisX_RAS
-    meanCurveAxisX_RAS = sumCurveAxisX_RAS/np.linalg.norm(sumCurveAxisX_RAS)
-    transformGridAxisX = meanCurveAxisX_RAS
 
-    # Y axis
-    transformGridAxisY = np.cross(transformGridAxisZ, transformGridAxisX)
-    transformGridAxisY = transformGridAxisY/np.linalg.norm(transformGridAxisY)
+    if stretching:
+      # Y axis = best fit plane normal
+      transformGridAxisY = np.copy(curveNodePlane.GetNormal())
 
-    # Make sure that X axis is orthogonal to Y and Z
-    transformGridAxisX = np.cross(transformGridAxisY, transformGridAxisZ)
-    transformGridAxisX = transformGridAxisX/np.linalg.norm(transformGridAxisX)
+      # X axis normalize
+      transformGridAxisX = np.cross(transformGridAxisZ, transformGridAxisY)
+      transformGridAxisX = transformGridAxisX/np.linalg.norm(transformGridAxisX)
+
+      # Make sure that Z axis is orthogonal to X and Y
+      orthogonalizedTransformGridAxisZ = np.cross(transformGridAxisX, transformGridAxisY)
+      orthogonalizedTransformGridAxisZ = orthogonalizedTransformGridAxisZ/np.linalg.norm(orthogonalizedTransformGridAxisZ)
+      if np.dot(transformGridAxisZ, orthogonalizedTransformGridAxisZ) > 0:
+        transformGridAxisZ = orthogonalizedTransformGridAxisZ
+      else:
+        transformGridAxisZ = -orthogonalizedTransformGridAxisZ
+        transformGridAxisX = -transformGridAxisX
+
+    else:
+
+      # X axis = average X axis of curve, to minimize torsion (and so have a simple displacement field, which can be robustly inverted)
+      sumCurveAxisX_RAS = np.zeros(3)
+      numberOfPoints = resampledCurveNode.GetNumberOfControlPoints()
+      for gridK in range(numberOfPoints):
+        curvePointToWorld = vtk.vtkMatrix4x4()
+        resampledCurveNode.GetCurvePointToWorldTransformAtPointIndex(resampledCurveNode.GetCurvePointIndexFromControlPointIndex(gridK), curvePointToWorld)
+        curvePointToWorldArray = slicer.util.arrayFromVTKMatrix(curvePointToWorld)
+        curveAxisX_RAS = curvePointToWorldArray[0:3, 0]
+        sumCurveAxisX_RAS += curveAxisX_RAS
+      meanCurveAxisX_RAS = sumCurveAxisX_RAS/np.linalg.norm(sumCurveAxisX_RAS)
+      transformGridAxisX = meanCurveAxisX_RAS
+
+      # Y axis normalize
+      transformGridAxisY = np.cross(transformGridAxisZ, transformGridAxisX)
+      transformGridAxisY = transformGridAxisY/np.linalg.norm(transformGridAxisY)
+
+      # Make sure that X axis is orthogonal to Y and Z
+      transformGridAxisX = np.cross(transformGridAxisY, transformGridAxisZ)
+      transformGridAxisX = transformGridAxisX/np.linalg.norm(transformGridAxisX)
+
+    # Rotate by rotationDeg around the Z axis
+    gridDirectionMatrixArray = np.eye(4)
+    gridDirectionMatrixArray[0:3, 0] = transformGridAxisX
+    gridDirectionMatrixArray[0:3, 1] = transformGridAxisY
+    gridDirectionMatrixArray[0:3, 2] = transformGridAxisZ
+    gridDirectionMatrix = slicer.util.vtkMatrixFromArray(gridDirectionMatrixArray)
+    #
+    gridDirectionTransform = vtk.vtkTransform()
+    gridDirectionTransform.Concatenate(gridDirectionMatrix)
+    gridDirectionTransform.RotateZ(rotationDeg)
+    #
+    gridDirectionMatrixArray = slicer.util.arrayFromVTKMatrix(gridDirectionTransform.GetMatrix())
+    transformGridAxisX = gridDirectionMatrixArray[0:3, 0]
+    transformGridAxisY = gridDirectionMatrixArray[0:3, 1]
+    transformGridAxisZ = gridDirectionMatrixArray[0:3, 2]
+
+    if stretching:
+      # Project curve points to grid YZ plane
+      transformFromGridYZPlane = np.eye(4)
+      transformFromGridYZPlane[0:3, 0] = transformGridAxisY
+      transformFromGridYZPlane[0:3, 1] = transformGridAxisZ
+      transformFromGridYZPlane[0:3, 2] = transformGridAxisX
+      transformFromGridYZPlane[0:3, 3] = curveNodePlane.GetOrigin()
+      transformToGridYZPlane = np.linalg.inv(transformFromGridYZPlane)
+
+      originalCurvePointsArray = slicer.util.arrayFromMarkupsCurvePoints(curveNode)
+      curvePointsProjected_RAS = CurvedPlanarReformatLogic.getPointsProjectedToPlane(originalCurvePointsArray.T, transformToGridYZPlane).T
+      slicer.util.updateMarkupsControlPointsFromArray(resampledCurveNode, curvePointsProjected_RAS)
+
+      # After projection, resampling is needed to get uniform distances
+      originalCurvePoints = resampledCurveNode.GetCurvePointsWorld()
+      sampledPoints = vtk.vtkPoints()
+      if not slicer.vtkMRMLMarkupsCurveNode.ResamplePoints(originalCurvePoints, sampledPoints, resamplingCurveSpacing, False):
+        raise ValueError("Resampling curve failed")
+      resampledCurveNode.SetControlPointPositionsWorld(sampledPoints)
 
     # Origin (makes the grid centered at the curve)
     curveLength = resampledCurveNode.GetCurveLengthWorld()
-    curveNodePlane = vtk.vtkPlane()
-    slicer.modules.markups.logic().GetBestFitPlane(resampledCurveNode, curveNodePlane)
     transformGridOrigin = np.array(curveNodePlane.GetOrigin())
     transformGridOrigin -= transformGridAxisX * sliceSizeMm[0]/2.0
     transformGridOrigin -= transformGridAxisY * sliceSizeMm[1]/2.0
@@ -226,6 +310,7 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     # The grid transform contains one vector at the corner of each slice.
     # The transform is in the same space and orientation as the straightened volume.
 
+    numberOfSlices = resampledCurveNode.GetNumberOfControlPoints()
     gridDimensions = [2, 2, numberOfSlices]
     gridSpacing = [sliceSizeMm[0], sliceSizeMm[1], resamplingCurveSpacing]
     gridDirectionMatrixArray = np.eye(4)
@@ -244,15 +329,40 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     transform.SetGridDirectionMatrix(gridDirectionMatrix)
     transformToStraightenedNode.SetAndObserveTransformFromParent(transform)
 
+    if reslicingPlanesModelNode:
+      appender = vtk.vtkAppendPolyData()
+
+    # Currently there is no API to set PreferredInitialNormalVector in the curve coordinate system, therefore
+    # a new coordinate system generator must be set up:
+    curveCoordinateSystemGeneratorWorld = slicer.vtkParallelTransportFrame()
+    curveCoordinateSystemGeneratorWorld.SetInputData(resampledCurveNode.GetCurveWorld())
+    curveCoordinateSystemGeneratorWorld.SetPreferredInitialNormalVector(transformGridAxisX)
+    curveCoordinateSystemGeneratorWorld.Update()
+    curvePoly = curveCoordinateSystemGeneratorWorld.GetOutput()
+    pointData = curvePoly.GetPointData()
+    normals = pointData.GetAbstractArray(curveCoordinateSystemGeneratorWorld.GetNormalsArrayName())
+    binormals = pointData.GetAbstractArray(curveCoordinateSystemGeneratorWorld.GetBinormalsArrayName())
+    tangents = pointData.GetAbstractArray(curveCoordinateSystemGeneratorWorld.GetTangentsArrayName())
+
     # Compute displacements
     transformDisplacements_RAS = slicer.util.arrayFromGridTransform(transformToStraightenedNode)
     for gridK in range(gridDimensions[2]):
-      curvePointToWorld = vtk.vtkMatrix4x4()
-      resampledCurveNode.GetCurvePointToWorldTransformAtPointIndex(resampledCurveNode.GetCurvePointIndexFromControlPointIndex(gridK), curvePointToWorld)
-      curvePointToWorldArray = slicer.util.arrayFromVTKMatrix(curvePointToWorld)
-      curveAxisX_RAS = curvePointToWorldArray[0:3, 0]
-      curveAxisY_RAS = curvePointToWorldArray[0:3, 1]
-      curvePoint_RAS = curvePointToWorldArray[0:3, 3]
+
+      # The curve's built-in coordinate system generator could be used like this (if it had PreferredInitialNormalVector exposed):
+      #
+      # curvePointToWorld = vtk.vtkMatrix4x4()
+      # resampledCurveNode.GetCurvePointToWorldTransformAtPointIndex(resampledCurveNode.GetCurvePointIndexFromControlPointIndex(gridK), curvePointToWorld)
+      # curvePointToWorldArray = slicer.util.arrayFromVTKMatrix(curvePointToWorld)
+      # curveAxisX_RAS = curvePointToWorldArray[0:3, 0]
+      # curveAxisY_RAS = curvePointToWorldArray[0:3, 1]
+      # curvePoint_RAS = curvePointToWorldArray[0:3, 3]
+      #
+      # But now we get the values from our own coordinate system generator:
+      curvePointIndex = resampledCurveNode.GetCurvePointIndexFromControlPointIndex(gridK)
+      curveAxisX_RAS = np.array(normals.GetTuple3(curvePointIndex))
+      curveAxisY_RAS = np.array(binormals.GetTuple3(curvePointIndex))
+      curvePoint_RAS = np.array(curvePoly.GetPoint(curvePointIndex))
+
       for gridJ in range(gridDimensions[1]):
         for gridI in range(gridDimensions[0]):
           straightenedVolume_RAS = (transformGridOrigin
@@ -262,10 +372,31 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
           inputVolume_RAS = (curvePoint_RAS
             + (gridI-0.5)*sliceSizeMm[0]*curveAxisX_RAS
             + (gridJ-0.5)*sliceSizeMm[1]*curveAxisY_RAS)
+          if reslicingPlanesModelNode:
+            if gridI == 0 and gridJ == 0:
+              plane = vtk.vtkPlaneSource()
+              plane.SetOrigin(inputVolume_RAS)
+            elif gridI == 1 and gridJ == 0:
+              plane.SetPoint1(inputVolume_RAS)
+            elif gridI == 0 and gridJ == 1:
+              plane.SetPoint2(inputVolume_RAS)
           transformDisplacements_RAS[gridK][gridJ][gridI] = inputVolume_RAS - straightenedVolume_RAS
+
+      if reslicingPlanesModelNode:
+        plane.Update()
+        appender.AddInputData(plane.GetOutput())
+
     slicer.util.arrayFromGridTransformModified(transformToStraightenedNode)
 
-    slicer.mrmlScene.RemoveNode(resampledCurveNode)  # delete temporary curve
+    # delete temporary curve
+    slicer.mrmlScene.RemoveNode(resampledCurveNode)
+
+    if reslicingPlanesModelNode:
+      appender.Update()
+      if not reslicingPlanesModelNode.GetPolyData():
+        reslicingPlanesModelNode.CreateDefaultDisplayNodes()
+        reslicingPlanesModelNode.GetDisplayNode().SetVisibility2D(True)
+      reslicingPlanesModelNode.SetAndObservePolyData(appender.GetOutput())
 
 
   def straightenVolume(self, outputStraightenedVolume, volumeNode, outputStraightenedVolumeSpacing, straighteningTransformNode):
@@ -291,7 +422,7 @@ class CurvedPlanarReformatLogic(ScriptedLoadableModuleLogic):
     straightenedVolumeIJKToRASArray = np.dot(straightenedVolumeIJKToRASArray,
       np.diag([outputStraightenedVolumeSpacing[0], outputStraightenedVolumeSpacing[1], outputStraightenedVolumeSpacing[2], 1]))
     # Set origin
-    straightenedVolumeIJKToRASArray[0:3,3] = gridOrigin 
+    straightenedVolumeIJKToRASArray[0:3,3] = gridOrigin
 
     outputStraightenedImageData = vtk.vtkImageData()
     outputStraightenedImageData.SetExtent(

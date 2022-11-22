@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>413</width>
-    <height>314</height>
+    <height>334</height>
    </rect>
   </property>
   <layout class="QFormLayout" name="formLayout">
@@ -140,6 +140,9 @@
     <widget class="qMRMLCoordinatesWidget" name="sliceSizeCoordinatesWidget">
      <property name="focusPolicy">
       <enum>Qt::TabFocus</enum>
+     </property>
+     <property name="toolTip">
+      <string>Smaller value is recommended for second dimension if &quot;stretching&quot; mode is used.</string>
      </property>
      <property name="dimension">
       <number>2</number>
@@ -304,6 +307,81 @@
         </property>
        </widget>
       </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_12">
+        <property name="text">
+         <string>Output reslicing planes: </string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="qMRMLNodeComboBox" name="outputReslicingPlanesModelSelector">
+        <property name="focusPolicy">
+         <enum>Qt::TabFocus</enum>
+        </property>
+        <property name="toolTip">
+         <string>Computed transform from original volume to straightened volume</string>
+        </property>
+        <property name="nodeTypes">
+         <stringlist notr="true">
+          <string>vtkMRMLModelNode</string>
+         </stringlist>
+        </property>
+        <property name="showChildNodeTypes">
+         <bool>true</bool>
+        </property>
+        <property name="baseName">
+         <string>Reslicing planes</string>
+        </property>
+        <property name="noneEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="addEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="removeEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="editEnabled">
+         <bool>true</bool>
+        </property>
+        <property name="renameEnabled">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_11">
+        <property name="text">
+         <string>Rotation:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="qMRMLSliderWidget" name="rotationSliderWidget">
+        <property name="focusPolicy">
+         <enum>Qt::TabFocus</enum>
+        </property>
+        <property name="toolTip">
+         <string>By default normal of the best fit plane is used for orienting the stretched image plane. This default orientation can be adjusted here.</string>
+        </property>
+        <property name="minimum">
+         <double>-90.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>90.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="suffix">
+         <string>deg</string>
+        </property>
+        <property name="quantity">
+         <string/>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -318,6 +396,31 @@
      <property name="text">
       <string>Apply</string>
      </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="label_7">
+     <property name="text">
+      <string>Mode:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QComboBox" name="modeComboBox">
+     <property name="toolTip">
+      <string>Straightening: straightens out the input curve. Useful for complex curves.
+Stretching: straightens out one curved dimension. Useful for mostly planar curves. Distances in the main image plane are preserved.</string>
+     </property>
+     <item>
+      <property name="text">
+       <string>straightening</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>stretching</string>
+      </property>
+     </item>
     </widget>
    </item>
   </layout>
@@ -390,8 +493,8 @@
    <slot>setCurrentNode(vtkMRMLNode*)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>286</x>
-     <y>49</y>
+     <x>262</x>
+     <y>56</y>
     </hint>
     <hint type="destinationlabel">
      <x>402</x>

@@ -40,7 +40,16 @@ If boundary of the extracted region is chipped away in the output image then eit
 
 ## Curved Planar Reformat
 
-Curved planar reformat module allows "straightening" a curved volume for visualization or quantification. The module provides two-way spatial mapping between the original and straightened space.
+Curved planar reformat module allows "straightening" (default) or "stretching" a curved volume for visualization or quantification. The module provides two-way spatial mapping between the original and straightened space.
+
+![](CurvedPlanarReformat_4.png)
+
+Difference between the two modes are nicely explained in the paper of [Kanitsar et al.](https://www.cg.tuwien.ac.at/research/vis/adapt/Vis2002/AKanitsar_CPR.pdf) (see in the image below: a = projection, b = stretching, c = straightening):
+
+- Straightening: Fully straightens the tubular structure. This CPR method generates a linear representation of the vessel with varying diameter. The height of the resulting image corresponds to the length of the central axis.
+- Stretching: The surface defined by the vessel central axis and the vector-of-interest is curved in one dimension and planar in the other one. As the distance between the two consecutive points is preserved by this operation in image space, isometry is maintained. This isometry is the main advantage of this mode compared to projected or straightened mode.
+
+![](CurvedPlanarReformat_5.png)
 
 ### Adjust reformatting parameters for robust mapping
 
