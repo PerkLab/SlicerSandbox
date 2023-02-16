@@ -110,7 +110,8 @@ This file was originally developed by Andras Lasso, PerkLab and ASH.
         fileType = "SegmentationFile"
       else:
         continue
-      downloadUrl = qt.QUrl(qt.QUrl.fromPercentEncoding(value))
+      downloadUrl = qt.QUrl(value)
+
        # Get the node name from URL
       nodeName, ext = os.path.splitext(os.path.basename(downloadUrl.path()))
       # Generate random filename to avoid reusing/overwriting older downloaded files that may have the same name
@@ -125,7 +126,7 @@ This file was originally developed by Andras Lasso, PerkLab and ASH.
     # Parse additional options
     queryMap = {}
     for key, value in query.queryItems(qt.QUrl.FullyDecoded):
-        queryMap[key] = qt.QUrl.fromPercentEncoding(value)
+        queryMap[key] = value
 
     show3d = False
     if "show3d" in queryMap:
