@@ -11,7 +11,7 @@ from slicer.util import VTKObservationMixin
 
 class ImportOsirixROI(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
@@ -34,7 +34,7 @@ This file was originally developed by Andras Lasso, PerkLab.
 
 class ImportOsirixROIWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent=None):
@@ -210,7 +210,7 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
   this class and make use of the functionality without
   requiring an instance of the Widget.
   Uses ScriptedLoadableModuleLogic base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
   def __init__(self):
     ScriptedLoadableModuleLogic.__init__(self)
@@ -391,7 +391,7 @@ class ImportOsirixROITest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
   Uses ScriptedLoadableModuleTest base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def setUp(self):

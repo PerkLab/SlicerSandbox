@@ -11,7 +11,7 @@ from slicer.util import VTKObservationMixin
 
 class CombineModels(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
@@ -41,7 +41,7 @@ The module uses https://github.com/zippy84/vtkbool for processing.
 
 class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent=None):
@@ -270,7 +270,7 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
   this class and make use of the functionality without
   requiring an instance of the Widget.
   Uses ScriptedLoadableModuleLogic base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self):
@@ -359,7 +359,7 @@ class CombineModelsTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
   Uses ScriptedLoadableModuleTest base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def setUp(self):

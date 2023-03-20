@@ -11,7 +11,7 @@ from slicer.util import VTKObservationMixin
 
 class SceneRecorder(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
@@ -34,7 +34,7 @@ This file was originally developed by Andras Lasso (PerkLab).
 
 class SceneRecorderWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent=None):
@@ -140,7 +140,7 @@ class SceneRecorderLogic(ScriptedLoadableModuleLogic):
   this class and make use of the functionality without
   requiring an instance of the Widget.
   Uses ScriptedLoadableModuleLogic base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self):
@@ -316,7 +316,7 @@ class SceneRecorderTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
   Uses ScriptedLoadableModuleTest base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def setUp(self):
