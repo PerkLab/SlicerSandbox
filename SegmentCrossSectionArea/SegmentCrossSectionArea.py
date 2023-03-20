@@ -11,7 +11,7 @@ from slicer.util import VTKObservationMixin
 
 class SegmentCrossSectionArea(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
@@ -33,7 +33,7 @@ This file was originally developed by Hollister Herhold and Andras Lasso.
 
 class SegmentCrossSectionAreaWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent=None):
@@ -239,7 +239,7 @@ class SegmentCrossSectionAreaLogic(ScriptedLoadableModuleLogic):
   this class and make use of the functionality without
   requiring an instance of the Widget.
   Uses ScriptedLoadableModuleLogic base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def setDefaultParameters(self, parameterNode):
@@ -438,7 +438,7 @@ class SegmentCrossSectionAreaTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
   Uses ScriptedLoadableModuleTest base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def setUp(self):
@@ -466,16 +466,16 @@ class SegmentCrossSectionAreaTest(ScriptedLoadableModuleTest):
 
     self.delayDisplay("Starting the test")
 
-    # Load master volume
+    # Load source volume
     import SampleData
     sampleDataLogic = SampleData.SampleDataLogic()
-    masterVolumeNode = sampleDataLogic.downloadMRBrainTumor1()
+    sourceVolumeNode = sampleDataLogic.downloadMRBrainTumor1()
 
     # Create segmentation
     segmentationNode = slicer.vtkMRMLSegmentationNode()
     slicer.mrmlScene.AddNode(segmentationNode)
     segmentationNode.CreateDefaultDisplayNodes()  # only needed for display
-    segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(masterVolumeNode)
+    segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(sourceVolumeNode)
 
     # Create a sphere shaped segment
     radius = 20
@@ -492,7 +492,7 @@ class SegmentCrossSectionAreaTest(ScriptedLoadableModuleTest):
     plotChartNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLPlotChartNode", "Segment cross-section area plot")
 
     logic = SegmentCrossSectionAreaLogic()
-    logic.run(segmentationNode, masterVolumeNode, "slice", tableNode, plotChartNode)
+    logic.run(segmentationNode, sourceVolumeNode, "slice", tableNode, plotChartNode)
     logic.showChart(plotChartNode)
 
     self.assertEqual(tableNode.GetNumberOfColumns(), 3)

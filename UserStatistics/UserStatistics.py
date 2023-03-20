@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 class UserStatistics(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
@@ -53,7 +53,7 @@ This file was originally developed by Kyle Sunderland (Perk Lab, Queen's Univers
 
 class UserStatisticsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   """Uses ScriptedLoadableModuleWidget base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def __init__(self, parent):
@@ -201,7 +201,7 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
 
   COMPUTER_COLUMN_NAME = 'computer'
   USER_NAME_COLUMN_NAME = 'userName'
-  MASTER_VOLUME_NAME_COLUMN_NAME = 'masterVolumeName'
+  SOURCE_VOLUME_NAME_COLUMN_NAME = 'sourceVolumeName'
   START_TIME_COLUMN_NAME = 'startTime'
   SCENE_COLUMN_NAME = 'scene'
   SEGMENTATION_NAME_COLUMN_NAME = 'segmentationName'
@@ -217,7 +217,7 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
     OPERATION_COLUMN_NAME,
     DURATION_COLUMN_NAME,
     SEGMENT_NAME_COLUMN_NAME,
-    MASTER_VOLUME_NAME_COLUMN_NAME,
+    SOURCE_VOLUME_NAME_COLUMN_NAME,
     SEGMENTATION_NAME_COLUMN_NAME,
     TERMINOLOGY_COLUMN_NAME,
     MODULE_NAME_COLUMN_NAME,
@@ -230,7 +230,7 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
   defaultSerializedParameters = [
     OPERATION_COLUMN_NAME,
     SEGMENT_NAME_COLUMN_NAME,
-    MASTER_VOLUME_NAME_COLUMN_NAME,
+    SOURCE_VOLUME_NAME_COLUMN_NAME,
     SEGMENTATION_NAME_COLUMN_NAME,
     TERMINOLOGY_COLUMN_NAME,
     MODULE_NAME_COLUMN_NAME,
@@ -717,10 +717,10 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
       userInfo = slicer.app.applicationLogic().GetUserInformation()
       value = userInfo.GetName()
 
-    elif name == self.MASTER_VOLUME_NAME_COLUMN_NAME:
-      masterVolume = self.getMasterVolumeNode()
-      if masterVolume:
-        value = masterVolume.GetName()
+    elif name == self.SOURCE_VOLUME_NAME_COLUMN_NAME:
+      sourceVolume = self.getSourceVolumeNode()
+      if sourceVolume:
+        value = sourceVolume.GetName()
 
     elif name == self.START_TIME_COLUMN_NAME:
       value = tableNode.GetCellText(self.getActiveRow(), tableNode.GetColumnIndex(name))
@@ -772,10 +772,10 @@ class UserStatisticsLogic(ScriptedLoadableModuleLogic, VTKObservationMixin):
       return None
     return self.editorNode.GetSegmentationNode()
 
-  def getMasterVolumeNode(self):
+  def getSourceVolumeNode(self):
     if self.editorNode is None:
       return None
-    return self.editorNode.GetMasterVolumeNode()
+    return self.editorNode.GetSourceVolumeNode()
 
   def getSelectedSegment(self):
     if self.editorNode is None:
@@ -799,7 +799,7 @@ class UserStatisticsTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
   Uses ScriptedLoadableModuleTest base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
+  https://github.com/Slicer/Slicer/blob/main/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
   def setUp(self):
