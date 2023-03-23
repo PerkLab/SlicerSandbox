@@ -81,6 +81,7 @@ This file was originally developed by Andras Lasso, PerkLab and ASH.
       - `image` or `volume`: download and show as image
       - `segmentation`: download and show as segmentation
       - `show3d`: show segmentation in 3D and center 3D view
+      - `filename`: filename to specify file format and node name for the first node; useful if the download URL does not contain filename
 
     Display a file (using default file type):
 
@@ -99,9 +100,14 @@ This file was originally developed by Andras Lasso, PerkLab and ASH.
         return
     query = qt.QUrlQuery(url)
 
+    # Parse options
+    queryMap = {}
+    for key, value in query.queryItems(qt.QUrl.FullyDecoded):
+        queryMap[key] = value
+
     # Get list of files to load
     filesToOpen = []
-    for key, value in query.queryItems(qt.QUrl.FullyDecoded):
+    for nodeIndex, [key, value] in enumerate(query.queryItems(qt.QUrl.FullyDecoded)):
       if key == "download":
         fileType = None
       elif key == "image" or key == "volume":
@@ -113,7 +119,12 @@ This file was originally developed by Andras Lasso, PerkLab and ASH.
       downloadUrl = qt.QUrl(value)
 
        # Get the node name from URL
-      nodeName, ext = os.path.splitext(os.path.basename(downloadUrl.path()))
+      if (nodeIndex == 0) and ("filename" in queryMap):
+        baseName = queryMap["filename"]
+      else:
+        baseName = os.path.basename(downloadUrl.path())
+
+      nodeName, ext = os.path.splitext(baseName)
       # Generate random filename to avoid reusing/overwriting older downloaded files that may have the same name
       import uuid
       fileName = f"{nodeName}-{uuid.uuid4().hex}{ext}"
@@ -122,11 +133,6 @@ This file was originally developed by Andras Lasso, PerkLab and ASH.
 
     if not filesToOpen:
         return
-
-    # Parse additional options
-    queryMap = {}
-    for key, value in query.queryItems(qt.QUrl.FullyDecoded):
-        queryMap[key] = value
 
     show3d = False
     if "show3d" in queryMap:
