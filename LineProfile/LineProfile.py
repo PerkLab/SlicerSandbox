@@ -95,22 +95,8 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     self.outputTableSelector.noneEnabled = True
     self.outputTableSelector.showHidden = False
     self.outputTableSelector.setMRMLScene( slicer.mrmlScene )
-    self.outputTableSelector.setToolTip( "Pick the output table to the algorithm." )
-    parametersFormLayout.addRow("Output table: ", self.outputTableSelector)
-
-    #
-    # output plot selector
-    #
-    self.outputPlotSeriesSelector = slicer.qMRMLNodeComboBox()
-    self.outputPlotSeriesSelector.nodeTypes = ["vtkMRMLPlotSeriesNode"]
-    self.outputPlotSeriesSelector.addEnabled = True
-    self.outputPlotSeriesSelector.renameEnabled = True
-    self.outputPlotSeriesSelector.removeEnabled = True
-    self.outputPlotSeriesSelector.noneEnabled = True
-    self.outputPlotSeriesSelector.showHidden = False
-    self.outputPlotSeriesSelector.setMRMLScene( slicer.mrmlScene )
-    self.outputPlotSeriesSelector.setToolTip( "Pick the output plot series to the algorithm." )
-    parametersFormLayout.addRow("Output plot series: ", self.outputPlotSeriesSelector)
+    self.outputTableSelector.setToolTip( "Pick the table that will store the intensity and distance values." )
+    parametersFormLayout.addRow("Intensities output table: ", self.outputTableSelector)
 
     #
     # line resolution
@@ -125,12 +111,91 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     parametersFormLayout.addRow("Line resolution", self.lineResolutionSliderWidget)
 
     #
+    # Plot section
+    #
+    plottingCollapsibleButton = ctk.ctkCollapsibleButton()
+    plottingCollapsibleButton.text = "Plotting"
+    self.layout.addWidget(plottingCollapsibleButton)
+    plottingLayout = qt.QFormLayout(plottingCollapsibleButton)
+
+    #
+    # output plot selector
+    #
+    self.outputPlotSeriesSelector = slicer.qMRMLNodeComboBox()
+    self.outputPlotSeriesSelector.nodeTypes = ["vtkMRMLPlotSeriesNode"]
+    self.outputPlotSeriesSelector.addEnabled = True
+    self.outputPlotSeriesSelector.renameEnabled = True
+    self.outputPlotSeriesSelector.removeEnabled = True
+    self.outputPlotSeriesSelector.noneEnabled = True
+    self.outputPlotSeriesSelector.showHidden = False
+    self.outputPlotSeriesSelector.setMRMLScene( slicer.mrmlScene )
+    self.outputPlotSeriesSelector.setToolTip( "Pick the output plot series to the algorithm." )
+    plottingLayout.addRow("Output plot series: ", self.outputPlotSeriesSelector)
+
+    #
     # Proportional percent distance from start
     #
     self.plotProportionalDistanceCheckBox = qt.QCheckBox(" ")
     self.plotProportionalDistanceCheckBox.checked = False
-    self.plotProportionalDistanceCheckBox.setToolTip("If checked, distance along the line in plot is not absolute, but the percent distance from the start of the line.")
-    parametersFormLayout.addRow("Proportional distance (%):", self.plotProportionalDistanceCheckBox)
+    self.plotProportionalDistanceCheckBox.setToolTip("If checked, then distance along the line in plot is not absolute, but the percent distance from the start of the line.")
+    plottingLayout.addRow("Plot proportional distance (%):", self.plotProportionalDistanceCheckBox)
+
+    #
+    # Peaks section
+    #
+    peaksCollapsibleButton = ctk.ctkCollapsibleButton()
+    peaksCollapsibleButton.text = "Peak detection"
+    self.layout.addWidget(peaksCollapsibleButton)
+    peaksFormLayout = qt.QFormLayout(peaksCollapsibleButton)
+    peaksCollapsibleButton.collapsed = True
+
+    #
+    # output peaks table selector
+    #
+    self.outputPeaksTableSelector = slicer.qMRMLNodeComboBox()
+    self.outputPeaksTableSelector.nodeTypes = ["vtkMRMLTableNode"]
+    self.outputPeaksTableSelector.baseName = "Peaks"
+    self.outputPeaksTableSelector.addEnabled = True
+    self.outputPeaksTableSelector.renameEnabled = True
+    self.outputPeaksTableSelector.removeEnabled = True
+    self.outputPeaksTableSelector.noneEnabled = True
+    self.outputPeaksTableSelector.showHidden = False
+    self.outputPeaksTableSelector.setMRMLScene( slicer.mrmlScene )
+    self.outputPeaksTableSelector.setToolTip( "Pick the output table that will store information about each detected peak." )
+    peaksFormLayout.addRow("Peaks output table: ", self.outputPeaksTableSelector)
+
+    #
+    # peaks minimum width selector
+    #
+    self.peakMinimumWidthSpinBox = slicer.qMRMLSpinBox()
+    self.peakMinimumWidthSpinBox.setMRMLScene(slicer.mrmlScene)
+    self.peakMinimumWidthSpinBox.quantity = "length"
+
+    self.peakMinimumWidthSpinBox.minimum = 0
+    self.peakMinimumWidthSpinBox.maximum = 1e10
+    self.peakMinimumWidthSpinBox.value = 1.0
+    self.peakMinimumWidthSpinBox.setToolTip("Minimum width of the peak. Use higher values to reject small peaks detected due to image noise.")
+    peaksFormLayout.addRow("Minimum peak width:", self.peakMinimumWidthSpinBox)
+
+    #
+    # peaks minimum height selector
+    #
+    self.heightPercentageForWidthMeasurementSpinBox = slicer.qMRMLSpinBox()
+    self.heightPercentageForWidthMeasurementSpinBox.minimum = 0
+    self.heightPercentageForWidthMeasurementSpinBox.maximum = 99.9
+    self.heightPercentageForWidthMeasurementSpinBox.singleStep = 1.0
+    self.heightPercentageForWidthMeasurementSpinBox.value = 50
+    self.heightPercentageForWidthMeasurementSpinBox.suffix = "%"
+    self.heightPercentageForWidthMeasurementSpinBox.setToolTip("Height at which the peak width is measured. 50% computes full width at half maximum. Larger value means that the height is measured near the top of the peak.")
+    peaksFormLayout.addRow("Height for width measurement:", self.heightPercentageForWidthMeasurementSpinBox)
+
+    #
+    # peaks is maximum checkbox
+    #
+    self.peakIsMaximumCheckBox = qt.QCheckBox(" ")
+    self.peakIsMaximumCheckBox.checked = True
+    self.peakIsMaximumCheckBox.setToolTip("If checked then peaks are local maximum values. If unchecked then peaks are local minimum values.")
+    peaksFormLayout.addRow("Peak is maximum:", self.peakIsMaximumCheckBox)
 
     #
     # Apply Button
@@ -141,7 +206,7 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     self.applyButton.enabled = False
     self.applyButton.checkable = False
     self.applyButton.checkBoxControlsButtonToggleState = True
-    parametersFormLayout.addRow(self.applyButton)
+    self.layout.addWidget(self.applyButton)
 
     # connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
@@ -150,8 +215,12 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     self.inputLineSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
     self.outputPlotSeriesSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
     self.outputTableSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
+    self.outputPeaksTableSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelectNode)
     self.lineResolutionSliderWidget.connect("valueChanged(double)", self.onSetLineResolution)
     self.plotProportionalDistanceCheckBox.connect("clicked()", self.onProportionalDistance)
+    self.peakMinimumWidthSpinBox.connect("valueChanged(double)", self.onSetPeakMinimumWidth)
+    self.heightPercentageForWidthMeasurementSpinBox.connect("valueChanged(double)", self.onSetHeightPercentageForWidthMeasurement)
+    self.peakIsMaximumCheckBox.connect("toggled(bool)", self.onSetPeakIsMaximum)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -167,6 +236,7 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
     self.logic.setInputVolumeNode(self.inputVolumeSelector.currentNode())
     self.logic.setInputLineNode(self.inputLineSelector.currentNode())
     self.logic.setOutputTableNode(self.outputTableSelector.currentNode())
+    self.logic.setOutputPeaksTableNode(self.outputPeaksTableSelector.currentNode())
     self.logic.setOutputPlotSeriesNode(self.outputPlotSeriesSelector.currentNode())
 
   def onSetLineResolution(self, resolution):
@@ -193,6 +263,15 @@ class LineProfileWidget(ScriptedLoadableModuleWidget):
   def onProportionalDistance(self):
     self.logic.setPlotProportionalDistance(self.plotProportionalDistanceCheckBox.checked)
 
+  def onSetPeakMinimumWidth(self, value):
+    self.logic.setPeakMinimumWidth(value)
+
+  def onSetHeightPercentageForWidthMeasurement(self, value):
+    self.logic.setHeightPercentageForWidthMeasurement(value)
+
+  def onSetPeakIsMaximum(self, toggle):
+    self.logic.setPeakIsMaximum(toggle)
+
 #
 # LineProfileLogic
 #
@@ -214,6 +293,10 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     self.lineResolution = 100
     self.outputPlotSeriesNode = None
     self.outputTableNode = None
+    self.outputPeaksTableNode = None
+    self.peakMinimumWidth = 1.0
+    self.heightPercentageForWidthMeasurement = 50
+    self.peakIsMaximum = True
     self.plotChartNode = None
     self.plotProportionalDistance = False
 
@@ -243,10 +326,38 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     if self.getEnableAutoUpdate():
       self.update()
 
+  def setPeakMinimumWidth(self, peakMinimumWidth):
+    if self.peakMinimumWidth == peakMinimumWidth:
+      return
+    self.peakMinimumWidth = peakMinimumWidth
+    if self.getEnableAutoUpdate():
+      self.update()
+
+  def setHeightPercentageForWidthMeasurement(self, heightPercentageForWidthMeasurement):
+    if self.heightPercentageForWidthMeasurement == heightPercentageForWidthMeasurement:
+      return
+    self.heightPercentageForWidthMeasurement = heightPercentageForWidthMeasurement
+    if self.getEnableAutoUpdate():
+      self.update()
+
+  def setPeakIsMaximum(self, peakIsMaximum):
+    if self.peakIsMaximum == peakIsMaximum:
+      return
+    self.peakIsMaximum = peakIsMaximum
+    if self.getEnableAutoUpdate():
+      self.update()
+
   def setOutputTableNode(self, tableNode):
     if self.outputTableNode == tableNode:
       return
     self.outputTableNode = tableNode
+    if self.getEnableAutoUpdate():
+      self.update()
+
+  def setOutputPeaksTableNode(self, tableNode):
+    if self.outputPeaksTableNode == tableNode:
+      return
+    self.outputPeaksTableNode = tableNode
     if self.getEnableAutoUpdate():
       self.update()
 
@@ -259,6 +370,8 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
 
   def update(self):
     self.updateOutputTable(self.inputVolumeNode, self.inputLineNode, self.outputTableNode, self.lineResolution)
+    if self.outputPeaksTableNode:
+      self.updateOutputPeaksTable(self.outputPeaksTableNode, self.outputTableNode, self.peakMinimumWidth, self.heightPercentageForWidthMeasurement, self.peakIsMaximum)
     self.updatePlot(self.outputPlotSeriesNode, self.outputTableNode, self.inputVolumeNode.GetName())
     self.showPlot()
 
@@ -382,6 +495,61 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     intensityArray.Modified()
     outputTable.GetTable().Modified()
 
+  def updateOutputPeaksTable(self, outputPeaksTable, intensitiesTable, peakMinimumWidth=None, heightPercentageForWidthMeasurement=50, peakIsMaximum=True):
+    if outputPeaksTable is None or intensitiesTable is None:
+        return
+    if intensitiesTable.GetTable().GetNumberOfRows() == 0:
+      outputPeaksTable.GetTable().SetNumberOfRows(0)
+      return
+
+    intensityArray = self.getArrayFromTable(intensitiesTable, INTENSITY_ARRAY_NAME)
+
+    # Create output arrays
+    peakPositionArray = self.getArrayFromTable(outputPeaksTable, DISTANCE_ARRAY_NAME)
+    peakIntensityArray = self.getArrayFromTable(outputPeaksTable, INTENSITY_ARRAY_NAME)
+    peakHeightArray = self.getArrayFromTable(outputPeaksTable, PEAK_HEIGHT_ARRAY_NAME)
+    peakWidthArray = self.getArrayFromTable(outputPeaksTable, PEAK_WIDTH_ARRAY_NAME)
+    peakStartArray = self.getArrayFromTable(outputPeaksTable, PEAK_START_ARRAY_NAME)
+    peakEndArray = self.getArrayFromTable(outputPeaksTable, PEAK_END_ARRAY_NAME)
+
+    # Ensure that the intensities are equally sampled (it may not be evenly sample if closed curve)
+    from scipy.signal import resample, find_peaks, peak_widths
+    distances_input = slicer.util.arrayFromTableColumn(intensitiesTable, DISTANCE_ARRAY_NAME)
+    intensities_input = slicer.util.arrayFromTableColumn(intensitiesTable, INTENSITY_ARRAY_NAME)
+    sample_count = len(distances_input) * 10
+    intensities, distances = resample(intensities_input, sample_count, distances_input)
+
+    # Compute peak physical width from indices
+    start = distances[0]
+    scale = distances[1] - distances[0]
+
+    # Find peaks and get their widths
+    intensityMultiplier = 1.0 if peakIsMaximum else -1.0
+    peakIndices, _ = find_peaks(intensityMultiplier * intensities, width = peakMinimumWidth / scale)
+    relativeHeight = 1.0 - (heightPercentageForWidthMeasurement / 100)
+    peakWidthIndices, peakHeights, peakStartIndices, peakEndIndices = peak_widths(intensityMultiplier * intensities, peakIndices, rel_height = relativeHeight)
+    peakHeights *= intensityMultiplier
+
+    outputPeaksTable.GetTable().SetNumberOfRows(len(peakIndices))
+
+    for peak in range(len(peakIndices)):
+      peakPositionArray.SetValue(peak, start + scale * peakIndices[peak])
+      peakIntensity = intensities[peakIndices[peak]]
+      peakIntensityArray.SetValue(peak, peakIntensity)
+      # total peak height is computed from base to tip
+      peakHeightArray.SetValue(peak, (peakIntensity - peakHeights[peak]) / heightPercentageForWidthMeasurement)
+      peakWidthArray.SetValue(peak, scale * peakWidthIndices[peak])
+      peakStartArray.SetValue(peak, start + scale * peakStartIndices[peak])
+      peakEndArray.SetValue(peak, start + scale * peakEndIndices[peak])
+
+    peakPositionArray.Modified()
+    peakIntensityArray.Modified()
+    peakWidthArray.Modified()
+    peakHeightArray.Modified()
+    peakStartArray.Modified()
+    peakEndArray.Modified()
+    outputPeaksTable.GetTable().Modified()
+
   def updatePlot(self, outputPlotSeries, outputTable, name=None):
     if outputPlotSeries is None or outputTable is None:
         return
@@ -463,3 +631,7 @@ class LineProfileTest(ScriptedLoadableModuleTest):
 DISTANCE_ARRAY_NAME = "Distance"
 PROPORTIONAL_DISTANCE_ARRAY_NAME = "RelativeDistance"
 INTENSITY_ARRAY_NAME = "Intensity"
+PEAK_HEIGHT_ARRAY_NAME = "Height"
+PEAK_WIDTH_ARRAY_NAME = "Width"
+PEAK_START_ARRAY_NAME = "Start"
+PEAK_END_ARRAY_NAME = "End"
