@@ -18,7 +18,7 @@ class ImportSliceOmatic(ScriptedLoadableModule):
     self.parent.helpText = """Load segmentation from tag file created by SliceOmatic"""
     self.parent.acknowledgementText = """This file was originally developed by Andras Lasso, PerkLab."""
     # don't show this module - it is only for registering a reader
-    parent.hidden = True 
+    parent.hidden = True
 
 #
 # Reader plugin
@@ -40,6 +40,14 @@ class ImportSliceOmaticFileReader(object):
     return ['SliceOmatic tag file (*.tag)']
 
   def canLoadFile(self, filePath):
+    try:
+      # Check first if loadable based on file extension
+      if not self.parent.supportedNameFilters(filePath):
+        return False
+    except:
+      # Slicer version earlier than 5.3-2023-07-31
+      pass
+
     try:
       headerInfo = ImportSliceOmaticFileReader.readHeader(filePath)
       if not headerInfo:

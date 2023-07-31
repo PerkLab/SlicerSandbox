@@ -18,7 +18,7 @@ class ImportItkSnapLabel(ScriptedLoadableModule):
     self.parent.helpText = """Load ITK-Snap label description file (.label or .txt)."""
     self.parent.acknowledgementText = """This file was originally developed by Andras Lasso, PerkLab."""
     # don't show this module - it is only for registering a reader
-    parent.hidden = True 
+    parent.hidden = True
 
 #
 # Reader plugin
@@ -40,6 +40,14 @@ class ImportItkSnapLabelFileReader(object):
     return ['ITK-Snap label description file (*.label)', 'ITK-Snap label description file (*.txt)']
 
   def canLoadFile(self, filePath):
+    try:
+      # Check first if loadable based on file extension
+      if not self.parent.supportedNameFilters(filePath):
+        return False
+    except:
+      # Slicer version earlier than 5.3-2023-07-31
+      pass
+
     try:
       colors = ImportItkSnapLabelFileReader.parseLabelFile(filePath)
       if not colors:
@@ -92,17 +100,17 @@ class ImportItkSnapLabelFileReader(object):
     File format description:
     ################################################
     # ITK-SnAP Label Description File
-    # File format: 
+    # File format:
     # IDX   -R-  -G-  -B-  -A--  VIS MSH  LABEL
-    # Fields: 
-    #    IDX:   Zero-based index 
+    # Fields:
+    #    IDX:   Zero-based index
     #    -R-:   Red color component (0..255)
     #    -G-:   Green color component (0..255)
     #    -B-:   Blue color component (0..255)
     #    -A-:   Label transparency (0.00 .. 1.00)
     #    VIS:   Label visibility (0 or 1)
     #    IDX:   Label mesh visibility (0 or 1)
-    #  LABEL:   Label description 
+    #  LABEL:   Label description
     ################################################
     """
 
