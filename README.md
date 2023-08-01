@@ -171,6 +171,35 @@ How to use:
   - Choose the loaded color table node in the options column (rightmost widget)
   - Click OK
 
+
+## ImportNumpyArray
+
+This module registers a file reader for numpy array (`.npy`, `.npz`).
+
+See https://numpy.org/devdocs/reference/generated/numpy.lib.format.html#npy-format
+
+The reader can read an array of 1 to 5 dimensions into an image represented by a specific MRML node.
+
+| Dimension | Axis order                         | MRML node                 |
+|-----------|------------------------------------|---------------------------|
+| 1D        | `I`                                | `vtkMRMLScalarVolumeNode` |
+| 2D        | `J`, `I`                           | `vtkMRMLScalarVolumeNode` |
+| 3D        | `K`, `J`, `I`                      | `vtkMRMLScalarVolumeNode` |
+| 4D        | `K`, `J`, `I`, `component`         | `vtkMRMLVectorVolumeNode` |
+| 5D        | `time`, `K`, `J`, `I`, `component` | `vtkMRMLSequenceNode`     |
+
+
+Notes:
+
+* User is responsible for setting the correct IJK to RAS matrix.
+
+* For the 4D and 5D cases, having the channel-last convention corresponds to the ITK/VTK memory layout and is different from the
+  convention used in `PyTorch` for [NCHW for 4D][NCHW] tensors/arrays and [NCDHW for 5D][NCDHW].
+
+[NCHW]: https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html#torch.nn.Conv2d
+[NCDHW]: https://pytorch.org/docs/stable/generated/torch.nn.Conv3d.html#torch.nn.Conv3d
+
+
 ## LoadRemoteFile
 
 Example module that allows opening a file in 3D Slicer by clicking on a link in a web browser. It requires the `slicer://` custom URL protocol to be associated with the 3D Slicer application. The Slicer installer on Windows does this automatically, but it has to be set up manually on linux and macOS.
