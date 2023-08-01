@@ -28,6 +28,7 @@ if (Slicer_VERSION VERSION_LESS 5.1)
   # Latest Slicer 5.1 and above has ITK-Snap Label Description File importer built in
   add_subdirectory(ImportItkSnapLabel)
 endif()
+add_subdirectory(ImportNumPyArray)
 add_subdirectory(ImportOCT)
 add_subdirectory(ImportOpenInventor)
 add_subdirectory(ImportOsirixROI)
