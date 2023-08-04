@@ -390,9 +390,9 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
             logging.warn(
                 "Product of scale matrices should equal stretch matrix K, but it does not!"
             )
-        if not np.allclose(H, F * T @ R @ scale_prod):
+        if not np.allclose(H, T @ F @ R @ scale_prod):
             logging.warn(
-                "T*R*(product of scale matrices) should equal stretch matrix K, but it does not!"
+                "T*F*R*(product of scale matrices) should equal H, but it does not!"
             )
         # Return all interesting outputs
         return T, F, R, K, S, f, X
