@@ -25,8 +25,8 @@ class CharacterizeTransformMatrix(ScriptedLoadableModule):
         # TODO: update with short description of the module and a link to online module documentation
         self.parent.helpText = """
 This module uses polar decomposition to describe the components of a 4x4 transform matrix. The decomposition has the form:
-H = T * R * K, where H is the full homogeneous transformation matrix (with 0,0,0,1 as the bottom row), T is a translation-only matrix,
-R is a rotation-only matrix, and K is a stretch matrix. K can further be decompsed into three scale matrices, which can each be
+H = T * F * R * K, where H is the full homogeneous transformation matrix (with 0,0,0,1 as the bottom row), T is a translation-only matrix,
+F is a reflection-only matrix (identity matrix if no reflection), R is a rotation-only matrix, and K is a stretch matrix. K can further be decompsed into three scale matrices, which can each be
 characterized by a stretch direction (an eigenvector) and a stretch factor (the associated eigenvalue). Points 
 to be transformed are on the right, so the order of operations is stretching first, then rotation, then translation.
 
@@ -38,7 +38,7 @@ decompositionResults = CharacterizeTransformMatrix.CharacterizeTransformMatrixLo
 
 decompositionResults will then be a namedTuple with all the information from the decomposition.
 
-See more information in <a href="https://github.com/mikebind/SlicerCharacterizeLinearTransform">module documentation</a>.
+See more information in <a href="https://github.com/PerkLab/SlicerSandbox#characterize-transform-matrix">module documentation</a>.
 """
 
         self.parent.acknowledgementText = """
@@ -161,8 +161,16 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         import numpy as np
         import scipy
 
-        T, R, K, S, f, X = self.polarDecompose(H)
+        T, F, R, K, S, f, X = self.polarDecompose(H)
         textResults = []
+        #### Reflection
+        if np.linalg.det(F) < 0:
+            hasReflection = True
+            line = "This transformation includes a reflection!"
+        else:
+            hasReflection = False
+            line = "This transformation does not include a reflection."
+        textResults.append(line)
         #### Stretch
         # Report scale factors and stretch directions, determine if rigid, largest percent change, volumePercentChange
         line = "Scale factors and stretch directions (eigenvalues and eigenvectors of stretch matrix K):"
@@ -182,18 +190,18 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         largestPercentChangeIdx = np.argmax(np.abs(percentChanges))
         largestPercentChange = percentChanges[largestPercentChangeIdx]
         volumePercentChange = (np.prod(f) - 1) * 100
-        if np.abs(largestPercentChange) < 0.1:
+        if np.abs(largestPercentChange) < 0.1 and not hasReflection:
             isRigid = True
             line = f"This transform is essentially rigid (largest percent scale changes is {largestPercentChange:+0.3f}%, volume percent change is {volumePercentChange:+0.3f}%)."
-            textResults.append(line)
-            if verbose:
-                print(line)
         else:
             isRigid = False
-            line = f"This transform is not rigid! Total volume changes by {volumePercentChange:+0.3f}%, and maximal change in one direction is {largestPercentChange:+0.3f}%"
-            textResults.append(line)
-            if verbose:
-                print(line)
+            if np.abs(largestPercentChange) < 0.1 and hasReflection:
+                line = f"This transform does not change volume (largest percent scale changes is {largestPercentChange:+0.3f}%, volume percent change is {volumePercentChange:+0.3f}%), but is not rigid because it contains a reflection."
+            else:
+                line = f"This transform is not rigid! Total volume changes by {volumePercentChange:+0.3f}%, and maximal change in one direction is {largestPercentChange:+0.3f}%"
+        textResults.append(line)
+        if verbose:
+            print(line)
         #### Rotation
         # Create Rotation object from matrix
         r = scipy.spatial.transform.Rotation.from_matrix(R[:3, :3])
@@ -259,10 +267,12 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         )
         textResults.append(line)
         #### Order of operations
-        line = "The order of application of the decomposed operations is stretch, then rotate, then translate. A different order of transform application would generally lead to a different set of decomposition matrices."
+        line = f"The order of application of the decomposed operations is stretch, then rotate, {'then reflect through origin, ' if hasReflection else ''}then translate. A different order of transform application would generally lead to a different set of decomposition matrices."
         textResults.append(line)
         if verbose:
             print(line)
+        if hasReflection:
+            line = "Reflection, which is present in this case, could be thought of as applied at any single step in the transformation process since scalar multiplication is communtative."
         #### Return values as named tuple
         import collections
 
@@ -270,6 +280,7 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
             "TransformMatrixAnaylsisResults",
             [
                 "textResults",
+                "hasReflection",
                 "isRigid",
                 "scaleFactors",
                 "scaleDirections",
@@ -281,6 +292,7 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
                 "eulerAnglesRAS",
                 "translationVector",
                 "translationOnlyMatrix",
+                "reflectionOnlyMatrix",
                 "rotationOnlyMatrix",
                 "stretchOnlyMatrix",
                 "scaleMatrixList",
@@ -289,6 +301,7 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         )
         results = resultsNamedTupleClass(
             textResults=textResults,
+            hasReflection=hasReflection,
             isRigid=isRigid,
             scaleFactors=f,
             scaleDirections=scaleDirections,
@@ -301,6 +314,7 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
             translationVector=translationVector,
             translationOnlyMatrix=T,
             rotationOnlyMatrix=R,
+            reflectionOnlyMatrix=F,
             stretchOnlyMatrix=K,
             scaleMatrixList=S,
             stretchEigenvectorMatrix=X,
@@ -324,13 +338,15 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
         """Compute polar decomposition of 4x4 numpy matrix H.
         Outputs are:
         T: translation only matrix
+        F: reflection only matrix
         R: rotation only matrix
         K: stretch matrix
         S: list of scale matrices, in order of decreasing eigenvalues
         f: list of eigenvalues of the stretch matrix
         X: eigenvector matrix of stretch matrix
+
         The decomposition is such that the following is true:
-        T*R*K = H
+        T*F*R*K = H
         S1*S2*S3 = K (where S<N> is the Nth scale matrix)
         Furthermore, S1 is a matrix which scales in the direction of
         the first eigenvector of K by a factor of the first (largest) eigenvalue
@@ -342,15 +358,22 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
 
         T, L = self.separateTranslation(H)  # T is translation matrix,
         R, K = polar(L)  # R is rotation matrix, K is stretch matrix
-        # The determinant of a rotation matrix must be positive
         if np.linalg.det(R) < 0:
+            # The transformation matrix rotation component is improper (contains
+            # a reflection as well as a rotation)),
+            # convert to a proper rotation matrix
             R[:3, :3] = -R[:3, :3]
-            K[:3, :3] = -K[:3, :3]
+            # and set the 'reflection' matrix
+            F = np.diag([-1.0, -1.0, -1.0, 1.0])
+        else:
+            # The transformation matrix does not contain a reflection, the
+            # "reflection" matrix is just the identity matrix
+            F = np.eye(4)
         # Check answer still OK
-        if not np.allclose(L, R @ K):
-            raise Exception("R*K should equal L, but it does not!")
-        if not np.allclose(H, T @ R @ K):
-            raise Exception("T*R*K should equal H, but it does not!")
+        if not np.allclose(L, F @ R @ K):
+            raise Exception("F*R*K should equal L, but it does not!")
+        if not np.allclose(H, T @ F @ R @ K):
+            raise Exception("T*F*R*K should equal H, but it does not!")
         # Decompose stretch matrix K into scale matrices
         f, X = np.linalg.eig(K)  # eigenvalues and eigenvectors of stretch matrix
         S = []
@@ -367,12 +390,12 @@ class CharacterizeTransformMatrixLogic(ScriptedLoadableModuleLogic):
             logging.warn(
                 "Product of scale matrices should equal stretch matrix K, but it does not!"
             )
-        if not np.allclose(H, T @ R @ scale_prod):
+        if not np.allclose(H, F * T @ R @ scale_prod):
             logging.warn(
                 "T*R*(product of scale matrices) should equal stretch matrix K, but it does not!"
             )
         # Return all interesting outputs
-        return T, R, K, S, f, X
+        return T, F, R, K, S, f, X
 
 
 #
