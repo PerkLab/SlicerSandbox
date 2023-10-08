@@ -51,15 +51,19 @@ class ColorizeVolumeParameterNode:
 
     inputScalarVolume - The volume to threshold.
     inputSegmentation - The output volume that will contain the inverted thresholded volume.
-    softEdgeThickness - The value at which to threshold the input volume.
     outputRgbaVolume - The output volume that will contain the thresholded volume.
+    softEdgeThicknessVoxel - The value at which to threshold the input volume.
     maskVolume - If true, will invert the threshold.
+    backgroundOpacity - Opacity factor for regions outside all segments.
+    autoShowVolumeRendering - Automatically display volume rendering after processing is completed.
     """
     inputScalarVolume: vtkMRMLScalarVolumeNode
     inputSegmentation: vtkMRMLSegmentationNode
     outputRgbaVolume: vtkMRMLVectorVolumeNode
-    softEdgeThickness: Annotated[float, WithinRange(0, 10)] = 1.0
+    softEdgeThicknessVoxel: Annotated[float, WithinRange(0, 5)] = 1.0
     maskVolume: bool = False
+    backgroundOpacity: Annotated[float, WithinRange(0, 1.0)] = 0.2
+    autoShowVolumeRendering: bool = True
 
 
 #
@@ -108,8 +112,13 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.StartCloseEvent, self.onSceneStartClose)
         self.addObserver(slicer.mrmlScene, slicer.mrmlScene.EndCloseEvent, self.onSceneEndClose)
 
+        self.ui.outputRgbaVolumeSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onOutputRgbaVolumeSelected)
+
         # Buttons
         self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
+        self.ui.showVolumeRenderingButton.connect('clicked(bool)', self.onShowButton)
+        self.ui.resetVolumeRenderingSettingsButton.connect('clicked(bool)', self.onResetVolumeRenderingSettingsButton)
+        self.ui.volumeRenderingSettingsButton.connect('clicked(bool)', self.onVolumeRenderingSettingsButton)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -205,9 +214,52 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if not self._parameterNode.outputRgbaVolume:
                 self._parameterNode.outputRgbaVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLVectorVolumeNode", f"{self._parameterNode.inputScalarVolume.GetName()} colored")
 
+            # Parameter node does not support color selector
+            backgroundColorRgba = [
+                self.ui.backgroundColorPickerButton.color.redF(),
+                self.ui.backgroundColorPickerButton.color.greenF(),
+                self.ui.backgroundColorPickerButton.color.blueF(),
+                self._parameterNode.backgroundOpacity]
+
             # Compute output
-            self.logic.process(self._parameterNode.inputScalarVolume, self._parameterNode.inputSegmentation, self._parameterNode.outputRgbaVolume,
-                               self._parameterNode.softEdgeThickness, self._parameterNode.maskVolume)
+            self.logic.process(
+                self._parameterNode.inputScalarVolume,
+                self._parameterNode.inputSegmentation,
+                self._parameterNode.outputRgbaVolume,
+                backgroundColorRgba,
+                self._parameterNode.maskVolume,
+                self._parameterNode.softEdgeThicknessVoxel)
+            
+            if self._parameterNode.autoShowVolumeRendering:
+                self.onShowButton()
+
+    def onShowButton(self) -> None:
+        """
+        Show output volume using volume rendering.
+        """
+        self.logic.showVolumeRendering(self._parameterNode.outputRgbaVolume, resetSettings = False)
+        self.onOutputRgbaVolumeSelected()
+
+    def onResetVolumeRenderingSettingsButton(self) -> None:
+        """
+        Show output volume using volume rendering.
+        """
+        self.logic.showVolumeRendering(self._parameterNode.outputRgbaVolume, resetSettings = True)
+        self.onOutputRgbaVolumeSelected()
+
+    def onVolumeRenderingSettingsButton(self) -> None:
+        volumeRenderingLogic = slicer.modules.volumerendering.logic()
+        vrDisplayNode = volumeRenderingLogic.CreateDefaultVolumeRenderingNodes(self._parameterNode.outputRgbaVolume)
+        slicer.app.openNodeModule(vrDisplayNode)
+
+    def onOutputRgbaVolumeSelected(self) -> None:
+        volumeNode = self.ui.outputRgbaVolumeSelector.currentNode()
+        volumeRenderingDisplayNode = slicer.modules.volumerendering.logic().GetFirstVolumeRenderingDisplayNode(volumeNode) if volumeNode else None
+        volumeRenderingPropertyNode = volumeRenderingDisplayNode.GetVolumePropertyNode() if volumeRenderingDisplayNode else None
+        self.ui.volumePropertyNodeWidget.enabled = (volumeRenderingPropertyNode is not None)
+        if not volumeRenderingPropertyNode:
+            return
+        self.ui.volumePropertyNodeWidget.setMRMLVolumePropertyNode(volumeRenderingPropertyNode)
 
 
 #
@@ -237,23 +289,28 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
                 inputScalarVolume: vtkMRMLScalarVolumeNode,
                 inputSegmentation: vtkMRMLSegmentationNode,
                 outputRgbaVolume: vtkMRMLVectorVolumeNode,
-                softEdgeThickness: float,
+                backgroundColorRgba: list,
                 maskVolume: bool = False,
-                showResult: bool = True) -> None:
+                softEdgeThicknessVoxel: float = 1.5) -> None:
         """
         Run the processing algorithm.
         Can be used without GUI widget.
         :param inputScalarVolume: volume to be thresholded
-        :param outputRgbaVolume: thresholding result
-        :param softEdgeThickness: edge smoothing physical distance (in mm)
-        :param invert: if True then values above the threshold will be set to 0, otherwise values below are set to 0
-        :param showResult: show output volume in slice viewers
+        :param inputSegmentation: segmentation to be used for coloring
+        :param outputRgbaVolume: colorized RGBA volume
+        :param backgroundColorRgba: color and opacity of voxels that are not segmented (RGBA)
+        :param maskVolume: if True, then non-segmented voxels will be blanked out
+        :param softEdgeThicknessVoxel: edge smoothing thickness (in voxels)
         """
 
         if not inputScalarVolume or not inputSegmentation or not outputRgbaVolume:
             raise ValueError("Input or output volume is invalid")
 
+        import numpy as np
         import time
+        import vtk
+        import vtk.util.numpy_support
+
         startTime = time.time()
         logging.info('Processing started')
 
@@ -262,88 +319,142 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
 
         volumesLogic = slicer.modules.volumes.logic()
 
-        import vtk
-        segmentIds = vtk.vtkStringArray()
+        segmentIds = segmentationNode.GetDisplayNode().GetVisibleSegmentIDs()
+        slicer.util.showStatusMessage("Exporting segments...", 1000)
+        slicer.app.processEvents()
         labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", "__temp__")
         if not slicer.modules.segmentations.logic().ExportSegmentsToLabelmapNode(segmentationNode, segmentIds, labelmapVolumeNode, volumeNode):
             raise RuntimeError("Export of segment failed.")
+        slicer.app.processEvents()
         colorTableNode = labelmapVolumeNode.GetDisplayNode().GetColorNode()
 
-        colorTableNode.SetColor(0,127,127,127)
+        # Background color
+        colorTableNode.SetColor(0, *backgroundColorRgba)
+        for segmentIndex, segmentId in enumerate(segmentIds):
+            segment = segmentationNode.GetSegmentation().GetSegment(segmentId)
+            color = segment.GetColor()
+            opacity = segmentationNode.GetDisplayNode().GetSegmentOpacity3D(segmentId)
+            colorTableNode.SetColor(segmentIndex + 1, *color, opacity)
+
+        labelImage = labelmapVolumeNode.GetImageData()
+
+        # Dilate labelmap to avoid edge artifacts
+        # We could use the slow method if the fast vtkImageMaskedMedian3D is not available,
+        # but it would be very slow, so we rather skip dilation completely.
+        dilateMethod = 'fast' if hasattr(slicer, 'vtkImageMaskedMedian3D') else None
+        if dilateMethod:
+            dilationKernelSize = 3 if maskVolume else int(softEdgeThicknessVoxel + 0.5) * 2 + 1
+            if dilateMethod == 'slow':
+                for segmentIndex in range(len(segmentIds)):
+                    slicer.util.showStatusMessage(f"Dilating segment {segmentIndex+1}/{len(segmentIds)}")
+                    slicer.app.processEvents()
+                    colorIndex = 1 + segmentIndex
+                    dilate = vtk.vtkImageDilateErode3D()
+                    dilate.SetInputData(labelImage)
+                    dilate.SetKernelSize(dilationKernelSize, dilationKernelSize, dilationKernelSize)
+                    dilate.SetDilateValue(colorIndex)
+                    dilate.SetErodeValue(0)
+                    dilate.Update()
+                    labelImage = dilate.GetOutput()            
+            else:  # dilateMethod == 'fast':
+                slicer.util.showStatusMessage(f"Dilating segments...")
+                slicer.app.processEvents()
+                dilate = slicer.vtkImageMaskedMedian3D()
+                dilate.SetInputData(labelImage)
+                dilate.SetKernelSize(dilationKernelSize, dilationKernelSize, dilationKernelSize)
+                dilate.Update()
+                labelImage = dilate.GetOutput()            
+
+        slicer.util.showStatusMessage(f"Generating colorized volume...")
+        slicer.app.processEvents()
 
         mapToRGB = vtk.vtkImageMapToColors()
         mapToRGB.ReleaseDataFlagOn()
-        mapToRGB.SetOutputFormatToRGB()
-        mapToRGB.SetInputData(labelmapVolumeNode.GetImageData())
+        mapToRGB.SetOutputFormatToRGBA()
+        mapToRGB.SetInputData(labelImage)
         mapToRGB.SetLookupTable(colorTableNode.GetLookupTable())
         mapToRGB.Update()
+
+        outputRgbaVolume.CopyOrientation(volumeNode)
+        outputRgbaVolume.SetVoxelVectorType(slicer.vtkMRMLVolumeNode.VoxelVectorTypeColorRGBA)
+        outputRgbaVolume.SetAndObserveImageData(mapToRGB.GetOutput())
+        outputRgbaVolume.CreateDefaultDisplayNodes()
 
         shiftScale = vtk.vtkImageShiftScale()
         shiftScale.ReleaseDataFlagOn()
         shiftScale.SetOutputScalarType(vtk.VTK_UNSIGNED_CHAR)
+        
         [rangeMin, rangeMax] = volumeNode.GetImageData().GetScalarRange()
+
+        useDisplayedRange = True
+        if useDisplayedRange:
+            rangeMin = volumeNode.GetScalarVolumeDisplayNode().GetWindowLevelMin()
+            rangeMax = volumeNode.GetScalarVolumeDisplayNode().GetWindowLevelMax()
+
         shiftScale.SetScale(255 / (rangeMax-rangeMin))
         shiftScale.SetShift(-rangeMin)
         shiftScale.ClampOverflowOn()
         shiftScale.SetInputData(volumeNode.GetImageData())
         shiftScale.Update()
 
-        appendComponents = vtk.vtkImageAppendComponents()
-        shiftScale.ReleaseDataFlagOn()
-        appendComponents.AddInputData(mapToRGB.GetOutput())
-        appendComponents.AddInputData(shiftScale.GetOutput())
-        appendComponents.Update()
-
-        outputRgbaVolume.CopyOrientation(volumeNode)
-        outputRgbaVolume.SetVoxelVectorType(slicer.vtkMRMLVolumeNode.VoxelVectorTypeColorRGBA)
-        outputRgbaVolume.SetAndObserveImageData(appendComponents.GetOutput())
-        outputRgbaVolume.CreateDefaultDisplayNodes()
-        del appendComponents
-
         # Masking
         rgbaVoxels = slicer.util.arrayFromVolume(outputRgbaVolume)
         labelVoxels = slicer.util.arrayFromVolume(labelmapVolumeNode)
-        rgbaVoxels[labelVoxels==0, 0:3] = 255
-        if maskVolume:            
-            if softEdgeThickness == 0:
-                rgbaVoxels[labelVoxels==0, 3] = 0
-            else:
-                # Soft edge
 
-                scaledInputImage = shiftScale.GetOutput()
+        scaledInputImage = shiftScale.GetOutput()
+        nshape = tuple(reversed(scaledInputImage.GetDimensions()))
+        shiftScaleArray = vtk.util.numpy_support.vtk_to_numpy(scaledInputImage.GetPointData().GetScalars()).reshape(nshape)
 
-                import vtk.util.numpy_support
-                nshape = tuple(reversed(scaledInputImage.GetDimensions()))
+        if maskVolume:
+            shiftScaleArray[labelVoxels==0] = 0
 
+            # Soft edge
+            if softEdgeThicknessVoxel > 0:
                 gaussianFilter = vtk.vtkImageGaussianSmooth()
-                spacing = labelmapVolumeNode.GetSpacing()
-                standardDeviationPixel = [1.0, 1.0, 1.0]
-                for idx in range(3):
-                    standardDeviationPixel[idx] = softEdgeThickness / spacing[idx]
-                shiftScaleArray = vtk.util.numpy_support.vtk_to_numpy(scaledInputImage.GetPointData().GetScalars()).reshape(nshape)
-                shiftScaleArray[labelVoxels==0] = 0
                 gaussianFilter.SetInputData(scaledInputImage)
-                gaussianFilter.SetStandardDeviations(*standardDeviationPixel)
+                gaussianFilter.SetStandardDeviations(softEdgeThicknessVoxel, softEdgeThicknessVoxel, softEdgeThicknessVoxel)
                 # Do not truncate the Gaussian kernel at the default 1.5 sigma,
                 # because it would result in edge artifacts.
                 # Larger value results in less edge artifact but increased computation time,
                 # so 3.0 is a good tradeoff.
                 gaussianFilter.SetRadiusFactor(3.0)
                 gaussianFilter.Update()
-                smoothedMaskedScaledArray = vtk.util.numpy_support.vtk_to_numpy(gaussianFilter.GetOutput().GetPointData().GetScalars()).reshape(nshape)
+                shiftScaleArray = vtk.util.numpy_support.vtk_to_numpy(gaussianFilter.GetOutput().GetPointData().GetScalars()).reshape(nshape)
 
-                rgbaVoxels[:, :, :, 3] = smoothedMaskedScaledArray[:]
-            
-
+        rgbaVoxels[:, :, :, 3] = (np.multiply(shiftScaleArray[:].astype(np.float32), rgbaVoxels[:, :, :, 3]) / 255.0).astype(np.uint8)
         slicer.util.arrayFromVolumeModified(outputRgbaVolume)
 
-
         # Remove temporary nodes
-        #slicer.mrmlScene.RemoveNode(colorTableNode)
+        slicer.mrmlScene.RemoveNode(colorTableNode)
         slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
 
         stopTime = time.time()
         logging.info(f'Processing completed in {stopTime-startTime:.2f} seconds')
+
+        slicer.util.showStatusMessage("Processing completed.", 1000)
+
+    def showVolumeRendering(self, volumeNode: vtkMRMLVectorVolumeNode, resetSettings = True) -> None:
+        """
+        Show volume rendering of the given volume node.
+        """
+
+        volumeRenderingLogic = slicer.modules.volumerendering.logic()
+        vrDisplayNode = slicer.modules.volumerendering.logic().GetFirstVolumeRenderingDisplayNode(volumeNode)
+        if not vrDisplayNode:
+            vrDisplayNode = volumeRenderingLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+            resetSettings = True
+
+        vrDisplayNode.SetVisibility(True)
+
+        if resetSettings:
+            vrProp = vrDisplayNode.GetVolumePropertyNode()
+            opacityTransferFunction = vrProp.GetScalarOpacity()
+
+            opacityTransferFunction.RemoveAllPoints()
+            opacityTransferFunction.AddPoint(0, 0.0)
+            opacityTransferFunction.AddPoint(30, 0.0)
+            opacityTransferFunction.AddPoint(225, 0.3)
+            opacityTransferFunction.AddPoint(255, 0.3)
 
 
 #
@@ -413,9 +524,3 @@ class ColorizeVolumeTest(ScriptedLoadableModuleTest):
         self.assertEqual(outputScalarRange[1], inputScalarRange[1])
 
         self.delayDisplay('Test passed')
-
-
-# TODO: use alpha of segments? to allow segments to be more/less visible
-# TODO: mask with all segments, with smooth edges
-# TODO: expand segmentation to include all voxels that are within a given distance from the surface;
-#       using median filter that ignores 0; this would remove the dark halo around the segments
