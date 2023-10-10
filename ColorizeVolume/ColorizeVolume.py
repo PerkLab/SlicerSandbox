@@ -91,6 +91,10 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         ScriptedLoadableModuleWidget.setup(self)
 
+        if not hasattr(vtk.vtkImageMedian3D, 'SetIgnoreBackground'):
+            slicer.util.errorDisplay("This module requires a more recent version of Slicer. Please download and install latest Slicer Preview Release.")
+            return
+
         # Load widget from .ui file (created by Qt Designer).
         # Additional widgets can be instantiated manually and added to self.layout.
         uiWidget = slicer.util.loadUI(self.resourcePath('UI/ColorizeVolume.ui'))
@@ -229,7 +233,7 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 backgroundColorRgba,
                 self._parameterNode.maskVolume,
                 self._parameterNode.softEdgeThicknessVoxel)
-            
+
             if self._parameterNode.autoShowVolumeRendering:
                 self.onShowButton()
 
@@ -336,34 +340,16 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
             opacity = segmentationNode.GetDisplayNode().GetSegmentOpacity3D(segmentId)
             colorTableNode.SetColor(segmentIndex + 1, *color, opacity)
 
-        labelImage = labelmapVolumeNode.GetImageData()
-
         # Dilate labelmap to avoid edge artifacts
-        # We could use the slow method if the fast vtkImageMaskedMedian3D is not available,
-        # but it would be very slow, so we rather skip dilation completely.
-        dilateMethod = 'fast' if hasattr(slicer, 'vtkImageMaskedMedian3D') else None
-        if dilateMethod:
-            dilationKernelSize = 3 if maskVolume else int(softEdgeThicknessVoxel + 0.5) * 2 + 1
-            if dilateMethod == 'slow':
-                for segmentIndex in range(len(segmentIds)):
-                    slicer.util.showStatusMessage(f"Dilating segment {segmentIndex+1}/{len(segmentIds)}")
-                    slicer.app.processEvents()
-                    colorIndex = 1 + segmentIndex
-                    dilate = vtk.vtkImageDilateErode3D()
-                    dilate.SetInputData(labelImage)
-                    dilate.SetKernelSize(dilationKernelSize, dilationKernelSize, dilationKernelSize)
-                    dilate.SetDilateValue(colorIndex)
-                    dilate.SetErodeValue(0)
-                    dilate.Update()
-                    labelImage = dilate.GetOutput()            
-            else:  # dilateMethod == 'fast':
-                slicer.util.showStatusMessage(f"Dilating segments...")
-                slicer.app.processEvents()
-                dilate = slicer.vtkImageMaskedMedian3D()
-                dilate.SetInputData(labelImage)
-                dilate.SetKernelSize(dilationKernelSize, dilationKernelSize, dilationKernelSize)
-                dilate.Update()
-                labelImage = dilate.GetOutput()            
+        slicer.util.showStatusMessage(f"Dilating segments...")
+        slicer.app.processEvents()
+        dilate = vtk.vtkImageMedian3D()
+        dilate.SetInputData(labelmapVolumeNode.GetImageData())
+        dilate.SetKernelSize(dilationKernelSize, dilationKernelSize, dilationKernelSize)
+        dilate.SetIgnoreBackground(False)  # ignoring background turns makes median filter dilate label values
+        dilate.SetBackgroundValue(0)
+        dilate.Update()
+        labelImage = dilate.GetOutput()
 
         slicer.util.showStatusMessage(f"Generating colorized volume...")
         slicer.app.processEvents()
@@ -383,7 +369,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         shiftScale = vtk.vtkImageShiftScale()
         shiftScale.ReleaseDataFlagOn()
         shiftScale.SetOutputScalarType(vtk.VTK_UNSIGNED_CHAR)
-        
+
         [rangeMin, rangeMax] = volumeNode.GetImageData().GetScalarRange()
 
         useDisplayedRange = True
