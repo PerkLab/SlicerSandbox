@@ -52,19 +52,24 @@ class ColorizeVolumeParameterNode:
     inputScalarVolume - The volume to threshold.
     inputSegmentation - The output volume that will contain the inverted thresholded volume.
     outputRgbaVolume - The output volume that will contain the thresholded volume.
-    softEdgeThicknessVoxel - The value at which to threshold the input volume.
-    maskVolume - If true, will invert the threshold.
+    softEdgeThicknessVoxel - Standard deviation of Gaussian kernel applied to brightness channel.
+    colorBleedThicknessVoxel - How far color bleeds out of the original segmentation.
     backgroundOpacity - Opacity factor for regions outside all segments.
     autoShowVolumeRendering - Automatically display volume rendering after processing is completed.
     """
     inputScalarVolume: vtkMRMLScalarVolumeNode
     inputSegmentation: vtkMRMLSegmentationNode
     outputRgbaVolume: vtkMRMLVectorVolumeNode
-    softEdgeThicknessVoxel: Annotated[float, WithinRange(0, 5)] = 1.0
-    maskVolume: bool = False
+    softEdgeThicknessVoxel: Annotated[float, WithinRange(0, 8)] = 4.0
+    colorBleedThicknessVoxel: Annotated[float, WithinRange(0, 8)] = 1.0
     backgroundOpacity: Annotated[float, WithinRange(0, 1.0)] = 0.2
     autoShowVolumeRendering: bool = True
-
+    volumeRenderingLevelPercent: Annotated[float, WithinRange(0, 100)] = 50.0
+    volumeRenderingWindowPercent: Annotated[float, WithinRange(0.1, 100)] = 25.0
+    volumeRenderingOpacityPercent: Annotated[float, WithinRange(0, 100)] = 25.0
+    volumeRenderingGradientOpacity: bool = False
+    volumeRenderingGradientOpacityLevel: Annotated[float, WithinRange(0, 50)] = 15.0
+    volumeRenderingGradientOpacityWindow: Annotated[float, WithinRange(5, 100)] = 20.0
 
 #
 # ColorizeVolumeWidget
@@ -123,6 +128,14 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.showVolumeRenderingButton.connect('clicked(bool)', self.onShowButton)
         self.ui.resetVolumeRenderingSettingsButton.connect('clicked(bool)', self.onResetVolumeRenderingSettingsButton)
         self.ui.volumeRenderingSettingsButton.connect('clicked(bool)', self.onVolumeRenderingSettingsButton)
+        self.ui.resetToDefaultsButton.connect('clicked(bool)', self.onResetToDefaultsButton)
+
+        self.ui.volumeRenderingLevelWidget.connect('valueChanged(double)', self.onUpdateVolumeRenderingTransferFunction)
+        self.ui.volumeRenderingWindowWidget.connect('valueChanged(double)', self.onUpdateVolumeRenderingTransferFunction)
+        self.ui.volumeRenderingOpacityWidget.connect('valueChanged(double)', self.onUpdateVolumeRenderingTransferFunction)
+        self.ui.volumeRenderingGradientOpacityCheckBox.connect('toggled(bool)', self.onUpdateVolumeRenderingTransferFunction)
+        self.ui.volumeRenderingGradientOpacityLevelWidget.connect('valueChanged(double)', self.onUpdateVolumeRenderingTransferFunction)
+        self.ui.volumeRenderingGradientOpacityWindowWidget.connect('valueChanged(double)', self.onUpdateVolumeRenderingTransferFunction)
 
         # Make sure parameter node is initialized (needed for module reload)
         self.initializeParameterNode()
@@ -231,7 +244,7 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self._parameterNode.inputSegmentation,
                 self._parameterNode.outputRgbaVolume,
                 backgroundColorRgba,
-                self._parameterNode.maskVolume,
+                self._parameterNode.colorBleedThicknessVoxel,
                 self._parameterNode.softEdgeThicknessVoxel)
 
             if self._parameterNode.autoShowVolumeRendering:
@@ -241,14 +254,14 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         Show output volume using volume rendering.
         """
-        self.logic.showVolumeRendering(self._parameterNode.outputRgbaVolume, resetSettings = False)
+        self.logic.showVolumeRendering(resetSettings = False)
         self.onOutputRgbaVolumeSelected()
 
     def onResetVolumeRenderingSettingsButton(self) -> None:
         """
         Show output volume using volume rendering.
         """
-        self.logic.showVolumeRendering(self._parameterNode.outputRgbaVolume, resetSettings = True)
+        self.logic.showVolumeRendering(resetSettings=True)
         self.onOutputRgbaVolumeSelected()
 
     def onVolumeRenderingSettingsButton(self) -> None:
@@ -265,6 +278,15 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
         self.ui.volumePropertyNodeWidget.setMRMLVolumePropertyNode(volumeRenderingPropertyNode)
 
+    def onResetToDefaultsButton(self):
+        for paramName in ['softEdgeThicknessVoxel', 'colorBleedThicknessVoxel', 'backgroundOpacity']:
+            self.logic.getParameterNode().setValue(paramName, self.logic.getParameterNode().default(paramName).value)
+
+    def onUpdateVolumeRenderingTransferFunction(self):
+        # This method is called by the GUI and at this point the parameter node may not be up-to-date yet.
+        # We call the logic update via a timer to give time for the parameter node to get updated.
+        import qt
+        qt.QTimer.singleShot(0, self.logic.updateVolumeRenderingOpacityTransferFunctions)
 
 #
 # ColorizeVolumeLogic
@@ -294,7 +316,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
                 inputSegmentation: vtkMRMLSegmentationNode,
                 outputRgbaVolume: vtkMRMLVectorVolumeNode,
                 backgroundColorRgba: list,
-                maskVolume: bool = False,
+                colorBleedThicknessVoxel: float = 1.5,
                 softEdgeThicknessVoxel: float = 1.5) -> None:
         """
         Run the processing algorithm.
@@ -303,7 +325,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         :param inputSegmentation: segmentation to be used for coloring
         :param outputRgbaVolume: colorized RGBA volume
         :param backgroundColorRgba: color and opacity of voxels that are not segmented (RGBA)
-        :param maskVolume: if True, then non-segmented voxels will be blanked out
+        :oaram colorBleedThicknessVoxel: how far color bleeds out (in voxels)
         :param softEdgeThicknessVoxel: edge smoothing thickness (in voxels)
         """
 
@@ -345,8 +367,9 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         slicer.app.processEvents()
         dilate = vtk.vtkImageMedian3D()
         dilate.SetInputData(labelmapVolumeNode.GetImageData())
+        dilationKernelSize = int(colorBleedThicknessVoxel + 0.5) * 2 + 1
         dilate.SetKernelSize(dilationKernelSize, dilationKernelSize, dilationKernelSize)
-        dilate.SetIgnoreBackground(False)  # ignoring background turns makes median filter dilate label values
+        dilate.SetIgnoreBackground(True)  # ignoring background turns makes median filter dilate label values
         dilate.SetBackgroundValue(0)
         dilate.Update()
         labelImage = dilate.GetOutput()
@@ -391,23 +414,32 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         nshape = tuple(reversed(scaledInputImage.GetDimensions()))
         shiftScaleArray = vtk.util.numpy_support.vtk_to_numpy(scaledInputImage.GetPointData().GetScalars()).reshape(nshape)
 
-        if maskVolume:
-            shiftScaleArray[labelVoxels==0] = 0
+        # Soft edge
+        if softEdgeThicknessVoxel > 0.0:
 
-            # Soft edge
-            if softEdgeThicknessVoxel > 0:
-                gaussianFilter = vtk.vtkImageGaussianSmooth()
-                gaussianFilter.SetInputData(scaledInputImage)
-                gaussianFilter.SetStandardDeviations(softEdgeThicknessVoxel, softEdgeThicknessVoxel, softEdgeThicknessVoxel)
-                # Do not truncate the Gaussian kernel at the default 1.5 sigma,
-                # because it would result in edge artifacts.
-                # Larger value results in less edge artifact but increased computation time,
-                # so 3.0 is a good tradeoff.
-                gaussianFilter.SetRadiusFactor(3.0)
-                gaussianFilter.Update()
-                shiftScaleArray = vtk.util.numpy_support.vtk_to_numpy(gaussianFilter.GetOutput().GetPointData().GetScalars()).reshape(nshape)
+            extractAlpha = vtk.vtkImageExtractComponents()
+            extractAlpha.SetComponents(3)  # A from RGBA
+            extractAlpha.SetInputData(outputRgbaVolume.GetImageData())
+
+            gaussianFilter = vtk.vtkImageGaussianSmooth()
+            gaussianFilter.SetInputConnection(extractAlpha.GetOutputPort())
+            # Standard deviation is computed so that at "thickness" distance corresponds to 2 sigma
+            # because that means 95% of the intensity is inside
+            stdev = softEdgeThicknessVoxel / 2.0
+            gaussianFilter.SetStandardDeviations(stdev, stdev, stdev)
+            # Do not truncate the Gaussian kernel at the default 1.5 sigma,
+            # because it would result in edge artifacts.
+            # Larger value results in less edge artifact but increased computation time,
+            # so 3.0 is a good tradeoff.
+            gaussianFilter.SetRadiusFactor(3.0)
+            gaussianFilter.Update()
+            smoothedAlpha = gaussianFilter.GetOutput()
+            nshape = tuple(reversed(smoothedAlpha.GetDimensions()))
+            smoothedAlphaArray = vtk.util.numpy_support.vtk_to_numpy(smoothedAlpha.GetPointData().GetScalars()).reshape(nshape)
+            rgbaVoxels[:, :, :, 3] = smoothedAlphaArray[:]
 
         rgbaVoxels[:, :, :, 3] = (np.multiply(shiftScaleArray[:].astype(np.float32), rgbaVoxels[:, :, :, 3]) / 255.0).astype(np.uint8)
+
         slicer.util.arrayFromVolumeModified(outputRgbaVolume)
 
         # Remove temporary nodes
@@ -419,10 +451,13 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
 
         slicer.util.showStatusMessage("Processing completed.", 1000)
 
-    def showVolumeRendering(self, volumeNode: vtkMRMLVectorVolumeNode, resetSettings = True) -> None:
+
+    def showVolumeRendering(self, resetSettings = True) -> None:
         """
         Show volume rendering of the given volume node.
         """
+        parameterNode = self.getParameterNode()
+        volumeNode = parameterNode.outputRgbaVolume
 
         volumeRenderingLogic = slicer.modules.volumerendering.logic()
         vrDisplayNode = slicer.modules.volumerendering.logic().GetFirstVolumeRenderingDisplayNode(volumeNode)
@@ -433,14 +468,73 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         vrDisplayNode.SetVisibility(True)
 
         if resetSettings:
-            vrProp = vrDisplayNode.GetVolumePropertyNode()
-            opacityTransferFunction = vrProp.GetScalarOpacity()
+            parameterNamesToReset = [
+                'volumeRenderingLevelPercent',
+                'volumeRenderingWindowPercent',
+                'volumeRenderingOpacityPercent',
+                'volumeRenderingGradientOpacityWindow',
+                'volumeRenderingGradientOpacityLevel',
+                'volumeRenderingGradientOpacity'
+                ]
+            for paramName in parameterNamesToReset:
+                parameterNode.setValue(paramName, parameterNode.default(paramName).value)
+            self.updateVolumeRenderingOpacityTransferFunctions()
 
+
+    def updateVolumeRenderingOpacityTransferFunctions(self):
+
+        parameterNode = self.getParameterNode()
+
+        volumeRenderingLogic = slicer.modules.volumerendering.logic()
+        vrDisplayNode = slicer.modules.volumerendering.logic().GetFirstVolumeRenderingDisplayNode(parameterNode.outputRgbaVolume)
+        if not vrDisplayNode:
+            return
+        vrProp = vrDisplayNode.GetVolumePropertyNode()
+
+        # Scalar opacity
+        window = parameterNode.volumeRenderingWindowPercent * 255.0 / 100.0
+        level = parameterNode.volumeRenderingLevelPercent * 255.0 / 100.0
+        opacity = parameterNode.volumeRenderingOpacityPercent / 100.0
+        nodes = [
+            (0, 0.0),
+            (level - window / 2, 0.0),
+            (level + window / 2, opacity),
+            (255, opacity),
+            ]
+        opacityTransferFunction = vrProp.GetScalarOpacity()
+        if opacityTransferFunction.GetSize() == len(nodes):
+            for index, node in enumerate(nodes):
+                opacityTransferFunction.SetNodeValue(index, [node[0], node[1], 0.5, 0.0])  # extra values: midpoint, sharpness
+        else:
             opacityTransferFunction.RemoveAllPoints()
-            opacityTransferFunction.AddPoint(0, 0.0)
-            opacityTransferFunction.AddPoint(30, 0.0)
-            opacityTransferFunction.AddPoint(225, 0.3)
-            opacityTransferFunction.AddPoint(255, 0.3)
+            for node in nodes:
+                opacityTransferFunction.AddPoint(node[0], node[1])
+
+        # Gradient opacity
+        if parameterNode.volumeRenderingGradientOpacity:
+            level = parameterNode.volumeRenderingGradientOpacityLevel
+            window = max(5, parameterNode.volumeRenderingGradientOpacityWindow)
+            nodes = [
+                (level - window/2 - 10.0, 0.0),
+                (level - window/2, 0.0),
+                (level + window/2, 1.0),
+                (level + window/2 + 10.0, 1.0)
+                ]
+        else:
+            nodes = [
+                (-10.0, 1.0),
+                (0.0, 1.0),
+                (90.0, 1.0),
+                (100.0, 1.0)
+                ]
+        gradientOpacityTransferFunction = vrProp.GetGradientOpacity()
+        if gradientOpacityTransferFunction.GetSize() == len(nodes):
+            for index, node in enumerate(nodes):
+                gradientOpacityTransferFunction.SetNodeValue(index, [node[0], node[1], 0.5, 0.0])  # extra values: midpoint, sharpness
+        else:
+            gradientOpacityTransferFunction.RemoveAllPoints()
+            for node in nodes:
+                gradientOpacityTransferFunction.AddPoint(node[0], node[1])
 
 
 #
