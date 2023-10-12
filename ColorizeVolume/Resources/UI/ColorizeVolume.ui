@@ -171,7 +171,7 @@
          <double>0.500000000000000</double>
         </property>
         <property name="SlicerParameterName" stdset="0">
-         <string notr="true">backgroundOpacity</string>
+         <string notr="true">backgroundOpacityPercent</string>
         </property>
        </widget>
       </item>

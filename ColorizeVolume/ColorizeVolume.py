@@ -54,7 +54,7 @@ class ColorizeVolumeParameterNode:
     outputRgbaVolume - The output volume that will contain the thresholded volume.
     softEdgeThicknessVoxel - Standard deviation of Gaussian kernel applied to brightness channel.
     colorBleedThicknessVoxel - How far color bleeds out of the original segmentation.
-    backgroundOpacity - Opacity factor for regions outside all segments.
+    backgroundOpacityPercent - Opacity factor for regions outside all segments.
     autoShowVolumeRendering - Automatically display volume rendering after processing is completed.
     """
     inputScalarVolume: vtkMRMLScalarVolumeNode
@@ -62,7 +62,7 @@ class ColorizeVolumeParameterNode:
     outputRgbaVolume: vtkMRMLVectorVolumeNode
     softEdgeThicknessVoxel: Annotated[float, WithinRange(0, 8)] = 4.0
     colorBleedThicknessVoxel: Annotated[float, WithinRange(0, 8)] = 1.0
-    backgroundOpacity: Annotated[float, WithinRange(0, 1.0)] = 0.2
+    backgroundOpacityPercent: Annotated[float, WithinRange(0, 100)] = 20
     autoShowVolumeRendering: bool = True
     volumeRenderingLevelPercent: Annotated[float, WithinRange(0, 100)] = 50.0
     volumeRenderingWindowPercent: Annotated[float, WithinRange(0.1, 100)] = 25.0
@@ -236,7 +236,7 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self.ui.backgroundColorPickerButton.color.redF(),
                 self.ui.backgroundColorPickerButton.color.greenF(),
                 self.ui.backgroundColorPickerButton.color.blueF(),
-                self._parameterNode.backgroundOpacity]
+                self._parameterNode.backgroundOpacityPercent / 100.0]
 
             # Compute output
             self.logic.process(
@@ -279,7 +279,7 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.volumePropertyNodeWidget.setMRMLVolumePropertyNode(volumeRenderingPropertyNode)
 
     def onResetToDefaultsButton(self):
-        for paramName in ['softEdgeThicknessVoxel', 'colorBleedThicknessVoxel', 'backgroundOpacity']:
+        for paramName in ['softEdgeThicknessVoxel', 'colorBleedThicknessVoxel', 'backgroundOpacityPercent']:
             self.logic.getParameterNode().setValue(paramName, self.logic.getParameterNode().default(paramName).value)
 
     def onUpdateVolumeRenderingTransferFunction(self):
