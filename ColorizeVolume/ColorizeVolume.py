@@ -52,7 +52,7 @@ class ColorizeVolumeParameterNode:
     inputScalarVolume - The volume to threshold.
     inputSegmentation - The output volume that will contain the inverted thresholded volume.
     outputRgbaVolume - The output volume that will contain the thresholded volume.
-    softEdgeThicknessVoxel - Standard deviation of Gaussian kernel applied to brightness channel.
+    softEdgeThicknessVoxel - Thickness of transition zone at segment edges (in voxels).
     colorBleedThicknessVoxel - How far color bleeds out of the original segmentation.
     backgroundOpacityPercent - Opacity factor for regions outside all segments.
     autoShowVolumeRendering - Automatically display volume rendering after processing is completed.

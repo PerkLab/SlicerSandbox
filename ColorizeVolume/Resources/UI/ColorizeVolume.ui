@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>403</width>
-    <height>803</height>
+    <width>239</width>
+    <height>585</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -188,7 +188,7 @@
          <bool>true</bool>
         </property>
         <property name="toolTip">
-         <string>Standard deviation of the Gaussian smoothing kernel that is applied to the opacity channel.</string>
+         <string>Thickness of transition zone at segment edges. Increase it to make edges smoother and reduce edge artifacts (such as coloring or woodgrain pattern). Decrease it to get sharper edges.</string>
         </property>
         <property name="singleStep">
          <double>0.100000000000000</double>
@@ -226,7 +226,7 @@
          <bool>true</bool>
         </property>
         <property name="toolTip">
-         <string>If mask volume is enabled, and a non-zero value is set then segment boundaries are smoothed to gradually transition to blank. Width of the transition zone is set by this value.</string>
+         <string>Segments are expanded by this much to make sure they cover the entire segmented structure. Increase the value if a structure is not fully covered by the segmentation. Decrease it to make coloring follow the segmentation more accurately.</string>
         </property>
         <property name="singleStep">
          <double>0.100000000000000</double>
@@ -288,7 +288,7 @@
       <item row="4" column="1">
        <widget class="QCheckBox" name="autoShowVolumeRenderingCheckBox">
         <property name="toolTip">
-         <string>If checked, values outside all segments are blanked out.</string>
+         <string>If checked, the Output color volume is automatically displayed in the 3D views after clickin Apply.</string>
         </property>
         <property name="text">
          <string/>
@@ -300,6 +300,9 @@
       </item>
       <item row="5" column="0" colspan="2">
        <widget class="QPushButton" name="resetToDefaultsButton">
+        <property name="toolTip">
+         <string>Reset background opacity, soft edge, and color bleed values to default.</string>
+        </property>
         <property name="text">
          <string>Reset to defaults</string>
         </property>
@@ -349,7 +352,7 @@
             <bool>true</bool>
            </property>
            <property name="toolTip">
-            <string>Standard deviation of the Gaussian smoothing kernel that is applied to the opacity channel.</string>
+            <string>Parts of the image that has intensity above this threshold will appear in the 3D view. Increase the value to show less. Specified of percentage of displayed intensity range of the input volume.</string>
            </property>
            <property name="singleStep">
             <double>0.100000000000000</double>
@@ -387,7 +390,7 @@
             <bool>true</bool>
            </property>
            <property name="toolTip">
-            <string>Standard deviation of the Gaussian smoothing kernel that is applied to the opacity channel.</string>
+            <string>Width of the transition zone around the threshold value. Larger window means smoother transition, more semi-transparent regions. Smaller window means a hard transition, resulting in sharper edges and opaque surfaces.</string>
            </property>
            <property name="singleStep">
             <double>0.100000000000000</double>
@@ -425,7 +428,7 @@
             <bool>true</bool>
            </property>
            <property name="toolTip">
-            <string>Standard deviation of the Gaussian smoothing kernel that is applied to the opacity channel.</string>
+            <string>Overall opacity of the image displayed in 3D.</string>
            </property>
            <property name="singleStep">
             <double>0.100000000000000</double>
@@ -472,7 +475,7 @@
             <bool>false</bool>
            </property>
            <property name="toolTip">
-            <string>Standard deviation of the Gaussian smoothing kernel that is applied to the opacity channel.</string>
+            <string>Regions that have intensity change above this value (e.g., surfaces boundaries) will appear in the 3D view, and regions that have more uniform intensity will be transparent.</string>
            </property>
            <property name="singleStep">
             <double>0.100000000000000</double>
@@ -510,7 +513,7 @@
             <bool>false</bool>
            </property>
            <property name="toolTip">
-            <string>Standard deviation of the Gaussian smoothing kernel that is applied to the opacity channel.</string>
+            <string>Width of the transition zone around the threshold value. Larger window means smoother transition. Smaller window means a hard transition, resulting in sharper edges.</string>
            </property>
            <property name="singleStep">
             <double>0.100000000000000</double>
@@ -544,6 +547,9 @@
          </item>
          <item row="0" column="1">
           <widget class="QCheckBox" name="volumeRenderingGradientOpacityCheckBox">
+           <property name="toolTip">
+            <string>Enable to highlight surface boundaries and make uniform regions transparent.</string>
+           </property>
            <property name="text">
             <string/>
            </property>
@@ -595,6 +601,9 @@
         <property name="enabled">
          <bool>false</bool>
         </property>
+        <property name="toolTip">
+         <string>Reset all Scalar opacity and Gradient opacity settings to default.</string>
+        </property>
         <property name="text">
          <string>Reset volume rendering</string>
         </property>
@@ -606,7 +615,7 @@
          <bool>false</bool>
         </property>
         <property name="toolTip">
-         <string>Show the output volume in 3D using volume rendering</string>
+         <string>Go to Volume Rendering module to edit more 3D rendering settings.</string>
         </property>
         <property name="text">
          <string>Go to Volume Rendering module</string>
