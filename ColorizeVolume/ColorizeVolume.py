@@ -96,7 +96,7 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         ScriptedLoadableModuleWidget.setup(self)
 
-        if not hasattr(vtk.vtkImageMedian3D, 'SetIgnoreBackground'):
+        if not hasattr(vtk.vtkImageMedian3D, 'SetIgnoreBackground') and not hasattr(slicer, 'vtkImageLabelDilate3D'):
             slicer.util.errorDisplay("This module requires a more recent version of Slicer. Please download and install latest Slicer Preview Release.")
             return
 
@@ -239,6 +239,10 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self._parameterNode.backgroundOpacityPercent / 100.0]
 
             # Compute output
+
+            import time
+            startTime = time.time()
+
             self.logic.process(
                 self._parameterNode.inputScalarVolume,
                 self._parameterNode.inputSegmentation,
@@ -246,6 +250,9 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 backgroundColorRgba,
                 self._parameterNode.colorBleedThicknessVoxel,
                 self._parameterNode.softEdgeThicknessVoxel)
+
+            stopTime = time.time()
+            print(f'Colorize computation has been completed in {stopTime-startTime:.2f} seconds')
 
             if self._parameterNode.autoShowVolumeRendering:
                 self.onShowButton()
@@ -365,11 +372,16 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         # Dilate labelmap to avoid edge artifacts
         slicer.util.showStatusMessage(f"Dilating segments...")
         slicer.app.processEvents()
-        dilate = vtk.vtkImageMedian3D()
+        if hasattr(slicer, 'vtkImageLabelDilate3D'):
+            print("Use slicer.vtkImageLabelDilate3D")
+            slicer.app.processEvents()
+            dilate = slicer.vtkImageLabelDilate3D()
+        else:
+            dilate = vtk.vtkImageMedian3D()
+            dilate.SetIgnoreBackground(True)  # ignoring background turns makes median filter dilate label values
         dilate.SetInputData(labelmapVolumeNode.GetImageData())
         dilationKernelSize = int(colorBleedThicknessVoxel + 0.5) * 2 + 1
         dilate.SetKernelSize(dilationKernelSize, dilationKernelSize, dilationKernelSize)
-        dilate.SetIgnoreBackground(True)  # ignoring background turns makes median filter dilate label values
         dilate.SetBackgroundValue(0)
         dilate.Update()
         labelImage = dilate.GetOutput()
