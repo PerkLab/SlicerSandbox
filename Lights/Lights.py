@@ -107,6 +107,8 @@ class LightsWidget(ScriptedLoadableModuleWidget):
 
     self.ui.ssaoCheckBox.connect('toggled(bool)', lambda value: self.logic.setUseSSAO(value))
     self.ui.ssaoSizeScaleSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setSSAOSizeScaleLog(value))
+    self.ui.ssaoVolumeRenderingCheckBox.connect('toggled(bool)', lambda value: self.logic.setUseSSAOForVolumeRendering(value))
+    self.ui.ssaoVolumeRenderingOpacityThresholdPercentSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setSSAOVolumeRenderingOpacity(value*0.01))
 
     self.ui.imageNone.connect('clicked(bool)', lambda: self.logic.setImageBasedLighting(None))
 
@@ -287,8 +289,16 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     self.lightKit = vtk.vtkLightKit()
     self.lightKit.MaintainLuminanceOn()
     self.lightkitObserverTag = self.lightKit.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onLightkitModified)
+
     self.ssaoEnabled = False
     self.ssaoSizeScaleLog = 0.0
+    self.ssaoVolumeRenderingEnabled = False
+    self.ssaoVolumeRenderingOpacityThreshold = 0.25
+
+    self.ssaoPass = vtk.vtkSSAOPass()
+    renderPass = vtk.vtkRenderStepsPass()
+    self.ssaoPass.SetDelegatePass(renderPass)
+
     self.managedViewNodes = []
     self.imageBasedLightingImageFile = None
 
@@ -317,11 +327,8 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     renderer = renderWindow.GetRenderers().GetFirstRenderer()
     renderer.RemoveAllLights()
     self.lightKit.AddLightsToRenderer(renderer)
-
-    renderer.SSAOBlurOn()  # reduce noise in SSAO mode
-    self.setUseSSAO(self.ssaoEnabled)
-    self.setSSAOSizeScaleLog(self.ssaoSizeScaleLog)
-    self.setImageBasedLighting(self.imageBasedLightingImageFile)
+    self.setUseSSAOSingleView(viewNode, self.ssaoEnabled)
+    self.setSSAOSizeScaleLogSingleView(viewNode, self.ssaoSizeScaleLog)
     renderWindow.Render()
 
   def removeManagedView(self, viewNode):
@@ -329,6 +336,7 @@ class LightsLogic(ScriptedLoadableModuleLogic):
       return
     self.managedViewNodes.remove(viewNode)
     renderWindow = self.renderWindowFromViewNode(viewNode)
+    self.setUseSSAOSingleView(viewNode, False)
     renderer = renderWindow.GetRenderers().GetFirstRenderer()
     # Make a copy of current lightkit
     currentLightKit = vtk.vtkLightKit()
@@ -343,25 +351,111 @@ class LightsLogic(ScriptedLoadableModuleLogic):
   def setUseSSAO(self, enable):
     self.ssaoEnabled = enable
     for viewNode in self.managedViewNodes:
-      renderWindow = self.renderWindowFromViewNode(viewNode)
-      renderer = renderWindow.GetRenderers().GetFirstRenderer()
-      renderer.SetUseSSAO(self.ssaoEnabled)
-      renderWindow.Render()
+      self.setUseSSAOSingleView(viewNode, self.ssaoEnabled)
 
-  def setSSAOSizeScaleLog(self, scaleLog):
-    self.ssaoSizeScaleLog = scaleLog
-    # ScaleLog = 0.0 corresponds to 100mm scene size
-    sceneSize = 100.0 * pow(10, self.ssaoSizeScaleLog)
+  def setUseSSAOSingleView(self, viewNode, enable):
+    renderWindow = self.renderWindowFromViewNode(viewNode)
+    renderer = renderWindow.GetRenderers().GetFirstRenderer()
+    if self.setUseSSAOForVolumeRendering:
+      if self.ssaoEnabled:
+        renderer.SetPass(self.ssaoPass)
+      else:
+        renderer.SetPass(None)
+    else:
+      renderer.SetUseSSAO(self.ssaoEnabled)
+    renderWindow.Render()
+
+  def setUseSSAOForVolumeRendering(self, enable):
+    self.ssaoVolumeRenderingEnabled = enable
+    vrDisplayNodes = slicer.util.getNodesByClass('vtkMRMLGPURayCastVolumeRenderingDisplayNode')
+    for vrDisplayNode in vrDisplayNodes:
+      self.setUseSSAOForVolumeRenderingDisplayNode(vrDisplayNode, self.ssaoVolumeRenderingEnabled, self.ssaoVolumeRenderingOpacityThreshold)
+
+  def setSSAOVolumeRenderingOpacity(self, opacityThreshold):
+    self.ssaoVolumeRenderingOpacityThreshold = opacityThreshold
+    vrDisplayNodes = slicer.util.getNodesByClass('vtkMRMLGPURayCastVolumeRenderingDisplayNode')
+    for vrDisplayNode in vrDisplayNodes:
+      self.setUseSSAOForVolumeRenderingDisplayNode(vrDisplayNode, self.ssaoVolumeRenderingEnabled, self.ssaoVolumeRenderingOpacityThreshold)
+
+  def setUseSSAOForVolumeRenderingDisplayNode(self, vrDisplayNode, enabled, opacityThreshold=0.25):
+
+    shaderPropertyNode = vrDisplayNode.GetOrCreateShaderPropertyNode(slicer.mrmlScene)
+    shaderProperty = shaderPropertyNode.GetShaderProperty()
+
+    shaderProperty.ClearAllFragmentShaderReplacements()
+
+    if not enabled:
+      return
+
+    shaderProperty.AddFragmentShaderReplacement("//VTK::ComputeLighting::Dec", True,
+        """
+        vec3 g_dataNormal;
+        //VTK::ComputeLighting::Dec
+        """, False)
+    shaderProperty.AddFragmentShaderReplacement("//VTK::RenderToImage::Dec", True,
+        """
+        vec3 l_opaqueFragNormal;
+        vec3 l_opaqueFragPos;
+        bool l_updateDepth;
+        """, False)
+    shaderProperty.AddFragmentShaderReplacement("//VTK::RenderToImage::Init", True,
+        """
+        l_opaqueFragPos = vec3(-1.0);
+        l_updateDepth = true;
+        """, False)
+    shaderProperty.AddFragmentShaderReplacement("//VTK::RenderToImage::Impl", True,
+        """
+        if(!g_skip && g_srcColor.a > """ + str(opacityThreshold) + """ && l_updateDepth)
+            {
+            l_opaqueFragPos = g_dataPos;
+            l_opaqueFragNormal = g_dataNormal;
+            l_updateDepth = false;
+            }
+        """, False)
+    shaderProperty.AddFragmentShaderReplacement("//VTK::RenderToImage::Exit", True,
+        """
+        if (l_opaqueFragPos == vec3(-1.0))
+            {
+            gl_FragDepth = 1.0;
+            gl_FragData[1] = gl_FragData[1];
+            }
+        else
+            {
+            vec4 depthValue = in_projectionMatrix * in_modelViewMatrix *
+                in_volumeMatrix[0] * in_textureDatasetMatrix[0] *
+                vec4(l_opaqueFragPos, 1.0);
+            depthValue /= depthValue.w;
+            gl_FragDepth = 0.5 * (gl_DepthRange.far - gl_DepthRange.near) * depthValue.z + 0.5 * (gl_DepthRange.far + gl_DepthRange.near);
+            gl_FragData[1] = in_modelViewMatrix * in_volumeMatrix[0] * in_textureDatasetMatrix[0] * vec4(l_opaqueFragPos, 1.0);
+            gl_FragData[2] = vec4(normalize(l_opaqueFragNormal), 0.0);
+            }
+    """, False)
+
+
+  def setSSAOSizeScaleLog(self, sizeScaleLog):
+    self.ssaoSizeScaleLog = sizeScaleLog
+    for viewNode in self.managedViewNodes:
+      self.setSSAOSizeScaleLogSingleView(viewNode, self.ssaoSizeScaleLog)
+
+  def setSSAOSizeScaleLogSingleView(self, viewNode, sizeScaleLog):
+    # SizeScaleLog = 0.0 corresponds to 100mm scene size
+    sceneSize = 100.0 * pow(10, sizeScaleLog)
     # Bias and radius are from example in https://blog.kitware.com/ssao/.
     # These values have been tested on different kind of meshes and found to work well.
-    for viewNode in self.managedViewNodes:
-      renderWindow = self.renderWindowFromViewNode(viewNode)
+    renderWindow = self.renderWindowFromViewNode(viewNode)
+    if self.setUseSSAOForVolumeRendering:
+      self.ssaoPass.SetBias(0.001 * sceneSize)  # how much distance difference will be made visible
+      self.ssaoPass.SetRadius(0.1 * sceneSize)  # determines the spread of shadows cast by ambient occlusion
+      self.ssaoPass.SetBlur(True)  # reduce noise
+      self.ssaoPass.SetKernelSize(320)  # larger kernel size reduces noise pattern in the darkened region
+    else:
       renderer = renderWindow.GetRenderers().GetFirstRenderer()
-      renderer.SetSSAOBias(0.001 * sceneSize);  # how much distance difference will be made visible
-      renderer.SetSSAORadius(0.1 * sceneSize);  # determines the spread of shadows cast by ambient occlusion
+      renderer.SetSSAOBias(0.001 * sceneSize)  # how much distance difference will be made visible
+      renderer.SetSSAORadius(0.1 * sceneSize)  # determines the spread of shadows cast by ambient occlusion
       renderer.SetSSAOBlur(True)  # reduce noise
       renderer.SetSSAOKernelSize(320)  # larger kernel size reduces noise pattern in the darkened region
-      renderWindow.Render()
+
+    renderWindow.Render()
 
   def setImageBasedLighting(self, imageFilePath):
     self.imageBasedLightingImageFile = imageFilePath
