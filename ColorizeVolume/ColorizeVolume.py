@@ -3,6 +3,7 @@ import os
 from typing import Annotated, Optional
 
 import vtk
+import vtkAddon
 
 import slicer
 from slicer.ScriptedLoadableModule import *
@@ -96,7 +97,7 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         ScriptedLoadableModuleWidget.setup(self)
 
-        if not hasattr(vtk.vtkImageMedian3D, 'SetIgnoreBackground') and not hasattr(slicer, 'vtkImageLabelDilate3D'):
+        if not hasattr(vtkAddon, 'vtkImageLabelDilate3D'):
             slicer.util.errorDisplay("This module requires a more recent version of Slicer. Please download and install latest Slicer Preview Release.")
             return
 
@@ -372,13 +373,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         # Dilate labelmap to avoid edge artifacts
         slicer.util.showStatusMessage(f"Dilating segments...")
         slicer.app.processEvents()
-        if hasattr(slicer, 'vtkImageLabelDilate3D'):
-            print("Use slicer.vtkImageLabelDilate3D")
-            slicer.app.processEvents()
-            dilate = slicer.vtkImageLabelDilate3D()
-        else:
-            dilate = vtk.vtkImageMedian3D()
-            dilate.SetIgnoreBackground(True)  # ignoring background turns makes median filter dilate label values
+        dilate = vtkAddon.vtkImageLabelDilate3D()
         dilate.SetInputData(labelmapVolumeNode.GetImageData())
         dilationKernelSize = int(colorBleedThicknessVoxel + 0.5) * 2 + 1
         dilate.SetKernelSize(dilationKernelSize, dilationKernelSize, dilationKernelSize)
