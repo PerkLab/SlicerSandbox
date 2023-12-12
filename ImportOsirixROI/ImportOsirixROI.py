@@ -275,24 +275,25 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
     inputRoiData = None
     import json
     import plistlib
-    if isinstance(inputRoi,str):
+    if isinstance(inputRoi, str):
       filename, ext = os.path.splitext(inputRoi)
       if ext.lower() == '.json':
         with open(inputRoi) as f:
-          inputRoiData = json.load(f)
+            inputRoiData = json.load(f)
       else:
-        inputRoiData = plistlib.readPlist(inputRoi)
+        with open(inputRoi, 'rb') as f:  # Open the file in binary mode
+            inputRoiData = plistlib.load(f, fmt=None)
     elif isinstance(inputRoi, slicer.vtkMRMLTextNode):
       try:
-        inputRoiData = json.loads(inputRoi.GetText())
+        inputRoiData = json.loads(inputRoi.GetText(), fmt=None)
       except:
-        inputRoiData = plistlib.readPlistFromBytes(inputRoi.GetText())
+        inputRoiData = plistlib.loads(inputRoi.GetText(), fmt=None)
     else:
       raise TypeError("inputRoi is expected to be a string or vtkMRMLTextNode")
 
     outputSegmentationNode.CreateDefaultDisplayNodes()
     segmentation = outputSegmentationNode.GetSegmentation()
-    segmentation.SetMasterRepresentationName(slicer.vtkSegmentationConverter.GetPlanarContourRepresentationName())
+    segmentation.SetSourceRepresentationName(slicer.vtkSegmentationConverter.GetPlanarContourRepresentationName())
 
     roiDescriptions = {}  # map from ROI name to RoiDescription
 
@@ -301,25 +302,29 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
         self.roiContourPoints = vtk.vtkPoints()
         self.roiContourCells = vtk.vtkCellArray()
       def addRoiPoints(self, roiPoints):
+        if len(roiPoints) == 0:
+          raise ValueError("roiPoints is empty")
         cellPointIds = []
         for roiPoint in roiPoints:
           cellPointIds.append(self.roiContourPoints.InsertNextPoint(roiPoint))
         contourIndex = self.roiContourCells.InsertNextCell(len(cellPointIds)+1)
         for cellPointId in cellPointIds:
           self.roiContourCells.InsertCellPoint(cellPointId)
-        self.roiContourCells.InsertCellPoint(cellPointIds[0])  # close the contour
+        self.roiContourCells.InsertCellPoint(cellPointIds[0])
 
     if "Images" not in inputRoiData:
       for contourIndex, contour in enumerate(inputRoiData):
         # Get/create ROI description
         name = contour["Name"]
+        roiPoints = self._pointCoordinatesFromStringList(contour["ROI3DPoints"], '[]')
+        if len(roiPoints) == 0:
+          logging.warning(f"Contour [{contourIndex}] ({name}) is empty")
+          continue
         try:
           roiDescription = roiDescriptions[name]
         except KeyError:
           roiDescription = RoiDescription()
           roiDescriptions[name] = roiDescription
-        # Add points
-        roiPoints = self._pointCoordinatesFromStringList(contour["ROI3DPoints"], '[]')
         if smoothing:
           roiPoints = self._smoothCurve(roiPoints)
         roiDescription.addRoiPoints(roiPoints)
@@ -329,15 +334,18 @@ class ImportOsirixROILogic(ScriptedLoadableModuleLogic):
       for imageIndex, image in enumerate(inputRoiData['Images']):
         rois = image['ROIs']
         for roiIndex, roi in enumerate(rois):
-          # Get/create ROI description
           name = roi["Name"]
+          # Add points
+          roiPoints = self._pointCoordinatesFromStringList(roi['Point_mm'], '()')
+          if len(roiPoints) == 0:
+            logging.warning(f"ROI [{roiIndex}] ({name}) of image {imageIndex} is empty")
+            continue
+          # Get/create ROI description
           try:
             roiDescription = roiDescriptions[name]
           except KeyError:
             roiDescription = RoiDescription()
             roiDescriptions[name] = roiDescription
-          # Add points
-          roiPoints = self._pointCoordinatesFromStringList(roi['Point_mm'], '()')
           if smoothing:
             roiPoints = self._smoothCurve(roiPoints)
           roiDescription.addRoiPoints(roiPoints)
