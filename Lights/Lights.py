@@ -1,4 +1,3 @@
-from multiprocessing.sharedctypes import Value
 import os
 import unittest
 import vtk, qt, ctk, slicer
@@ -75,7 +74,8 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.managedViewsCheckableNodeComboBox.connect('checkedNodesChanged()', self.onUpdateManagedViewList)
     self.ui.selectAllViewsPushButton.connect('clicked(bool)', self.onSelectAllViews)
 
-    self.ui.presetDefault.connect('clicked(bool)', self.onPresetDefault)
+    self.ui.lightKitCheckBox.connect('toggled(bool)', self.onEnableLightKit)
+    self.ui.presetBalanced.connect('clicked(bool)', self.onPresetBalanced)
     self.ui.presetCeilingLighting.connect('clicked(bool)', self.onPresetCeilingLighting)
     self.ui.presetSideLighting.connect('clicked(bool)', self.onPresetSideLighting)
     self.ui.presetSunset.connect('clicked(bool)', self.onPresetSunset)
@@ -105,8 +105,9 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.backAzimuthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetBackLightAzimuth(value))
     self.ui.backAzimuthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.Modified())
 
-    self.ui.ssaoCheckBox.connect('toggled(bool)', lambda value: self.logic.setUseSSAO(value))
-    self.ui.ssaoSizeScaleSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setSSAOSizeScaleLog(value))
+    self.ui.shadowsVisibilityCheckBox.connect('toggled(bool)', lambda value: self.logic.setUseSSAO(value))
+    self.ui.ambientShadowsSizeScaleSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setAmbientShadowsSizeScale(value))
+    self.ui.ambientShadowsVolumeOpacityThresholdPercentSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setAmbientShadowsVolumeOpacityThreshold(value*0.01))
 
     self.ui.imageNone.connect('clicked(bool)', lambda: self.logic.setImageBasedLighting(None))
 
@@ -134,7 +135,12 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     for viewNode in uncheckedNodes:
       self.ui.managedViewsCheckableNodeComboBox.setCheckState(viewNode, qt.Qt.Checked)
 
-  def onPresetDefault(self):
+  def onEnableLightKit(self, enable):
+    self.logic.setUseLightKit(enable)
+    self.updateWidgetFromLogic()
+
+  def onPresetBalanced(self):
+    self.logic.setUseLightKit(True)
     # Key
     self.logic.lightKit.SetKeyLightIntensity(0.75)
     self.logic.lightKit.SetKeyLightWarmth(0.6)
@@ -158,6 +164,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.updateWidgetFromLogic()
 
   def onPresetSunset(self):
+    self.logic.setUseLightKit(True)
     # Key
     self.logic.lightKit.SetKeyLightIntensity(1.08)
     self.logic.lightKit.SetKeyLightWarmth(0.7)
@@ -181,6 +188,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.updateWidgetFromLogic()
 
   def onPresetOpera(self):
+    self.logic.setUseLightKit(True)
     # Key
     self.logic.lightKit.SetKeyLightIntensity(0.75)
     self.logic.lightKit.SetKeyLightWarmth(0.5)
@@ -204,6 +212,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.updateWidgetFromLogic()
 
   def onPresetCeilingLighting(self):
+    self.logic.setUseLightKit(True)
     # Key
     self.logic.lightKit.SetKeyLightIntensity(1.5)
     self.logic.lightKit.SetKeyLightWarmth(0.6)
@@ -227,6 +236,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.updateWidgetFromLogic()
 
   def onPresetSideLighting(self):
+    self.logic.setUseLightKit(True)
     # Key
     self.logic.lightKit.SetKeyLightIntensity(0.9)
     self.logic.lightKit.SetKeyLightWarmth(0.6)
@@ -271,10 +281,13 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.backAzimuthSliderWidget.value = lightkit.GetBackLightAzimuth()
 
     if vtk.vtkVersion().GetVTKMajorVersion()>=9:
-      self.ui.ssaoCheckBox.checked = self.logic.ssaoEnabled
-      self.ui.ssaoSizeScaleSliderWidget.value = self.logic.ssaoSizeScaleLog
+      self.ui.shadowsVisibilityCheckBox.checked = self.logic.shadowsVisibility
+      self.ui.ambientShadowsSizeScaleSliderWidget.value = self.logic.ambientShadowsSizeScale
+      self.ui.ambientShadowsVolumeOpacityThresholdPercentSliderWidget.value = self.logic.ambientShadowsVolumeOpacityThreshold*100
     else:
       self.ui.SSAOCollapsibleButton.hide()
+
+    self.ui.lightKitCheckBox.checked = self.logic.useLightKit
 
 
 #
@@ -284,21 +297,51 @@ class LightsWidget(ScriptedLoadableModuleWidget):
 class LightsLogic(ScriptedLoadableModuleLogic):
 
   def __init__(self):
+    self.useLightKit = True
     self.lightKit = vtk.vtkLightKit()
     self.lightKit.MaintainLuminanceOn()
     self.lightkitObserverTag = self.lightKit.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onLightkitModified)
-    self.ssaoEnabled = False
-    self.ssaoSizeScaleLog = 0.0
+
+    self.slicerCoreSupportsShadows = hasattr(slicer.vtkMRMLViewNode, "SetShadowsVisibility")
+
+    self.shadowsVisibility = False
+    self.ambientShadowsSizeScale = 0.3
+    self.ambientShadowsVolumeOpacityThreshold = 0.25
+
     self.managedViewNodes = []
     self.imageBasedLightingImageFile = None
 
   def __del__(self):
     self.lightKit.RemoveObserver(self.lightkitObserverTag)
 
+  def requestRender(self, viewNode):
+    lm = slicer.app.layoutManager()
+    for widgetIndex in range(lm.threeDViewCount):
+      view = lm.threeDWidget(widgetIndex).threeDView()
+      if viewNode == view.mrmlViewNode():
+        view.scheduleRender()
+        return
+    self.requestRender(viewNode)
+
+  def setUseLightKit(self, useLightKit, viewNode=None):
+    if viewNode is None:
+      self.useLightKit = useLightKit
+      viewNodes = self.managedViewNodes
+    else:
+      viewNodes = [viewNode]
+    for viewNode in viewNodes:
+      renderWindow = self.renderWindowFromViewNode(viewNode)
+      renderer = renderWindow.GetRenderers().GetFirstRenderer()
+      renderer.RemoveAllLights()
+      if self.useLightKit:
+        self.lightKit.AddLightsToRenderer(renderer)
+      else:
+        renderer.CreateLight()
+      self.requestRender(viewNode)
+
   def onLightkitModified(self, caller, event):
     for viewNode in self.managedViewNodes:
-      renderWindow = self.renderWindowFromViewNode(viewNode)
-      renderWindow.Render()
+      self.requestRender(viewNode)
 
   def renderWindowFromViewNode(self, viewNode):
     renderView = None
@@ -313,55 +356,86 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     if viewNode in self.managedViewNodes:
       return
     self.managedViewNodes.append(viewNode)
+    self.setUseLightKit(self.useLightKit, viewNode)
+    self.setUseSSAO(self.shadowsVisibility, viewNode)
+    self.setAmbientShadowsSizeScale(self.ambientShadowsSizeScale, viewNode)
+    self.setAmbientShadowsVolumeOpacityThreshold(self.ambientShadowsVolumeOpacityThreshold, viewNode)
+    self.requestRender(viewNode)
+
+  def deepCopyAllLights(self, viewNode):
+    """Create independent copy of all lights in the renderer"""
     renderWindow = self.renderWindowFromViewNode(viewNode)
     renderer = renderWindow.GetRenderers().GetFirstRenderer()
+    numberOfLights = renderer.GetLights().GetNumberOfItems()
+    lightCopies = []
+    for i in range(numberOfLights):
+      originalLight = renderer.GetLights().GetItemAsObject(i)
+      newLight = vtk.vtkLight()
+      newLight.DeepCopy(originalLight)
+      lightCopies.append(newLight)
     renderer.RemoveAllLights()
-    self.lightKit.AddLightsToRenderer(renderer)
-
-    renderer.SSAOBlurOn()  # reduce noise in SSAO mode
-    self.setUseSSAO(self.ssaoEnabled)
-    self.setSSAOSizeScaleLog(self.ssaoSizeScaleLog)
-    self.setImageBasedLighting(self.imageBasedLightingImageFile)
-    renderWindow.Render()
+    for light in lightCopies:
+      renderer.AddLight(light)
 
   def removeManagedView(self, viewNode):
     if viewNode not in self.managedViewNodes:
       return
     self.managedViewNodes.remove(viewNode)
-    renderWindow = self.renderWindowFromViewNode(viewNode)
-    renderer = renderWindow.GetRenderers().GetFirstRenderer()
-    # Make a copy of current lightkit
-    currentLightKit = vtk.vtkLightKit()
-    currentLightKit.DeepCopy(self.lightKit)
-    renderer.RemoveAllLights()
-    currentLightKit.AddLightsToRenderer(renderer)
-    renderer.UseSphericalHarmonicsOn()
-    renderer.SetEnvironmentTexture(None)
-    renderer.UseImageBasedLightingOff()
-    renderWindow.Render()
+    # Create an independent copy of all lights so that any changes
+    # done by this module will not impact the view anymore.
+    self.deepCopyAllLights(viewNode)
 
-  def setUseSSAO(self, enable):
-    self.ssaoEnabled = enable
-    for viewNode in self.managedViewNodes:
-      renderWindow = self.renderWindowFromViewNode(viewNode)
-      renderer = renderWindow.GetRenderers().GetFirstRenderer()
-      renderer.SetUseSSAO(self.ssaoEnabled)
-      renderWindow.Render()
+  def setUseSSAO(self, enable, viewNode=None):
+    if viewNode is None:
+      self.shadowsVisibility = enable
+      viewNodes = self.managedViewNodes
+    else:
+      viewNodes = [viewNode]
+    for viewNode in viewNodes:
+      if self.slicerCoreSupportsShadows:
+          viewNode.SetShadowsVisibility(self.shadowsVisibility)
+      else:
+          # Legacy
+          renderWindow = self.renderWindowFromViewNode(viewNode)
+          renderer = renderWindow.GetRenderers().GetFirstRenderer()
+          renderer.SetUseSSAO(self.shadowsVisibility)
+          self.requestRender(viewNode)
 
-  def setSSAOSizeScaleLog(self, scaleLog):
-    self.ssaoSizeScaleLog = scaleLog
-    # ScaleLog = 0.0 corresponds to 100mm scene size
-    sceneSize = 100.0 * pow(10, self.ssaoSizeScaleLog)
-    # Bias and radius are from example in https://blog.kitware.com/ssao/.
-    # These values have been tested on different kind of meshes and found to work well.
-    for viewNode in self.managedViewNodes:
-      renderWindow = self.renderWindowFromViewNode(viewNode)
-      renderer = renderWindow.GetRenderers().GetFirstRenderer()
-      renderer.SetSSAOBias(0.001 * sceneSize);  # how much distance difference will be made visible
-      renderer.SetSSAORadius(0.1 * sceneSize);  # determines the spread of shadows cast by ambient occlusion
-      renderer.SetSSAOBlur(True)  # reduce noise
-      renderer.SetSSAOKernelSize(320)  # larger kernel size reduces noise pattern in the darkened region
-      renderWindow.Render()
+  def setAmbientShadowsVolumeOpacityThreshold(self, opacityThreshold, viewNode=None):
+    if not self.slicerCoreSupportsShadows:
+      # Not supported in older Slicer versions
+      return
+
+    if viewNode is None:
+      self.ambientShadowsVolumeOpacityThreshold = opacityThreshold
+      viewNodes = self.managedViewNodes
+    else:
+      viewNodes = [viewNode]
+    for viewNode in viewNodes:
+      viewNode.SetAmbientShadowsVolumeOpacityThreshold(opacityThreshold)
+
+  def setAmbientShadowsSizeScale(self, sizeScaleLog, viewNode=None):
+    if viewNode is None:
+      self.ambientShadowsSizeScale = sizeScaleLog
+      viewNodes = self.managedViewNodes
+    else:
+      viewNodes = [viewNode]
+    for viewNode in viewNodes:
+      if self.slicerCoreSupportsShadows:
+          viewNode.SetAmbientShadowsSizeScale(sizeScaleLog)
+      else:
+          # Legacy
+          # SizeScaleLog = 0.0 corresponds to 100mm scene size
+          sceneSize = 100.0 * pow(10, sizeScaleLog)
+          # Bias and radius are from example in https://blog.kitware.com/ssao/.
+          # These values have been tested on different kind of meshes and found to work well.
+          renderWindow = self.renderWindowFromViewNode(viewNode)
+          renderer = renderWindow.GetRenderers().GetFirstRenderer()
+          renderer.SetSSAOBias(0.001 * sceneSize);  # how much distance difference will be made visible
+          renderer.SetSSAORadius(0.1 * sceneSize);  # determines the spread of shadows cast by ambient occlusion
+          renderer.SetSSAOBlur(True)  # reduce noise
+          renderer.SetSSAOKernelSize(320)  # larger kernel size reduces noise pattern in the darkened region
+          self.requestRender(viewNode)
 
   def setImageBasedLighting(self, imageFilePath):
     self.imageBasedLightingImageFile = imageFilePath
@@ -399,7 +473,7 @@ class LightsLogic(ScriptedLoadableModuleLogic):
         renderer.UseSphericalHarmonicsOn()
         renderer.SetEnvironmentTexture(None)
         renderer.UseImageBasedLightingOff()
-      renderWindow.Render()
+      self.requestRender(viewNode)
 
     # To display skybox in the view:
     #world = vtk.vtkSkybox()
