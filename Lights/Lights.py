@@ -74,13 +74,17 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.managedViewsCheckableNodeComboBox.connect('checkedNodesChanged()', self.onUpdateManagedViewList)
     self.ui.selectAllViewsPushButton.connect('clicked(bool)', self.onSelectAllViews)
 
-    self.ui.lightKitCheckBox.connect('toggled(bool)', self.onEnableLightKit)
+    self.ui.lightKitRadioButton.connect("toggled(bool)", self.onEnableLightKit)
+
+    self.ui.presetSingleLightDefault.connect('clicked(bool)', self.onPresetSingleLightDefault)
+
     self.ui.presetBalanced.connect('clicked(bool)', self.onPresetBalanced)
     self.ui.presetCeilingLighting.connect('clicked(bool)', self.onPresetCeilingLighting)
     self.ui.presetSideLighting.connect('clicked(bool)', self.onPresetSideLighting)
     self.ui.presetSunset.connect('clicked(bool)', self.onPresetSunset)
     self.ui.presetOpera.connect('clicked(bool)', self.onPresetOpera)
 
+    self.ui.singleLightIntensitySliderWidget.connect('valueChanged(double)', lambda value: self.logic.setSingleLightIntensity(value))
     self.ui.keyIntensitySliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyLightIntensity(value))
     self.ui.keyWarmthSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyLightWarmth(value))
     self.ui.keyElevationSliderWidget.connect('valueChanged(double)', lambda value: self.logic.lightKit.SetKeyLightElevation(value))
@@ -108,6 +112,8 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.shadowsVisibilityCheckBox.connect('toggled(bool)', lambda value: self.logic.setUseSSAO(value))
     self.ui.ambientShadowsSizeScaleSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setAmbientShadowsSizeScale(value))
     self.ui.ambientShadowsVolumeOpacityThresholdPercentSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setAmbientShadowsVolumeOpacityThreshold(value*0.01))
+
+    self.ui.adaptiveRenderingQualityCheckBox.connect('toggled(bool)', self.logic.setAdaptiveRenderingQuality)
 
     self.ui.imageNone.connect('clicked(bool)', lambda: self.logic.setImageBasedLighting(None))
 
@@ -137,6 +143,11 @@ class LightsWidget(ScriptedLoadableModuleWidget):
 
   def onEnableLightKit(self, enable):
     self.logic.setUseLightKit(enable)
+    self.updateWidgetFromLogic()
+
+  def onPresetSingleLightDefault(self):
+    self.logic.setUseLightKit(False)
+    self.logic.setSingleLightIntensity(1.0)
     self.updateWidgetFromLogic()
 
   def onPresetBalanced(self):
@@ -280,6 +291,10 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.backElevationSliderWidget.value = lightkit.GetBackLightElevation()
     self.ui.backAzimuthSliderWidget.value = lightkit.GetBackLightAzimuth()
 
+    self.ui.singleLightIntensitySliderWidget.value = self.logic.singleLightIntensity
+
+    self.ui.adaptiveRenderingQualityCheckBox.checked = self.logic.adaptiveRenderingQuality
+
     if vtk.vtkVersion().GetVTKMajorVersion()>=9:
       self.ui.shadowsVisibilityCheckBox.checked = self.logic.shadowsVisibility
       self.ui.ambientShadowsSizeScaleSliderWidget.value = self.logic.ambientShadowsSizeScale
@@ -287,7 +302,8 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     else:
       self.ui.SSAOCollapsibleButton.hide()
 
-    self.ui.lightKitCheckBox.checked = self.logic.useLightKit
+    self.ui.singleLightRadioButton.checked = not self.logic.useLightKit
+    self.ui.lightKitRadioButton.checked = self.logic.useLightKit
 
 
 #
@@ -298,15 +314,20 @@ class LightsLogic(ScriptedLoadableModuleLogic):
 
   def __init__(self):
     self.useLightKit = True
+
+    self.singleLightIntensity = 1.0
+
     self.lightKit = vtk.vtkLightKit()
     self.lightKit.MaintainLuminanceOn()
     self.lightkitObserverTag = self.lightKit.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onLightkitModified)
 
     self.slicerCoreSupportsShadows = hasattr(slicer.vtkMRMLViewNode, "SetShadowsVisibility")
 
-    self.shadowsVisibility = False
+    self.shadowsVisibility = True
     self.ambientShadowsSizeScale = 0.3
     self.ambientShadowsVolumeOpacityThreshold = 0.25
+
+    self.adaptiveRenderingQuality = True
 
     self.managedViewNodes = []
     self.imageBasedLightingImageFile = None
@@ -314,14 +335,15 @@ class LightsLogic(ScriptedLoadableModuleLogic):
   def __del__(self):
     self.lightKit.RemoveObserver(self.lightkitObserverTag)
 
-  def requestRender(self, viewNode):
+  def requestRender(self, viewNode=None):
     lm = slicer.app.layoutManager()
     for widgetIndex in range(lm.threeDViewCount):
       view = lm.threeDWidget(widgetIndex).threeDView()
-      if viewNode == view.mrmlViewNode():
+      if (viewNode is None) or (viewNode == view.mrmlViewNode()):
         view.scheduleRender()
-        return
-    self.requestRender(viewNode)
+        if viewNode:
+          # Update of only one view was requested
+          return
 
   def setUseLightKit(self, useLightKit, viewNode=None):
     if viewNode is None:
@@ -337,11 +359,11 @@ class LightsLogic(ScriptedLoadableModuleLogic):
         self.lightKit.AddLightsToRenderer(renderer)
       else:
         renderer.CreateLight()
+        self.setSingleLightIntensity(self.singleLightIntensity, viewNode)
       self.requestRender(viewNode)
 
   def onLightkitModified(self, caller, event):
-    for viewNode in self.managedViewNodes:
-      self.requestRender(viewNode)
+    self.requestRender()
 
   def renderWindowFromViewNode(self, viewNode):
     renderView = None
@@ -357,9 +379,11 @@ class LightsLogic(ScriptedLoadableModuleLogic):
       return
     self.managedViewNodes.append(viewNode)
     self.setUseLightKit(self.useLightKit, viewNode)
+    self.setSingleLightIntensity(self.singleLightIntensity, viewNode)
     self.setUseSSAO(self.shadowsVisibility, viewNode)
     self.setAmbientShadowsSizeScale(self.ambientShadowsSizeScale, viewNode)
     self.setAmbientShadowsVolumeOpacityThreshold(self.ambientShadowsVolumeOpacityThreshold, viewNode)
+    self.setAdaptiveRenderingQuality(self.adaptiveRenderingQuality, viewNode)
     self.requestRender(viewNode)
 
   def deepCopyAllLights(self, viewNode):
@@ -384,6 +408,24 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     # Create an independent copy of all lights so that any changes
     # done by this module will not impact the view anymore.
     self.deepCopyAllLights(viewNode)
+
+  def firstLight(self, viewNode):
+    renderWindow = self.renderWindowFromViewNode(viewNode)
+    renderer = renderWindow.GetRenderers().GetFirstRenderer()
+    return renderer.GetLights().GetItemAsObject(0)
+
+  def setSingleLightIntensity(self, intensity, viewNode=None):
+    if self.useLightKit:
+      return
+    if viewNode is None:
+      self.singleLightIntensity = intensity
+      viewNodes = self.managedViewNodes
+    else:
+      viewNodes = [viewNode]
+    for viewNode in viewNodes:
+      firstLight = self.firstLight(viewNode)
+      firstLight.SetIntensity(intensity)
+      self.requestRender(viewNode)
 
   def setUseSSAO(self, enable, viewNode=None):
     if viewNode is None:
@@ -436,6 +478,20 @@ class LightsLogic(ScriptedLoadableModuleLogic):
           renderer.SetSSAOBlur(True)  # reduce noise
           renderer.SetSSAOKernelSize(320)  # larger kernel size reduces noise pattern in the darkened region
           self.requestRender(viewNode)
+
+  def setAdaptiveRenderingQuality(self, enable, viewNode=None):
+    if viewNode is None:
+      self.adaptiveRenderingQuality = enable
+      viewNodes = self.managedViewNodes
+    else:
+      viewNodes = [viewNode]
+    for viewNode in viewNodes:
+      if enable:
+        viewNode.SetVolumeRenderingQuality(slicer.vtkMRMLViewNode.Adaptive)
+        viewNode.SetExpectedFPS(30)
+        viewNode.SetVolumeRenderingSurfaceSmoothing(True)
+      else:
+        viewNode.SetVolumeRenderingQuality(slicer.vtkMRMLViewNode.Normal)
 
   def setImageBasedLighting(self, imageFilePath):
     self.imageBasedLightingImageFile = imageFilePath

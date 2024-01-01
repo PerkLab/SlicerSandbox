@@ -6,103 +6,11 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>352</width>
-    <height>566</height>
+    <width>359</width>
+    <height>612</height>
    </rect>
   </property>
   <layout class="QGridLayout" name="gridLayout_2">
-   <item row="3" column="0" colspan="3">
-    <widget class="ctkCollapsibleButton" name="SSAOCollapsibleButton">
-     <property name="text">
-      <string>Ambient shadows (SSAO)</string>
-     </property>
-     <layout class="QFormLayout" name="formLayout_6">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_19">
-        <property name="text">
-         <string>Enable:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="ctkCheckBox" name="shadowsVisibilityCheckBox"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_18">
-        <property name="text">
-         <string>Size scale:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="ctkSliderWidget" name="ambientShadowsSizeScaleSliderWidget">
-        <property name="toolTip">
-         <string>Size scale used for determining size of features to be emphasized or suppressed. The scale is logairthmic, default (0.0) corresponds to object size of about 100mm.</string>
-        </property>
-        <property name="singleStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>0.500000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>-3.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>3.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.000000000000000</double>
-        </property>
-        <property name="prefix">
-         <string/>
-        </property>
-        <property name="suffix">
-         <string/>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="ssaoVolumeRenderingOpacityThresholdLabel">
-        <property name="text">
-         <string>Opacity threshold:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <widget class="ctkSliderWidget" name="ambientShadowsVolumeOpacityThresholdPercentSliderWidget">
-        <property name="toolTip">
-         <string>Size scale used for determining size of features to be emphasized or suppressed. The scale is logairthmic, default (0.0) corresponds to object size of about 100mm.</string>
-        </property>
-        <property name="decimals">
-         <number>1</number>
-        </property>
-        <property name="singleStep">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="pageStep">
-         <double>10.000000000000000</double>
-        </property>
-        <property name="minimum">
-         <double>0.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>100.000000000000000</double>
-        </property>
-        <property name="value">
-         <double>25.000000000000000</double>
-        </property>
-        <property name="prefix">
-         <string/>
-        </property>
-        <property name="suffix">
-         <string>%</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
    <item row="2" column="0" colspan="3">
     <widget class="ctkCollapsibleButton" name="CollapsibleButton">
      <property name="text">
@@ -112,31 +20,10 @@
       <property name="bottomMargin">
        <number>0</number>
       </property>
-      <item row="0" column="0" colspan="2">
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QLabel" name="label_20">
-          <property name="text">
-           <string>Enable lightkit:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="ctkCheckBox" name="lightKitCheckBox">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item row="4" column="0" colspan="2">
+      <item row="3" column="0" colspan="2">
        <widget class="QFrame" name="LightKitFrame">
         <property name="frameShape">
-         <enum>QFrame::StyledPanel</enum>
+         <enum>QFrame::NoFrame</enum>
         </property>
         <property name="frameShadow">
          <enum>QFrame::Raised</enum>
@@ -146,7 +33,7 @@
         </property>
         <layout class="QGridLayout" name="gridLayout_4">
          <property name="leftMargin">
-          <number>0</number>
+          <number>20</number>
          </property>
          <property name="topMargin">
           <number>0</number>
@@ -180,23 +67,13 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="0">
-          <widget class="QPushButton" name="presetSunset">
+         <item row="1" column="0">
+          <widget class="QPushButton" name="presetCeilingLighting">
            <property name="toolTip">
-            <string>Lightkit - somewhat lit from the side</string>
+            <string>Lightkit - mostly lit from above</string>
            </property>
            <property name="text">
-            <string>Sunset</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0" colspan="2">
-          <widget class="QPushButton" name="presetBalanced">
-           <property name="toolTip">
-            <string>Lightkit - balanced, somewhat frontal light</string>
-           </property>
-           <property name="text">
-            <string>Balanced</string>
+            <string>Ceiling lighting</string>
            </property>
           </widget>
          </item>
@@ -209,14 +86,14 @@
             <number>7</number>
            </property>
            <layout class="QFormLayout" name="formLayout_2">
-            <item row="0" column="0">
+            <item row="1" column="0">
              <widget class="QLabel" name="label_3">
               <property name="text">
                <string>Intensity:</string>
               </property>
              </widget>
             </item>
-            <item row="0" column="1">
+            <item row="1" column="1">
              <widget class="ctkSliderWidget" name="keyIntensitySliderWidget">
               <property name="toolTip">
                <string>Scales intensity of all lights</string>
@@ -238,14 +115,14 @@
               </property>
              </widget>
             </item>
-            <item row="1" column="0">
+            <item row="2" column="0">
              <widget class="QLabel" name="label_5">
               <property name="text">
                <string>Warmth:</string>
               </property>
              </widget>
             </item>
-            <item row="1" column="1">
+            <item row="2" column="1">
              <widget class="ctkSliderWidget" name="keyWarmthSliderWidget">
               <property name="toolTip">
                <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
@@ -267,14 +144,14 @@
               </property>
              </widget>
             </item>
-            <item row="2" column="0">
+            <item row="3" column="0">
              <widget class="QLabel" name="label_6">
               <property name="text">
                <string>Elevation:</string>
               </property>
              </widget>
             </item>
-            <item row="2" column="1">
+            <item row="3" column="1">
              <widget class="ctkSliderWidget" name="keyElevationSliderWidget">
               <property name="toolTip">
                <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
@@ -296,14 +173,14 @@
               </property>
              </widget>
             </item>
-            <item row="3" column="0">
+            <item row="4" column="0">
              <widget class="QLabel" name="label_7">
               <property name="text">
                <string>Azimuth</string>
               </property>
              </widget>
             </item>
-            <item row="3" column="1">
+            <item row="4" column="1">
              <widget class="ctkSliderWidget" name="keyAzimuthSliderWidget">
               <property name="toolTip">
                <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
@@ -328,17 +205,27 @@
            </layout>
           </widget>
          </item>
-         <item row="1" column="0">
-          <widget class="QPushButton" name="presetCeilingLighting">
+         <item row="0" column="0" colspan="2">
+          <widget class="QPushButton" name="presetBalanced">
            <property name="toolTip">
-            <string>Lightkit - mostly lit from above</string>
+            <string>Lightkit - balanced, somewhat frontal light</string>
            </property>
            <property name="text">
-            <string>Ceiling lighting</string>
+            <string>Balanced</string>
            </property>
           </widget>
          </item>
-         <item row="4" column="0">
+         <item row="2" column="0">
+          <widget class="QPushButton" name="presetSunset">
+           <property name="toolTip">
+            <string>Lightkit - somewhat lit from the side</string>
+           </property>
+           <property name="text">
+            <string>Sunset</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0" colspan="2">
           <widget class="ctkCollapsibleGroupBox" name="CollapsibleGroupBox">
            <property name="title">
             <string>Advanced</string>
@@ -673,23 +560,182 @@
         </layout>
        </widget>
       </item>
+      <item row="2" column="0">
+       <widget class="QRadioButton" name="lightKitRadioButton">
+        <property name="text">
+         <string>Lightkit</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QFrame" name="singleLightFrame">
+        <property name="frameShape">
+         <enum>QFrame::NoFrame</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Raised</enum>
+        </property>
+        <layout class="QFormLayout" name="formLayout">
+         <property name="leftMargin">
+          <number>20</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item row="0" column="0" colspan="2">
+          <widget class="QPushButton" name="presetSingleLightDefault">
+           <property name="toolTip">
+            <string>Lightkit - balanced, somewhat frontal light</string>
+           </property>
+           <property name="text">
+            <string>Default</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_21">
+           <property name="text">
+            <string>Intensity:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="ctkSliderWidget" name="singleLightIntensitySliderWidget">
+           <property name="toolTip">
+            <string>Intensity of the light</string>
+           </property>
+           <property name="singleStep">
+            <double>0.010000000000000</double>
+           </property>
+           <property name="pageStep">
+            <double>0.100000000000000</double>
+           </property>
+           <property name="minimum">
+            <double>0.000000000000000</double>
+           </property>
+           <property name="maximum">
+            <double>3.000000000000000</double>
+           </property>
+           <property name="value">
+            <double>0.000000000000000</double>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QRadioButton" name="singleLightRadioButton">
+        <property name="text">
+         <string>Single light</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
-   <item row="0" column="1">
-    <widget class="qMRMLCheckableNodeComboBox" name="managedViewsCheckableNodeComboBox">
-     <property name="nodeTypes">
-      <stringlist>
-       <string>vtkMRMLViewNode</string>
-      </stringlist>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="2">
-    <widget class="QPushButton" name="selectAllViewsPushButton">
+   <item row="3" column="0" colspan="3">
+    <widget class="ctkCollapsibleButton" name="SSAOCollapsibleButton">
      <property name="text">
-      <string>Select all</string>
+      <string>Ambient shadows (SSAO)</string>
      </property>
+     <layout class="QFormLayout" name="formLayout_6">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_19">
+        <property name="text">
+         <string>Enable:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="ctkCheckBox" name="shadowsVisibilityCheckBox"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_18">
+        <property name="text">
+         <string>Size scale:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="ctkSliderWidget" name="ambientShadowsSizeScaleSliderWidget">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="toolTip">
+         <string>Size scale used for determining size of features to be emphasized or suppressed. The scale is logairthmic, default (0.0) corresponds to object size of about 100mm.</string>
+        </property>
+        <property name="singleStep">
+         <double>0.100000000000000</double>
+        </property>
+        <property name="pageStep">
+         <double>0.500000000000000</double>
+        </property>
+        <property name="minimum">
+         <double>-3.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>3.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="prefix">
+         <string/>
+        </property>
+        <property name="suffix">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="ssaoVolumeRenderingOpacityThresholdLabel">
+        <property name="text">
+         <string>Opacity threshold:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="ctkSliderWidget" name="ambientShadowsVolumeOpacityThresholdPercentSliderWidget">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="toolTip">
+         <string>Size scale used for determining size of features to be emphasized or suppressed. The scale is logairthmic, default (0.0) corresponds to object size of about 100mm.</string>
+        </property>
+        <property name="decimals">
+         <number>1</number>
+        </property>
+        <property name="singleStep">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="pageStep">
+         <double>10.000000000000000</double>
+        </property>
+        <property name="minimum">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum">
+         <double>100.000000000000000</double>
+        </property>
+        <property name="value">
+         <double>25.000000000000000</double>
+        </property>
+        <property name="prefix">
+         <string/>
+        </property>
+        <property name="suffix">
+         <string>%</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
    <item row="0" column="0">
@@ -699,7 +745,7 @@
      </property>
     </widget>
    </item>
-   <item row="4" column="0" colspan="3">
+   <item row="5" column="0" colspan="3">
     <widget class="ctkCollapsibleButton" name="CollapsibleButton_2">
      <property name="toolTip">
       <string>Specify lighting using an image for models rendered with PBR interpolation.</string>
@@ -725,25 +771,48 @@
      </layout>
     </widget>
    </item>
+   <item row="0" column="1">
+    <widget class="qMRMLCheckableNodeComboBox" name="managedViewsCheckableNodeComboBox">
+     <property name="nodeTypes">
+      <stringlist>
+       <string>vtkMRMLViewNode</string>
+      </stringlist>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="2">
+    <widget class="QPushButton" name="selectAllViewsPushButton">
+     <property name="text">
+      <string>Select all</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0" colspan="3">
+    <widget class="ctkCollapsibleButton" name="SSAOCollapsibleButton_2">
+     <property name="text">
+      <string>Performance</string>
+     </property>
+     <layout class="QFormLayout" name="formLayout_7">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_20">
+        <property name="text">
+         <string>Adaptive rendering quality:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="ctkCheckBox" name="adaptiveRenderingQualityCheckBox">
+        <property name="toolTip">
+         <string>To increase view refresh rate, rendering quality is lowered while interacting with the view and surface smoothing is enabled.</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
   </layout>
  </widget>
  <customwidgets>
-  <customwidget>
-   <class>qMRMLCheckableNodeComboBox</class>
-   <extends>qMRMLNodeComboBox</extends>
-   <header>qMRMLCheckableNodeComboBox.h</header>
-  </customwidget>
-  <customwidget>
-   <class>qMRMLCollapsibleButton</class>
-   <extends>ctkCollapsibleButton</extends>
-   <header>qMRMLCollapsibleButton.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>qMRMLNodeComboBox</class>
-   <extends>QWidget</extends>
-   <header>qMRMLNodeComboBox.h</header>
-  </customwidget>
   <customwidget>
    <class>ctkCheckBox</class>
    <extends>QCheckBox</extends>
@@ -766,22 +835,54 @@
    <extends>QWidget</extends>
    <header>ctkSliderWidget.h</header>
   </customwidget>
+  <customwidget>
+   <class>qMRMLCheckableNodeComboBox</class>
+   <extends>qMRMLNodeComboBox</extends>
+   <header>qMRMLCheckableNodeComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLCollapsibleButton</class>
+   <extends>ctkCollapsibleButton</extends>
+   <header>qMRMLCollapsibleButton.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLNodeComboBox</class>
+   <extends>QWidget</extends>
+   <header>qMRMLNodeComboBox.h</header>
+  </customwidget>
  </customwidgets>
  <resources/>
  <connections>
   <connection>
-   <sender>lightKitCheckBox</sender>
+   <sender>shadowsVisibilityCheckBox</sender>
    <signal>toggled(bool)</signal>
-   <receiver>LightKitFrame</receiver>
+   <receiver>ambientShadowsSizeScaleSliderWidget</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>107</x>
-     <y>77</y>
+     <x>119</x>
+     <y>463</y>
     </hint>
     <hint type="destinationlabel">
-     <x>18</x>
-     <y>120</y>
+     <x>139</x>
+     <y>487</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>shadowsVisibilityCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>ambientShadowsVolumeOpacityThresholdPercentSliderWidget</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>181</x>
+     <y>465</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>216</x>
+     <y>508</y>
     </hint>
    </hints>
   </connection>
