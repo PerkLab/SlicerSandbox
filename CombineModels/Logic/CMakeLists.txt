@@ -6,10 +6,6 @@ set(${KIT}_EXPORT_DIRECTIVE "VTK_SLICER_${MODULE_NAME_UPPER}_MODULE_LOGIC_EXPORT
 
 set(${KIT}_INCLUDE_DIRECTORIES
   ${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/libs/aabb
-  ${CMAKE_CURRENT_SOURCE_DIR}/libs/decomp
-  ${CMAKE_CURRENT_SOURCE_DIR}/libs/merger
-  ${CMAKE_CURRENT_SOURCE_DIR}/libs/vp
   )
 
 set(${KIT}_SRCS
@@ -19,22 +15,12 @@ set(${KIT}_SRCS
   vtkPolyDataContactFilter.h
   # private details
   Utilities.cxx
-  Decomposer.cxx
-  Merger.cxx
-  RmTrivials.cxx
-  Tools.cxx
-  VisPoly.cxx
   )
 
 set_source_files_properties(
   Utilities.cxx
-  Decomposer.cxx
-  Merger.cxx
-  RmTrivials.cxx
-  Tools.cxx
-  VisPoly.cxx
   WRAP_EXCLUDE
-  ) 
+  )
 
 set(${KIT}_TARGET_LIBRARIES
   ${ITK_LIBRARIES}

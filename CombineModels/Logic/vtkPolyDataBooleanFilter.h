@@ -1,5 +1,5 @@
 /*
-Copyright 2012-2020 Ronald Römer
+Copyright 2012-2024 Ronald Römer
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,262 +25,292 @@ limitations under the License.
 #include <set>
 #include <utility>
 #include <iostream>
+#include <type_traits>
 
 #include <vtkPolyDataAlgorithm.h>
-#include <vtkKdTreePointLocator.h>
+#include <vtkKdTree.h>
+#include <vtkModifiedBSPTree.h>
 
-#ifndef __VTK_WRAP__
 #include "Utilities.h"
-#endif // __VTK_WRAP__
 
-#define LOC_NONE 0
-#define LOC_INSIDE 1
-#define LOC_OUTSIDE 2
+#define OPER_NONE 0
+#define OPER_UNION 1
+#define OPER_INTERSECTION 2
+#define OPER_DIFFERENCE 3
+#define OPER_DIFFERENCE2 4
 
-#define OPER_UNION 0
-#define OPER_INTERSECTION 1
-#define OPER_DIFFERENCE 2
-#define OPER_DIFFERENCE2 3
+enum class Capt {
+    NOT = 1 << 0,
+    EDGE = 1 << 1,
+    A = 1 << 2,
+    B = 1 << 3,
+    BRANCHED = 1 << 4,
+    BOUNDARY = 0xe
+};
 
-#define CAPT_NOT 0
-#define CAPT_EDGE 1
-#define CAPT_A 2
-#define CAPT_B 3
+// inline std::underlying_type_t<Capt> operator| (Capt lhs, Capt rhs) {
+//     return static_cast<std::underlying_type_t<Capt>>(lhs) |
+//         static_cast<std::underlying_type_t<Capt>>(rhs);
+// }
 
-#define SIDE_START 0
-#define SIDE_END 1
+inline std::underlying_type_t<Capt> operator& (Capt lhs, Capt rhs) {
+    return static_cast<std::underlying_type_t<Capt>>(lhs) &
+        static_cast<std::underlying_type_t<Capt>>(rhs);
+}
+
+enum class Side {
+    NONE,
+    START,
+    END
+};
+
+enum class Loc {
+    NONE,
+    INSIDE,
+    OUTSIDE
+};
 
 class StripPt {
 public:
-    StripPt () : t(0), capt(CAPT_NOT), catched(true) {
-        edge[0] = NO_USE;
-        edge[1] = NO_USE;
+    StripPt () : t(0), capt(Capt::NOT), catched(true) {
+        edge[0] = NOTSET;
+        edge[1] = NOTSET;
     }
 
     double t;
-    int ind;
-    double pt[3];
-    int edge[2];
-    int capt;
+    Capt capt;
     double captPt[3];
 
+    vtkIdType ind, edge[2];
+
+    double pt[3];
     double cutPt[3];
 
     friend std::ostream& operator<< (std::ostream &out, const StripPt &s) {
-        out << "ind=" << s.ind
-            << ", edge=[" << s.edge[0] << ", " << s.edge[1] << "]"
-            << ", t=" << s.t
-            << ", capt=" << s.capt;
+        out << "ind " << s.ind
+            << ", edge [" << s.edge[0] << ", " << s.edge[1] << "]"
+            << ", t " << s.t
+            << ", capt " << s.capt
+            << ", polyId " << s.polyId;
         return out;
     }
 
-    std::vector<Pair> history;
+    vtkIdType polyId;
 
-    int polyId;
-
-    int src;
     bool catched;
 };
 
 class StripPtR {
 public:
-    StripPtR (int _ind) : ind(_ind)/*, desc{NO_USE, NO_USE}*/ {
-        strip = NO_USE;
-        side = NO_USE;
-        ref = NO_USE;
+    StripPtR () = delete;
 
-        desc[0] = NO_USE;
-        desc[1] = NO_USE;
+    StripPtR (vtkIdType ind, std::size_t strip) : ind(ind), strip(strip), ref(NOTSET), side(Side::NONE) {
+        desc[0] = NOTSET;
+        desc[1] = NOTSET;
     }
 
-    int ind;
-    int desc[2];
-
-    // nicht gesetzt bei CAPT_NOT
-    int strip;
-    int side;
-    int ref;
+    vtkIdType ind;
+    std::size_t strip;
+    vtkIdType ref, desc[2];
+    Side side;
 
     friend std::ostream& operator<< (std::ostream &out, const StripPtR &s) {
-        out << "ind=" << s.ind
-            << ", desc=[" << s.desc[0] << ", " << s.desc[1] << "]"
-            << ", strip=" << s.strip
-            << ", side=" << s.side
-            << ", ref=" << s.ref;
+        out << "ind " << s.ind
+            << ", desc [" << s.desc[0] << ", " << s.desc[1] << "]"
+            << ", strip " << s.strip
+            << ", side " << s.side
+            << ", ref " << s.ref;
         return out;
     }
 };
 
-typedef std::map<int, StripPt> StripPtsType;
+typedef std::map<vtkIdType, StripPt> StripPtsType;
 typedef std::deque<StripPtR> StripType;
 typedef std::vector<StripType> StripsType;
 
+typedef std::vector<std::reference_wrapper<StripType>> _StripsType;
+
 class PStrips {
 public:
-    PStrips () {}
-    double n[3];
-    IdsType poly;
+    PStrips (vtkPolyData *pd, vtkIdType cellId) {
+        const vtkIdType *cell;
+        vtkIdType numPts;
+
+        pd->GetCellPoints(cellId, numPts, cell);
+
+        for (vtkIdType i = 0; i < numPts; i++) {
+            poly.push_back(cell[i]);
+        }
+
+        ComputeNormal(pd->GetPoints(), n, numPts, cell);
+
+        base = Base(pd->GetPoints(), numPts, cell);
+    }
+
     StripPtsType pts;
     StripsType strips;
+
+    double n[3];
+    IdsType poly;
+    Base base;
 };
 
-typedef std::map<int, PStrips> PolyStripsType;
+typedef std::map<vtkIdType, PStrips> PolyStripsType;
 
 typedef std::vector<std::reference_wrapper<StripPtR>> RefsType;
+typedef std::vector<std::reference_wrapper<const StripPtR>> ConstRefsType;
 
-class StripPtL {
+// Merger
+
+typedef std::vector<std::size_t> GroupType;
+
+typedef std::map<vtkIdType, std::size_t> SourcesType;
+
+class Conn {
 public:
-    StripPtL (const StripPt &sp) : ind(sp.ind) {
-        Cpy(pt, sp.pt, 3);
-        Cpy(cutPt, sp.cutPt, 3);
+    Conn () = delete;
+    Conn (double d, vtkIdType i, vtkIdType j) : d(d), i(i), j(j) {}
+
+    double d;
+    vtkIdType i, j;
+
+    bool operator< (const Conn &other) const {
+        return d < other.d;
     }
 
-    int ind;
-    double pt[3];
-    double cutPt[3];
+    friend std::ostream& operator<< (std::ostream &out, const Conn &c) {
+        out << "Conn(d=" << c.d
+            << ", i=" << c.i
+            << ", j=" << c.j
+            << ")";
+        return out;
+    }
 
-    bool operator< (const StripPtL &other) const {
-        return ind < other.ind;
+};
+
+struct ConnCmp {
+    bool operator() (const Conn &a, const Conn &b) const {
+        return std::tie(a.i, a.j) < std::tie(b.i, b.j);
     }
 };
 
-class StripPtL2 {
+typedef std::vector<Conn> ConnsType;
+typedef std::map<std::size_t, ConnsType> PolyConnsType;
+
+typedef std::set<Conn, ConnCmp> ConnsType2;
+
+inline std::ostream& operator<< (std::ostream &out, const PolyConnsType& polyConns) {
+    PolyConnsType::const_iterator itr;
+
+    for (itr = polyConns.begin(); itr != polyConns.end(); ++itr) {
+        out << itr->first << ": [";
+        for (auto &conn : itr->second) {
+            out << conn << ", ";
+        }
+        out << "]" << std::endl;
+    }
+
+    return out;
+}
+
+class Prio {
 public:
-    StripPtL2 (const StripPt &sp) : ind(sp.ind), t(sp.t), history(sp.history) {
-        Cpy(pt, sp.pt, 3);
-        edge[0] = sp.edge[0];
-        edge[1] = sp.edge[1];
-    }
+    Prio () = delete;
+    Prio (const Conn &conn, const std::set<std::size_t> &solvable, double d) : conn(conn), solvable(solvable), d(d) {}
 
-    int ind;
-    int edge[2];
-    double pt[3];
-    double t;
+    Conn conn;
+    std::set<std::size_t> solvable;
+    double d;
 
-    bool operator< (const StripPtL2 &other) const {
-        return ind < other.ind;
-    }
-
-    std::vector<Pair> history;
-};
-
-class StripPtL3 {
-public:
-    StripPtL3 (const double *_pt, double _t, int _ind = NO_USE) : t(_t), ind(_ind) {
-        Cpy(pt, _pt, 3);
-    }
-    double t;
-    int ind;
-    double pt[3];
-
-    bool operator< (const StripPtL3 &other) const {
-        return t < other.t;
-    }
-
-    friend std::ostream& operator<< (std::ostream &out, const StripPtL3 &s) {
-        out << "ind=" << s.ind
-            << ", t=" << s.t
-            << ", pt=[" << s.pt[0] << ", " << s.pt[1] << ", " << s.pt[2] << "]";
+    friend std::ostream& operator<< (std::ostream &out, const Prio &p) {
+        out << "Prio(conn=" << p.conn
+            << ", d=" << p.d
+            << ")";
         return out;
     }
 };
 
-class MergePt {
-public:
-    MergePt (int _polyInd, int _ind, double *_pt) : polyInd(_polyInd), ind(_ind) {
-        Cpy(pt, _pt, 3);
+struct Cmp {
+    bool operator() (const Prio &a, const Prio &b) const {
+        const auto _a = a.solvable.size(),
+            _b = b.solvable.size();
+        return std::tie(_a, a.d) < std::tie(_b, b.d);
     }
-    int polyInd;
-    int ind;
-    double pt[3];
 };
 
-typedef std::vector<IdsType> HolesType;
+typedef std::set<Prio, Cmp> PriosType;
 
-class _Wrapper {
+typedef std::map<std::size_t, Prio> PolyPriosType;
+
+class Merger {
     vtkPolyData *pd;
-    IdsType descIds;
-    int origId;
+    const PStrips &pStrips;
+    vtkIdType origId;
 
-    Base base;
-    HolesType holes;
+    PolysType polys;
+    std::vector<std::size_t> innerIds;
 public:
-    _Wrapper (vtkPolyData* _pd, IdsType& _descIds, int _origId)
-        : pd(_pd), descIds(_descIds), origId(_origId) {}
+    Merger (vtkPolyData *pd, const PStrips &pStrips, const StripsType &strips, const IdsType &descIds, vtkIdType origId);
+    void Run ();
 
-    void MergeAll ();
-    void Add (IdsType &hole) {
-        holes.push_back(hole);
-    }
+private:
+    void MergeGroup (const GroupType &group, PolysType &merged);
+    bool FindConns (vtkPolyData *lines, vtkSmartPointer<vtkKdTree> kdTree, vtkSmartPointer<vtkModifiedBSPTree> bspTree, PolyConnsType &polyConns, const IndexedPolysType &indexedPolys, const SourcesType &sources, int &n);
+
+    void MergeStage1 (const IndexedPolysType &indexedPolys, const ReferencedPointsType &refPts, const SourcesType &sources, const ConnsType &conns, IndexedPoly &polyA);
+    void MergeStage2 (const ConnsType2 &conns, const ReferencedPointsType &refPts, const ConnsType2 &usedConns, IndexedPolysType &splitted);
 };
-
-typedef std::set<int> InvolvedType;
-
-enum class Rel {
-    ORIG = 1,
-    DEC = 2
-};
-
-typedef std::map<int, Rel> RelationsType;
 
 class VTK_SLICER_COMBINEMODELS_MODULE_LOGIC_EXPORT vtkPolyDataBooleanFilter : public vtkPolyDataAlgorithm {
-    vtkPolyData *resultA, *resultB, *contLines;
-    vtkPolyData *modPdA, *modPdB;
-    vtkCellData *cellDataA, *cellDataB;
-    vtkIntArray *cellIdsA, *cellIdsB;
+    vtkPolyData *resultA, *resultB, *resultC;
+
+    vtkSmartPointer<vtkPolyData> modPdA, modPdB, contLines;
+
+    vtkSmartPointer<vtkCellData> cellDataA, cellDataB;
+    vtkSmartPointer<vtkIdTypeArray> cellIdsA, cellIdsB;
+
+    vtkIdTypeArray *contsA, *contsB;
 
     unsigned long timePdA, timePdB;
 
     PolyStripsType polyStripsA, polyStripsB;
 
-    InvolvedType involvedA, involvedB;
-
-    RelationsType relsA, relsB;
-
-    void GetStripPoints (vtkPolyData *pd, vtkIntArray *sources, PStrips &pStrips, IdsType &lines);
-    bool GetPolyStrips (vtkPolyData *pd, vtkIntArray *conts, vtkIntArray *sources, PolyStripsType &polyStrips);
+    void GetStripPoints (vtkPolyData *pd, vtkIdTypeArray *sources, PStrips &pStrips, IdsType &lines);
+    bool GetPolyStrips (vtkPolyData *pd, vtkIdTypeArray *conts, vtkIdTypeArray *sources, PolyStripsType &polyStrips);
+    bool CleanStrips ();
     void RemoveDuplicates (IdsType &lines);
     void CompleteStrips (PStrips &pStrips);
-    bool HasArea (StripType &strip);
-    void CollapseCaptPoints (vtkPolyData *pd, PolyStripsType &polyStrips);
-    void CutCells (vtkPolyData *pd, PolyStripsType &polyStrips);
+    bool HasArea (const StripType &strip) const;
+    bool CutCells (vtkPolyData *pd, PolyStripsType &polyStrips);
     void RestoreOrigPoints (vtkPolyData *pd, PolyStripsType &polyStrips);
     void DisjoinPolys (vtkPolyData *pd, PolyStripsType &polyStrips);
-    void ResolveOverlaps (vtkPolyData *pd, vtkIntArray *conts, PolyStripsType &polyStrips);
-    void AddAdjacentPoints (vtkPolyData *pd, vtkIntArray *conts, PolyStripsType &polyStrips);
+    void ResolveOverlaps (vtkPolyData *pd, PolyStripsType &polyStrips);
+    void AddAdjacentPoints (vtkPolyData *pd, vtkIdTypeArray *conts, PolyStripsType &polyStrips);
     void MergePoints (vtkPolyData *pd, PolyStripsType &polyStrips);
-    void DecPolys_ (vtkPolyData *pd, InvolvedType &involved, RelationsType &rels);
-    void CombineRegions ();
-    void MergeRegions ();
+    bool CombineRegions ();
 
     int OperMode;
-    bool MergeRegs, DecPolys;
 
 public:
     vtkTypeMacro(vtkPolyDataBooleanFilter, vtkPolyDataAlgorithm);
     static vtkPolyDataBooleanFilter* New ();
 
-    vtkSetClampMacro(OperMode, int, OPER_UNION, OPER_DIFFERENCE2);
+    vtkSetClampMacro(OperMode, int, OPER_NONE, OPER_DIFFERENCE2);
     vtkGetMacro(OperMode, int);
 
-    void SetOperModeToUnion () { OperMode = OPER_UNION; }
-    void SetOperModeToIntersection () { OperMode = OPER_INTERSECTION; }
-    void SetOperModeToDifference () { OperMode = OPER_DIFFERENCE; }
-    void SetOperModeToDifference2 () { OperMode = OPER_DIFFERENCE2; }
-
-    vtkSetMacro(MergeRegs, bool);
-    vtkGetMacro(MergeRegs, bool);
-    vtkBooleanMacro(MergeRegs, bool);
-
-    vtkSetMacro(DecPolys, bool);
-    vtkGetMacro(DecPolys, bool);
-    vtkBooleanMacro(DecPolys, bool);
+    void SetOperModeToNone () { OperMode = OPER_NONE; Modified(); }
+    void SetOperModeToUnion () { OperMode = OPER_UNION; Modified(); }
+    void SetOperModeToIntersection () { OperMode = OPER_INTERSECTION; Modified(); }
+    void SetOperModeToDifference () { OperMode = OPER_DIFFERENCE; Modified(); }
+    void SetOperModeToDifference2 () { OperMode = OPER_DIFFERENCE2; Modified(); }
 
 protected:
     vtkPolyDataBooleanFilter ();
     ~vtkPolyDataBooleanFilter ();
 
-    int ProcessRequest (vtkInformation *request, vtkInformationVector **inputVector, vtkInformationVector *outputVector);
+    int RequestData (vtkInformation *request, vtkInformationVector **inputVector, vtkInformationVector *outputVector) override;
+
+    void PrintSelf (ostream&, vtkIndent) override {};
 
 private:
     vtkPolyDataBooleanFilter (const vtkPolyDataBooleanFilter&) = delete;

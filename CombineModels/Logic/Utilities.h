@@ -1,5 +1,5 @@
 /*
-Copyright 2012-2020 Ronald Römer
+Copyright 2012-2024 Ronald Römer
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,12 @@ limitations under the License.
 #define __Utilities_h
 
 #include <iostream>
+#include <type_traits>
+#include <functional>
+#include <vector>
+#include <deque>
+#include <map>
+#include <set>
 
 #include <vtkPolyData.h>
 #include <vtkKdTreePointLocator.h>
@@ -25,62 +31,114 @@ limitations under the License.
 #include <vtkIdList.h>
 #include <vtkMath.h>
 
-#include "Tools.h"
+#define NOTSET -1
 
-double GetAngle (double *vA, double *vB, double *n);
-double GetD (double *a, double *b);
+double GetAngle (const double *vA, const double *vB, const double *n);
 
 /* VTK */
-void ComputeNormal (vtkPoints *pts, double *n, vtkIdList *poly = nullptr);
+double ComputeNormal (vtkPoints *pts, double *n, vtkIdType num, const vtkIdType *poly);
+bool CheckNormal (vtkPoints *pts, vtkIdType num, const vtkIdType *poly, const double *n, double d);
+
 void FindPoints (vtkKdTreePointLocator *pl, const double *pt, vtkIdList *pts, double tol = 1e-6);
 void WriteVTK (const char *name, vtkPolyData *pd);
 
-inline void ComputeNormal2 (vtkPolyData *pd, double *n, vtkIdType num, const vtkIdType *poly) {
-    n[0] = 0; n[1] = 0; n[2] = 0;
+class Point3d {
+public:
+    const double x, y, z;
+    vtkIdType id;
 
-    if (num == 3) {
-        double p0[3], p1[3], p2[3], a[3], b[3];
+    Point3d () = delete;
+    Point3d (const double _x, const double _y, const double _z, vtkIdType _id = NOTSET) : x(_x), y(_y), z(_z), id(_id) {}
+    bool operator< (const Point3d &other) const {
+        const long x1 = std::lround(x*1e5),
+            y1 = std::lround(y*1e5),
+            z1 = std::lround(z*1e5),
+            x2 = std::lround(other.x*1e5),
+            y2 = std::lround(other.y*1e5),
+            z2 = std::lround(other.z*1e5);
 
-        pd->GetPoint(poly[0], p0);
-        pd->GetPoint(poly[1], p1);
-        pd->GetPoint(poly[2], p2);
-
-        vtkMath::Subtract(p1, p0, a);
-        vtkMath::Subtract(p2, p0, b);
-
-        vtkMath::Cross(a, b, n);
-    } else {
-        double p0[3], p1[3];
-
-        for (int i = 0; i < num; i++) {
-            vtkIdType a = poly[i],
-                b = poly[(i+1)%num];
-
-            pd->GetPoint(a, p0);
-            pd->GetPoint(b, p1);
-
-            n[0] += (p0[1]-p1[1])*(p0[2]+p1[2]);
-            n[1] += (p0[2]-p1[2])*(p0[0]+p1[0]);
-            n[2] += (p0[0]-p1[0])*(p0[1]+p1[1]);
-        }
+        return std::tie(x1, y1, z1) < std::tie(x2, y2, z2);
+    }
+    bool operator== (const Point3d &other) const {
+        return !(*this < other) && !(other < *this);
     }
 
-    vtkMath::Normalize(n);
-}
+    friend std::ostream& operator<< (std::ostream &out, const Point3d &p) {
+        out << "Point3d(x=" << p.x
+            << ", y=" << p.y
+            << ", z=" << p.z
+            << ", id=" << p.id << ")";
+        return out;
+    }
 
-/* Misc */
-double Mod (int a, int b);
+    static double GetVec (const Point3d &a, const Point3d &b, double *v) {
+        v[0] = b.x-a.x;
+        v[1] = b.y-a.y;
+        v[2] = b.z-a.z;
+
+        return vtkMath::Normalize(v);
+    }
+};
+
+typedef std::vector<vtkIdType> IdsType;
+typedef std::set<vtkIdType> _IdsType;
+
+#ifndef __VTK_WRAP__
+template<typename T,
+    typename std::enable_if<std::is_integral<T>::value, bool>::type = true>
+class _Pair {
+public:
+    T f, g;
+    _Pair () = delete;
+    _Pair (T _f, T _g) : f(_f), g(_g) {}
+    bool operator< (const _Pair &other) const {
+        return std::tie(f, g) < std::tie(other.f, other.g);
+    }
+    bool operator== (const _Pair &other) const {
+        return f == other.f && g == other.g;
+    }
+    friend std::ostream& operator<< (std::ostream &out, const _Pair &p) {
+        out << "(" << p.f << ", " << p.g << ")";
+        return out;
+    }
+};
+#endif // __VTK_WRAP__
+
+// typedef _Pair<vtkIdType> Pair;
+using Pair = _Pair<vtkIdType>;
 
 class Base {
 public:
-    Base (vtkPoints *pts, vtkIdList *poly);
     Base () {}
+    Base (vtkPoints *pts, vtkIdType num, const vtkIdType *poly);
     double n[3], ei[3], ej[3], d;
 };
 
-void Transform (const double *in, double *out, Base &base);
-// void BackTransform (const double *in, double *out, Base &base);
+void Transform (const double *in, double *out, const Base &base);
+void BackTransform (const double *in, double *out, const Base &base);
 
-void ComputeNormal (vtkPoints *pts, double *n, vtkIdType num, const vtkIdType *poly);
+inline void Cpy (double *a, const double *b, const int n = 2) {
+    std::copy_n(b, n, a);
+}
+
+template<typename T>
+std::ostream& operator<< (typename std::enable_if<std::is_enum<T>::value, std::ostream>::type& stream, const T& e) {
+    return stream << static_cast<typename std::underlying_type<T>::type>(e);
+}
+
+typedef std::vector<Point3d> Poly;
+typedef std::vector<Poly> PolysType;
+
+double ComputeNormal (const Poly &poly, double *n);
+bool PointInPoly (const Poly &poly, const Point3d &p);
+
+void WritePolys (const char *name, const PolysType &polys);
+
+typedef std::deque<vtkIdType> IndexedPoly;
+typedef std::vector<IndexedPoly> IndexedPolysType;
+
+typedef std::map<vtkIdType, std::reference_wrapper<const Point3d>> ReferencedPointsType;
+
+void GetPolys (const ReferencedPointsType &pts, const IndexedPolysType &indexedPolys, PolysType &polys);
 
 #endif

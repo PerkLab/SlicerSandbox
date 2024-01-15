@@ -1,5 +1,5 @@
 /*
-Copyright 2012-2020 Ronald Römer
+Copyright 2012-2024 Ronald Römer
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,11 +17,14 @@ limitations under the License.
 #ifndef __vtkPolyDataContactFilter_h
 #define __vtkPolyDataContactFilter_h
 
-#include <map>
-
 #include "vtkSlicerCombineModelsModuleLogicExport.h"
 
+#include <map>
+#include <tuple>
+#include <set>
+
 #include <vtkPolyDataAlgorithm.h>
+#include <vtkIdTypeArray.h>
 
 #include "Utilities.h"
 
@@ -29,34 +32,36 @@ class vtkOBBNode;
 class vtkMatrix4x4;
 
 enum class Src {
-    A = 1,
-    B = 2
+    A,
+    B
+};
+
+enum class End {
+    NONE,
+    BEGIN,
+    END
 };
 
 class InterPt {
 public:
-    InterPt () : onEdge(false), end(NO_USE), srcA(NO_USE), srcB(NO_USE) {}
+    InterPt () = delete;
 
-    InterPt (double _t, vtkIdType _end, double x, double y, double z) : InterPt() {
-        t = _t;
-        onEdge = true;
-        end = _end;
+    InterPt (double x, double y, double z, double t, vtkIdType a, vtkIdType b, End end, Src src) : t(t), edge(a, b), end(end), src(src), srcA(NOTSET), srcB(NOTSET) {
         pt[0] = x;
         pt[1] = y;
         pt[2] = z;
     }
 
-    double t;
-    bool onEdge;
-
-    vtkIdType edge[2], end, srcA, srcB;
-
-    double pt[3];
+    double pt[3], t;
+    Pair edge;
+    End end;
+    Src src;
+    vtkIdType srcA, srcB;
 
     friend std::ostream& operator<< (std::ostream &out, const InterPt &s) {
         out << "pt [" << s.pt[0] << ", " << s.pt[1] << ", " << s.pt[2] << "]"
             << ", t " << s.t
-            << ", edge [" << s.edge[0] << ", " << s.edge[1] << "]"
+            << ", edge " << s.edge
             << ", end " << s.end
             << ", src " << s.src;
 
@@ -67,55 +72,51 @@ public:
         assert(src != other.src);
 
         if (src == Src::A) {
-            srcA = end == NO_USE ? edge[0] : end;
+            srcA = end == End::END ? edge.g : edge.f;
         } else {
-            srcB = end == NO_USE ? edge[0] : end;
+            srcB = end == End::END ? edge.g : edge.f;
         }
 
         if (std::abs(other.t-t) < 1e-5) {
             if (other.src == Src::A) {
-                srcA = other.end == NO_USE ? other.edge[0] : other.end;
+                srcA = other.end == End::END ? other.edge.g : other.edge.f;
             } else {
-                srcB = other.end == NO_USE ? other.edge[0] : other.end;
+                srcB = other.end == End::END ? other.edge.g : other.edge.f;
             }
         }
     }
-
-    Src src;
 
 };
 
 typedef std::vector<InterPt> InterPtsType;
 
-typedef std::vector<std::pair<InterPt, InterPt>> OverlapsType;
+typedef std::vector<std::tuple<InterPt, InterPt>> OverlapsType;
 
-class LonePt {
-public:
-    LonePt (vtkIdType _i, vtkIdType _srcA, vtkIdType _srcB) : i(_i), srcA(_srcA), srcB(_srcB) {}
-    vtkIdType i, srcA, srcB;
-};
+typedef std::set<Pair> InvalidEdgesType;
 
-typedef std::map<Pair, std::vector<LonePt>> LonePtsType;
+class VTK_SLICER_COMBINEMODELS_MODULE_LOGIC_EXPORT vtkPolyDataContactFilter : public vtkPolyDataAlgorithm {
 
-class VTK_EXPORT vtkPolyDataContactFilter : public vtkPolyDataAlgorithm {
+    void CopyPolyData (vtkPolyData *pd, vtkPolyData *newPd);
 
-    void PreparePolyData (vtkPolyData *pd);
-
-    static void InterEdgeLine (InterPtsType &interPts, const double *eA, const double *eB, const double *r, const double *pt);
-    static void InterPolyLine (InterPtsType &interPts, vtkPolyData *pd, vtkIdType num, const vtkIdType *poly, const double *r, const double *pt, Src src, const double *n);
+    static void InterEdgeLine (InterPtsType &interPts, vtkPolyData *pd, vtkIdType idA, vtkIdType idB, const double *r, const double *pt, Src src);
+    static bool InterPolyLine (InterPtsType &interPts, vtkPolyData *pd, vtkIdType num, const vtkIdType *poly, const double *r, const double *pt, Src src, const double *n);
     void InterPolys (vtkIdType idA, vtkIdType idB);
-    static void OverlapLines (OverlapsType &ols, InterPtsType &intersA, InterPtsType &intersB);
+    void OverlapLines (OverlapsType &ols, InterPtsType &intersA, InterPtsType &intersB, vtkIdType idA, vtkIdType idB);
+    void AddContactLines (InterPtsType &intersA, InterPtsType &intersB, vtkIdType idA, vtkIdType idB);
 
-    void AddMissingLines (vtkPolyData *lines);
+    static bool CheckInters (InterPtsType &interPts, vtkPolyData *pd);
 
-    vtkIntArray *contA, *contB;
+    vtkSmartPointer<vtkPolyData> newPdA, newPdB;
 
-    vtkPolyData *contLines;
-    vtkPoints *contPts;
+    vtkSmartPointer<vtkPolyData> contLines;
+    vtkSmartPointer<vtkIdTypeArray> contA, contB, sourcesA, sourcesB;
 
-    vtkPolyData *pdA, *pdB;
+    bool invalidA, invalidB;
+    InvalidEdgesType edgesA, edgesB;
 
-    vtkIntArray *sourcesA, *sourcesB;
+    void GetInvalidEdges (vtkPolyData *pd, InvalidEdgesType &edges);
+
+    bool aborted;
 
 public:
     vtkTypeMacro(vtkPolyDataContactFilter, vtkPolyDataAlgorithm);
@@ -128,7 +129,7 @@ protected:
     vtkPolyDataContactFilter ();
     ~vtkPolyDataContactFilter ();
 
-    int ProcessRequest (vtkInformation *request, vtkInformationVector **inputVector, vtkInformationVector *outputVector);
+    int RequestData (vtkInformation *request, vtkInformationVector **inputVector, vtkInformationVector *outputVector) override;
 
     void PrintSelf (ostream&, vtkIndent) override {};
 
