@@ -13,7 +13,7 @@ from slicer.parameterNodeWrapper import (
     WithinRange,
 )
 
-from slicer import vtkMRMLScalarVolumeNode, vtkMRMLSegmentationNode, vtkMRMLVectorVolumeNode
+from slicer import vtkMRMLScalarVolumeNode, vtkMRMLSegmentationNode, vtkMRMLSequenceBrowserNode, vtkMRMLVectorVolumeNode
 
 
 #
@@ -198,7 +198,7 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             if firstSegmentationNode:
                 self._parameterNode.inputSegmentation = firstSegmentationNode
 
-    def setParameterNode(self, inputParameterNode: Optional[ColorizeVolumeParameterNode]) -> None:
+    def setParameterNode(self, inputParameterNode: Optional[ColorizeVolumeParameterNode]=None) -> None:
         """
         Set and observe parameter node.
         Observation is needed because when the parameter node is changed then the GUI must be updated immediately.
@@ -227,6 +227,12 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """
         Run processing when user clicks "Apply" button.
         """
+
+        sequenceBrowserNode = slicer.modules.sequences.logic().GetFirstBrowserNodeForProxyNode(self._parameterNode.inputScalarVolume)
+        if sequenceBrowserNode:
+            if not slicer.util.confirmYesNoDisplay("The input volume you provided are part of a sequence. Do you want to colorize all frames of that sequence?"):
+                sequenceBrowserNode = None
+
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
 
             if not self._parameterNode.outputRgbaVolume:
@@ -250,7 +256,8 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 self._parameterNode.outputRgbaVolume,
                 backgroundColorRgba,
                 self._parameterNode.colorBleedThicknessVoxel,
-                self._parameterNode.softEdgeThicknessVoxel)
+                self._parameterNode.softEdgeThicknessVoxel,
+                sequenceBrowserNode)
 
             stopTime = time.time()
             print(f'Colorize computation has been completed in {stopTime-startTime:.2f} seconds')
@@ -319,40 +326,29 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
     def getParameterNode(self):
         return ColorizeVolumeParameterNode(super().getParameterNode())
 
-    def process(self,
-                inputScalarVolume: vtkMRMLScalarVolumeNode,
-                inputSegmentation: vtkMRMLSegmentationNode,
-                outputRgbaVolume: vtkMRMLVectorVolumeNode,
-                backgroundColorRgba: list,
-                colorBleedThicknessVoxel: float = 1.5,
-                softEdgeThicknessVoxel: float = 1.5) -> None:
+    def processVolume(
+        self,
+        volumeNode,
+        segmentationNode,
+        outputRgbaVolume,
+        backgroundColorRgba,
+        colorBleedThicknessVoxel,
+        softEdgeThicknessVoxel,
+    ):
         """
-        Run the processing algorithm.
+        Run the processing algorithm on a single volume.
         Can be used without GUI widget.
-        :param inputScalarVolume: volume to be thresholded
-        :param inputSegmentation: segmentation to be used for coloring
+        :param volumeNode: volume to be thresholded
+        :param segmentationNode: segmentation to be used for coloring
         :param outputRgbaVolume: colorized RGBA volume
         :param backgroundColorRgba: color and opacity of voxels that are not segmented (RGBA)
         :oaram colorBleedThicknessVoxel: how far color bleeds out (in voxels)
         :param softEdgeThicknessVoxel: edge smoothing thickness (in voxels)
         """
-
-        if not inputScalarVolume or not inputSegmentation or not outputRgbaVolume:
-            raise ValueError("Input or output volume is invalid")
-
         import numpy as np
         import time
         import vtk
         import vtk.util.numpy_support
-
-        startTime = time.time()
-        logging.info('Processing started')
-
-        volumeNode = inputScalarVolume
-        segmentationNode = inputSegmentation
-
-        volumesLogic = slicer.modules.volumes.logic()
-
         segmentIds = segmentationNode.GetDisplayNode().GetVisibleSegmentIDs()
         slicer.util.showStatusMessage("Exporting segments...", 1000)
         slicer.app.processEvents()
@@ -407,7 +403,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
             rangeMin = volumeNode.GetScalarVolumeDisplayNode().GetWindowLevelMin()
             rangeMax = volumeNode.GetScalarVolumeDisplayNode().GetWindowLevelMax()
 
-        shiftScale.SetScale(255 / (rangeMax-rangeMin))
+        shiftScale.SetScale(255 / (rangeMax - rangeMin))
         shiftScale.SetShift(-rangeMin)
         shiftScale.ClampOverflowOn()
         shiftScale.SetInputData(volumeNode.GetImageData())
@@ -423,7 +419,6 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
 
         # Soft edge
         if softEdgeThicknessVoxel > 0.0:
-
             extractAlpha = vtk.vtkImageExtractComponents()
             extractAlpha.SetComponents(3)  # A from RGBA
             extractAlpha.SetInputData(outputRgbaVolume.GetImageData())
@@ -445,13 +440,94 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
             smoothedAlphaArray = vtk.util.numpy_support.vtk_to_numpy(smoothedAlpha.GetPointData().GetScalars()).reshape(nshape)
             rgbaVoxels[:, :, :, 3] = smoothedAlphaArray[:]
 
-        rgbaVoxels[:, :, :, 3] = (np.multiply(shiftScaleArray[:].astype(np.float32), rgbaVoxels[:, :, :, 3]) / 255.0).astype(np.uint8)
+        rgbaVoxels[:, :, :, 3] = (
+            np.multiply(shiftScaleArray[:].astype(np.float32), rgbaVoxels[:, :, :, 3])
+            / 255.0
+        ).astype(np.uint8)
 
         slicer.util.arrayFromVolumeModified(outputRgbaVolume)
 
         # Remove temporary nodes
         slicer.mrmlScene.RemoveNode(colorTableNode)
         slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
+
+    def process(self,
+                inputScalarVolume: vtkMRMLScalarVolumeNode,
+                inputSegmentation: vtkMRMLSegmentationNode,
+                outputRgbaVolume: vtkMRMLVectorVolumeNode,
+                backgroundColorRgba: list,
+                colorBleedThicknessVoxel: float=1.5,
+                softEdgeThicknessVoxel: float=1.5,
+                sequenceBrowserNode: Optional[vtkMRMLSequenceBrowserNode]=None,
+                ) -> None:
+        """
+        Run the processing algorithm.
+        Can be used without GUI widget.
+        :param inputScalarVolume: volume to be thresholded
+        :param inputSegmentation: segmentation to be used for coloring
+        :param outputRgbaVolume: colorized RGBA volume
+        :param backgroundColorRgba: color and opacity of voxels that are not segmented (RGBA)
+        :oaram colorBleedThicknessVoxel: how far color bleeds out (in voxels)
+        :param softEdgeThicknessVoxel: edge smoothing thickness (in voxels)
+        :param sequenceBrowserNode: if set to a browser node then all items of the input volume sequence will be processed
+        """
+
+        if not inputScalarVolume or not inputSegmentation or not outputRgbaVolume:
+            raise ValueError("Input or output volume is invalid")
+
+        import numpy as np
+        import time
+        import vtk
+        import vtk.util.numpy_support
+
+        startTime = time.time()
+        logging.info('Processing started')
+
+        inputScalarVolumeSequence = None
+        if sequenceBrowserNode:
+            inputScalarVolumeSequence = sequenceBrowserNode.GetSequenceNode(inputScalarVolume)
+
+        if inputScalarVolumeSequence is None:
+            # Segment a single volume
+            self.processVolume(
+                inputScalarVolume,
+                inputSegmentation,
+                outputRgbaVolume,
+                backgroundColorRgba,
+                colorBleedThicknessVoxel,
+                softEdgeThicknessVoxel,
+            )
+        else:
+            # Segment a volume sequence
+            outputSequence = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", outputRgbaVolume.GetName())
+            logging.info(f"Exisitng outputSequence nodes: {outputSequence}")
+            if outputSequence.GetNumberOfItems() > 0:
+                slicer.mrmlScene.RemoveNode(outputSequence.GetItemAsObject(0))
+
+            outputSequence = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode", outputRgbaVolume.GetName())
+            sequenceBrowserNode.AddSynchronizedSequenceNode(outputSequence)
+            sequenceBrowserNode.AddProxyNode(outputRgbaVolume, outputSequence, False)
+
+            selectedItemNumber = sequenceBrowserNode.GetSelectedItemNumber()
+            sequenceBrowserNode.PlaybackActiveOff()
+            sequenceBrowserNode.SelectFirstItem()
+            sequenceBrowserNode.SetRecording(inputScalarVolumeSequence, True)
+            sequenceBrowserNode.SetSaveChanges(inputScalarVolumeSequence, True)
+            sequenceBrowserNode.SetRecording(outputSequence, True)
+            sequenceBrowserNode.SetSaveChanges(outputSequence, True)
+            numberOfItems = sequenceBrowserNode.GetNumberOfItems()
+            for i in range(numberOfItems):
+                logging.info(f"Colorizing item {i+1}/{numberOfItems} of sequence")
+                self.processVolume(
+                    inputScalarVolume,
+                    inputSegmentation,
+                    outputRgbaVolume,
+                    backgroundColorRgba,
+                    colorBleedThicknessVoxel,
+                    softEdgeThicknessVoxel,
+                )
+                sequenceBrowserNode.SelectNextItem()
+            sequenceBrowserNode.SetSelectedItemNumber(selectedItemNumber)
 
         stopTime = time.time()
         logging.info(f'Processing completed in {stopTime-startTime:.2f} seconds')
