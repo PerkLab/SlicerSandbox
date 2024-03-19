@@ -582,11 +582,13 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
 
         inputSequence = ColorizeVolumeLogic.getSequenceOfNode(inputScalarVolume)
         segmentationSequence = ColorizeVolumeLogic.getSequenceOfNode(inputSegmentation)
-        if inputSequence is not None:
+        if inputSequence is not None and segmentationSequence is not None:
             if not slicer.util.confirmYesNoDisplay(
                 "The input volume and segmentation you provided are part of a sequence. Do you want me to colorize all frames of that sequence?"
             ):
                 inputSequence = None
+        else:
+            inputSequence = None
 
         volumeNode = inputScalarVolume
         segmentationNode = inputSegmentation
@@ -601,10 +603,23 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
                 softEdgeThicknessVoxel,
             )
         else:
-            browserNode = slicer.modules.sequences.logic().GetFirstBrowserNodeForSequenceNode(inputSequence)
-            outputSequence = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode", outputRgbaVolume.GetName())
+            browserNode = (
+                slicer.modules.sequences.logic().GetFirstBrowserNodeForSequenceNode(
+                    inputSequence
+                )
+            )
+            outputSequence = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", outputRgbaVolume.GetName())
+            logging.info(f"Exisitng outputSequence nodes: {outputSequence}")
+            if outputSequence.GetNumberOfItems() > 0:
+                slicer.mrmlScene.RemoveNode(outputSequence.GetItemAsObject(0))
+    
+            outputSequence = slicer.mrmlScene.AddNewNodeByClass(
+                "vtkMRMLSequenceNode", outputRgbaVolume.GetName()
+            )
             browserNode.AddSynchronizedSequenceNode(outputSequence)
             browserNode.AddProxyNode(outputRgbaVolume, outputSequence, False)
+
+            browserNode.PlaybackActiveOff()
             browserNode.SelectFirstItem()
             browserNode.SetRecording(inputSequence, True)
             browserNode.SetSaveChanges(inputSequence, True)
