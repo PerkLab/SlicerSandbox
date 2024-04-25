@@ -488,7 +488,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
             inputScalarVolumeSequence = sequenceBrowserNode.GetSequenceNode(inputScalarVolume)
 
         if inputScalarVolumeSequence is None:
-            # Segment a single volume
+            # Colorize a single volume
             self.processVolume(
                 inputScalarVolume,
                 inputSegmentation,
@@ -498,15 +498,13 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
                 softEdgeThicknessVoxel,
             )
         else:
-            # Segment a volume sequence
-            outputSequence = slicer.mrmlScene.GetNodesByClassByName("vtkMRMLSequenceNode", outputRgbaVolume.GetName())
-            logging.info(f"Exisitng outputSequence nodes: {outputSequence}")
-            if outputSequence.GetNumberOfItems() > 0:
-                slicer.mrmlScene.RemoveNode(outputSequence.GetItemAsObject(0))
+            # Colorize a volume sequence
 
-            outputSequence = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode", outputRgbaVolume.GetName())
-            sequenceBrowserNode.AddSynchronizedSequenceNode(outputSequence)
-            sequenceBrowserNode.AddProxyNode(outputRgbaVolume, outputSequence, False)
+            # If the volume already has a sequence in the current browser node then use that
+            outputSequence = sequenceBrowserNode.GetSequenceNode(outputRgbaVolume)
+            if not outputSequence:
+                outputSequence = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSequenceNode", outputRgbaVolume.GetName())
+                sequenceBrowserNode.AddProxyNode(outputRgbaVolume, outputSequence, False)
 
             selectedItemNumber = sequenceBrowserNode.GetSelectedItemNumber()
             sequenceBrowserNode.PlaybackActiveOff()
