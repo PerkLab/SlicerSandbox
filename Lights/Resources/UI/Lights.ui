@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>359</width>
-    <height>612</height>
+    <height>796</height>
    </rect>
   </property>
   <layout class="QGridLayout" name="gridLayout_2">
    <item row="2" column="0" colspan="3">
-    <widget class="ctkCollapsibleButton" name="CollapsibleButton">
-     <property name="text">
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton" native="true">
+     <property name="text" stdset="0">
       <string>Lighting</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
@@ -78,11 +78,11 @@
           </widget>
          </item>
          <item row="3" column="0" colspan="2">
-          <widget class="qMRMLCollapsibleButton" name="LightKitCollapsibleButton">
-           <property name="text">
+          <widget class="qMRMLCollapsibleButton" name="LightKitCollapsibleButton" native="true">
+           <property name="text" stdset="0">
             <string>Key light</string>
            </property>
-           <property name="collapsedHeight">
+           <property name="collapsedHeight" stdset="0">
             <number>7</number>
            </property>
            <layout class="QFormLayout" name="formLayout_2">
@@ -94,23 +94,23 @@
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="ctkSliderWidget" name="keyIntensitySliderWidget">
+             <widget class="ctkSliderWidget" name="keyIntensitySliderWidget" native="true">
               <property name="toolTip">
                <string>Scales intensity of all lights</string>
               </property>
-              <property name="singleStep">
+              <property name="singleStep" stdset="0">
                <double>0.010000000000000</double>
               </property>
-              <property name="pageStep">
+              <property name="pageStep" stdset="0">
                <double>0.100000000000000</double>
               </property>
-              <property name="minimum">
+              <property name="minimum" stdset="0">
                <double>0.000000000000000</double>
               </property>
-              <property name="maximum">
+              <property name="maximum" stdset="0">
                <double>3.000000000000000</double>
               </property>
-              <property name="value">
+              <property name="value" stdset="0">
                <double>0.500000000000000</double>
               </property>
              </widget>
@@ -123,23 +123,23 @@
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="ctkSliderWidget" name="keyWarmthSliderWidget">
+             <widget class="ctkSliderWidget" name="keyWarmthSliderWidget" native="true">
               <property name="toolTip">
                <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
               </property>
-              <property name="singleStep">
+              <property name="singleStep" stdset="0">
                <double>0.010000000000000</double>
               </property>
-              <property name="pageStep">
+              <property name="pageStep" stdset="0">
                <double>0.100000000000000</double>
               </property>
-              <property name="minimum">
+              <property name="minimum" stdset="0">
                <double>0.000000000000000</double>
               </property>
-              <property name="maximum">
+              <property name="maximum" stdset="0">
                <double>1.000000000000000</double>
               </property>
-              <property name="value">
+              <property name="value" stdset="0">
                <double>0.500000000000000</double>
               </property>
              </widget>
@@ -152,23 +152,23 @@
              </widget>
             </item>
             <item row="3" column="1">
-             <widget class="ctkSliderWidget" name="keyElevationSliderWidget">
+             <widget class="ctkSliderWidget" name="keyElevationSliderWidget" native="true">
               <property name="toolTip">
                <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
               </property>
-              <property name="singleStep">
+              <property name="singleStep" stdset="0">
                <double>0.010000000000000</double>
               </property>
-              <property name="pageStep">
+              <property name="pageStep" stdset="0">
                <double>0.100000000000000</double>
               </property>
-              <property name="minimum">
+              <property name="minimum" stdset="0">
                <double>-90.000000000000000</double>
               </property>
-              <property name="maximum">
+              <property name="maximum" stdset="0">
                <double>90.000000000000000</double>
               </property>
-              <property name="value">
+              <property name="value" stdset="0">
                <double>0.000000000000000</double>
               </property>
              </widget>
@@ -181,23 +181,23 @@
              </widget>
             </item>
             <item row="4" column="1">
-             <widget class="ctkSliderWidget" name="keyAzimuthSliderWidget">
+             <widget class="ctkSliderWidget" name="keyAzimuthSliderWidget" native="true">
               <property name="toolTip">
                <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
               </property>
-              <property name="singleStep">
+              <property name="singleStep" stdset="0">
                <double>0.010000000000000</double>
               </property>
-              <property name="pageStep">
+              <property name="pageStep" stdset="0">
                <double>0.100000000000000</double>
               </property>
-              <property name="minimum">
+              <property name="minimum" stdset="0">
                <double>-90.000000000000000</double>
               </property>
-              <property name="maximum">
+              <property name="maximum" stdset="0">
                <double>90.000000000000000</double>
               </property>
-              <property name="value">
+              <property name="value" stdset="0">
                <double>0.000000000000000</double>
               </property>
              </widget>
@@ -230,16 +230,16 @@
            <property name="title">
             <string>Advanced</string>
            </property>
-           <property name="collapsed">
+           <property name="collapsed" stdset="0">
             <bool>true</bool>
            </property>
-           <property name="collapsedHeight">
+           <property name="collapsedHeight" stdset="0">
             <number>6</number>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout">
             <item>
-             <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_4">
-              <property name="text">
+             <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_4" native="true">
+              <property name="text" stdset="0">
                <string>Head light</string>
               </property>
               <layout class="QFormLayout" name="formLayout_5">
@@ -251,23 +251,23 @@
                 </widget>
                </item>
                <item row="0" column="1">
-                <widget class="ctkSliderWidget" name="headIntensitySliderWidget">
+                <widget class="ctkSliderWidget" name="headIntensitySliderWidget" native="true">
                  <property name="toolTip">
                   <string>Relative intensity compared to key light</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>2.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>1.000000000000000</double>
                  </property>
                 </widget>
@@ -280,23 +280,23 @@
                 </widget>
                </item>
                <item row="1" column="1">
-                <widget class="ctkSliderWidget" name="headWarmthSliderWidget">
+                <widget class="ctkSliderWidget" name="headWarmthSliderWidget" native="true">
                  <property name="toolTip">
                   <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>0.000000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>1.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>0.500000000000000</double>
                  </property>
                 </widget>
@@ -305,8 +305,8 @@
              </widget>
             </item>
             <item>
-             <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_2">
-              <property name="text">
+             <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_2" native="true">
+              <property name="text" stdset="0">
                <string>Fill light</string>
               </property>
               <layout class="QFormLayout" name="formLayout_3">
@@ -318,23 +318,23 @@
                 </widget>
                </item>
                <item row="0" column="1">
-                <widget class="ctkSliderWidget" name="fillIntensitySliderWidget">
+                <widget class="ctkSliderWidget" name="fillIntensitySliderWidget" native="true">
                  <property name="toolTip">
                   <string>Relative intensity compared to key light</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>2.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>1.000000000000000</double>
                  </property>
                 </widget>
@@ -347,23 +347,23 @@
                 </widget>
                </item>
                <item row="1" column="1">
-                <widget class="ctkSliderWidget" name="fillWarmthSliderWidget">
+                <widget class="ctkSliderWidget" name="fillWarmthSliderWidget" native="true">
                  <property name="toolTip">
                   <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>0.000000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>1.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>0.500000000000000</double>
                  </property>
                 </widget>
@@ -376,23 +376,23 @@
                 </widget>
                </item>
                <item row="2" column="1">
-                <widget class="ctkSliderWidget" name="fillElevationSliderWidget">
+                <widget class="ctkSliderWidget" name="fillElevationSliderWidget" native="true">
                  <property name="toolTip">
                   <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>-90.000000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>90.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>0.000000000000000</double>
                  </property>
                 </widget>
@@ -405,23 +405,23 @@
                 </widget>
                </item>
                <item row="3" column="1">
-                <widget class="ctkSliderWidget" name="fillAzimuthSliderWidget">
+                <widget class="ctkSliderWidget" name="fillAzimuthSliderWidget" native="true">
                  <property name="toolTip">
                   <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>-90.000000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>90.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>0.000000000000000</double>
                  </property>
                 </widget>
@@ -430,8 +430,8 @@
              </widget>
             </item>
             <item>
-             <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_3">
-              <property name="text">
+             <widget class="qMRMLCollapsibleButton" name="MRMLCollapsibleButton_3" native="true">
+              <property name="text" stdset="0">
                <string>Back light</string>
               </property>
               <layout class="QFormLayout" name="formLayout_4">
@@ -443,23 +443,23 @@
                 </widget>
                </item>
                <item row="0" column="1">
-                <widget class="ctkSliderWidget" name="backIntensitySliderWidget">
+                <widget class="ctkSliderWidget" name="backIntensitySliderWidget" native="true">
                  <property name="toolTip">
                   <string>Relative intensity compared to key light</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>2.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>1.000000000000000</double>
                  </property>
                 </widget>
@@ -472,23 +472,23 @@
                 </widget>
                </item>
                <item row="1" column="1">
-                <widget class="ctkSliderWidget" name="backWarmthSliderWidget">
+                <widget class="ctkSliderWidget" name="backWarmthSliderWidget" native="true">
                  <property name="toolTip">
                   <string>Set color spectrum. 0 is cold blue, 0.5 is neutral white, and 1 is deep sunset red. Colors close to 0.5 are &quot;cool whites&quot; and &quot;warm whites,&quot; respectively.</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>0.000000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>1.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>0.500000000000000</double>
                  </property>
                 </widget>
@@ -501,23 +501,23 @@
                 </widget>
                </item>
                <item row="2" column="1">
-                <widget class="ctkSliderWidget" name="backElevationSliderWidget">
+                <widget class="ctkSliderWidget" name="backElevationSliderWidget" native="true">
                  <property name="toolTip">
                   <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>-90.000000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>90.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>0.000000000000000</double>
                  </property>
                 </widget>
@@ -530,23 +530,23 @@
                 </widget>
                </item>
                <item row="3" column="1">
-                <widget class="ctkSliderWidget" name="backAzimuthSliderWidget">
+                <widget class="ctkSliderWidget" name="backAzimuthSliderWidget" native="true">
                  <property name="toolTip">
                   <string>Elevation (latitude) of each light with respect to the camera, expressed in degrees. Positive values mean that the light is above the lookat point, shining down. A light at (elevation=0, azimuth=0) is located at the camera (a headlight).</string>
                  </property>
-                 <property name="singleStep">
+                 <property name="singleStep" stdset="0">
                   <double>0.010000000000000</double>
                  </property>
-                 <property name="pageStep">
+                 <property name="pageStep" stdset="0">
                   <double>0.100000000000000</double>
                  </property>
-                 <property name="minimum">
+                 <property name="minimum" stdset="0">
                   <double>-90.000000000000000</double>
                  </property>
-                 <property name="maximum">
+                 <property name="maximum" stdset="0">
                   <double>90.000000000000000</double>
                  </property>
-                 <property name="value">
+                 <property name="value" stdset="0">
                   <double>0.000000000000000</double>
                  </property>
                 </widget>
@@ -606,23 +606,23 @@
           </widget>
          </item>
          <item row="1" column="1">
-          <widget class="ctkSliderWidget" name="singleLightIntensitySliderWidget">
+          <widget class="ctkSliderWidget" name="singleLightIntensitySliderWidget" native="true">
            <property name="toolTip">
             <string>Intensity of the light</string>
            </property>
-           <property name="singleStep">
+           <property name="singleStep" stdset="0">
             <double>0.010000000000000</double>
            </property>
-           <property name="pageStep">
+           <property name="pageStep" stdset="0">
             <double>0.100000000000000</double>
            </property>
-           <property name="minimum">
+           <property name="minimum" stdset="0">
             <double>0.000000000000000</double>
            </property>
-           <property name="maximum">
+           <property name="maximum" stdset="0">
             <double>3.000000000000000</double>
            </property>
-           <property name="value">
+           <property name="value" stdset="0">
             <double>0.000000000000000</double>
            </property>
           </widget>
@@ -641,8 +641,8 @@
     </widget>
    </item>
    <item row="3" column="0" colspan="3">
-    <widget class="ctkCollapsibleButton" name="SSAOCollapsibleButton">
-     <property name="text">
+    <widget class="ctkCollapsibleButton" name="SSAOCollapsibleButton" native="true">
+     <property name="text" stdset="0">
       <string>Ambient shadows (SSAO)</string>
      </property>
      <layout class="QFormLayout" name="formLayout_6">
@@ -664,32 +664,32 @@
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="ctkSliderWidget" name="ambientShadowsSizeScaleSliderWidget">
+       <widget class="ctkSliderWidget" name="ambientShadowsSizeScaleSliderWidget" native="true">
         <property name="enabled">
          <bool>false</bool>
         </property>
         <property name="toolTip">
          <string>Size scale used for determining size of features to be emphasized or suppressed. The scale is logairthmic, default (0.0) corresponds to object size of about 100mm.</string>
         </property>
-        <property name="singleStep">
+        <property name="singleStep" stdset="0">
          <double>0.100000000000000</double>
         </property>
-        <property name="pageStep">
+        <property name="pageStep" stdset="0">
          <double>0.500000000000000</double>
         </property>
-        <property name="minimum">
+        <property name="minimum" stdset="0">
          <double>-3.000000000000000</double>
         </property>
-        <property name="maximum">
+        <property name="maximum" stdset="0">
          <double>3.000000000000000</double>
         </property>
-        <property name="value">
+        <property name="value" stdset="0">
          <double>0.000000000000000</double>
         </property>
-        <property name="prefix">
+        <property name="prefix" stdset="0">
          <string/>
         </property>
-        <property name="suffix">
+        <property name="suffix" stdset="0">
          <string/>
         </property>
        </widget>
@@ -697,40 +697,81 @@
       <item row="2" column="0">
        <widget class="QLabel" name="ssaoVolumeRenderingOpacityThresholdLabel">
         <property name="text">
-         <string>Opacity threshold:</string>
+         <string>Volume opacity threshold:</string>
         </property>
        </widget>
       </item>
       <item row="2" column="1">
-       <widget class="ctkSliderWidget" name="ambientShadowsVolumeOpacityThresholdPercentSliderWidget">
+       <widget class="ctkSliderWidget" name="ambientShadowsVolumeOpacityThresholdPercentSliderWidget" native="true">
         <property name="enabled">
          <bool>false</bool>
         </property>
         <property name="toolTip">
          <string>Size scale used for determining size of features to be emphasized or suppressed. The scale is logairthmic, default (0.0) corresponds to object size of about 100mm.</string>
         </property>
-        <property name="decimals">
+        <property name="decimals" stdset="0">
          <number>1</number>
         </property>
-        <property name="singleStep">
+        <property name="singleStep" stdset="0">
          <double>1.000000000000000</double>
         </property>
-        <property name="pageStep">
+        <property name="pageStep" stdset="0">
          <double>10.000000000000000</double>
         </property>
-        <property name="minimum">
+        <property name="minimum" stdset="0">
          <double>0.000000000000000</double>
         </property>
-        <property name="maximum">
+        <property name="maximum" stdset="0">
          <double>100.000000000000000</double>
         </property>
-        <property name="value">
+        <property name="value" stdset="0">
          <double>25.000000000000000</double>
         </property>
-        <property name="prefix">
+        <property name="prefix" stdset="0">
          <string/>
         </property>
-        <property name="suffix">
+        <property name="suffix" stdset="0">
+         <string>%</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="ambientShadowsIntensityScaleLabel">
+        <property name="text">
+         <string>Volume intensity scale:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="ctkSliderWidget" name="ambientShadowsIntensityScaleSliderWidget" native="true">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="toolTip">
+         <string>Size scale used for determining size of features to be emphasized or suppressed. The scale is logairthmic, default (0.0) corresponds to object size of about 100mm.</string>
+        </property>
+        <property name="decimals" stdset="0">
+         <number>1</number>
+        </property>
+        <property name="singleStep" stdset="0">
+         <double>1.000000000000000</double>
+        </property>
+        <property name="pageStep" stdset="0">
+         <double>10.000000000000000</double>
+        </property>
+        <property name="minimum" stdset="0">
+         <double>0.000000000000000</double>
+        </property>
+        <property name="maximum" stdset="0">
+         <double>500.000000000000000</double>
+        </property>
+        <property name="value" stdset="0">
+         <double>25.000000000000000</double>
+        </property>
+        <property name="prefix" stdset="0">
+         <string/>
+        </property>
+        <property name="suffix" stdset="0">
          <string>%</string>
         </property>
        </widget>
@@ -746,11 +787,11 @@
     </widget>
    </item>
    <item row="5" column="0" colspan="3">
-    <widget class="ctkCollapsibleButton" name="CollapsibleButton_2">
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton_2" native="true">
      <property name="toolTip">
       <string>Specify lighting using an image for models rendered with PBR interpolation.</string>
      </property>
-     <property name="text">
+     <property name="text" stdset="0">
       <string>Image-based lighting</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_3">
@@ -772,8 +813,8 @@
     </widget>
    </item>
    <item row="0" column="1">
-    <widget class="qMRMLCheckableNodeComboBox" name="managedViewsCheckableNodeComboBox">
-     <property name="nodeTypes">
+    <widget class="qMRMLCheckableNodeComboBox" name="managedViewsCheckableNodeComboBox" native="true">
+     <property name="nodeTypes" stdset="0">
       <stringlist>
        <string>vtkMRMLViewNode</string>
       </stringlist>
@@ -788,8 +829,8 @@
     </widget>
    </item>
    <item row="4" column="0" colspan="3">
-    <widget class="ctkCollapsibleButton" name="SSAOCollapsibleButton_2">
-     <property name="text">
+    <widget class="ctkCollapsibleButton" name="SSAOCollapsibleButton_2" native="true">
+     <property name="text" stdset="0">
       <string>Performance</string>
      </property>
      <layout class="QFormLayout" name="formLayout_7">
@@ -836,11 +877,6 @@
    <header>ctkSliderWidget.h</header>
   </customwidget>
   <customwidget>
-   <class>qMRMLCheckableNodeComboBox</class>
-   <extends>qMRMLNodeComboBox</extends>
-   <header>qMRMLCheckableNodeComboBox.h</header>
-  </customwidget>
-  <customwidget>
    <class>qMRMLCollapsibleButton</class>
    <extends>ctkCollapsibleButton</extends>
    <header>qMRMLCollapsibleButton.h</header>
@@ -850,6 +886,11 @@
    <class>qMRMLNodeComboBox</class>
    <extends>QWidget</extends>
    <header>qMRMLNodeComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>qMRMLCheckableNodeComboBox</class>
+   <extends>qMRMLNodeComboBox</extends>
+   <header>qMRMLCheckableNodeComboBox.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
@@ -861,12 +902,12 @@
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>119</x>
-     <y>463</y>
+     <x>283</x>
+     <y>454</y>
     </hint>
     <hint type="destinationlabel">
-     <x>139</x>
-     <y>487</y>
+     <x>303</x>
+     <y>481</y>
     </hint>
    </hints>
   </connection>
@@ -877,12 +918,28 @@
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>181</x>
-     <y>465</y>
+     <x>340</x>
+     <y>454</y>
     </hint>
     <hint type="destinationlabel">
-     <x>216</x>
-     <y>508</y>
+     <x>340</x>
+     <y>507</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>shadowsVisibilityCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>ambientShadowsIntensityScaleSliderWidget</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>451</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>253</x>
+     <y>530</y>
     </hint>
    </hints>
   </connection>
