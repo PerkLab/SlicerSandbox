@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>239</width>
-    <height>585</height>
+    <height>611</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton">
-     <property name="text">
+    <widget class="ctkCollapsibleButton" name="inputsCollapsibleButton" native="true">
+     <property name="text" stdset="0">
       <string>Inputs and Outputs</string>
      </property>
      <layout class="QFormLayout" name="formLayout_2">
@@ -25,25 +25,25 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="qMRMLNodeComboBox" name="inputScalarVolumeSelector">
+       <widget class="qMRMLNodeComboBox" name="inputScalarVolumeSelector" native="true">
         <property name="toolTip">
          <string>Pick the input to the algorithm.</string>
         </property>
-        <property name="nodeTypes">
+        <property name="nodeTypes" stdset="0">
          <stringlist notr="true">
           <string>vtkMRMLScalarVolumeNode</string>
          </stringlist>
         </property>
-        <property name="showChildNodeTypes">
+        <property name="showChildNodeTypes" stdset="0">
          <bool>false</bool>
         </property>
-        <property name="addEnabled">
+        <property name="addEnabled" stdset="0">
          <bool>false</bool>
         </property>
-        <property name="removeEnabled">
+        <property name="removeEnabled" stdset="0">
          <bool>false</bool>
         </property>
-        <property name="editEnabled">
+        <property name="editEnabled" stdset="0">
          <bool>true</bool>
         </property>
         <property name="SlicerParameterName" stdset="0">
@@ -59,22 +59,22 @@
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="qMRMLNodeComboBox" name="inputSegmentationSelector">
+       <widget class="qMRMLNodeComboBox" name="inputSegmentationSelector" native="true">
         <property name="toolTip">
          <string>Result with inverted threshold will be written into this volume</string>
         </property>
-        <property name="nodeTypes">
+        <property name="nodeTypes" stdset="0">
          <stringlist notr="true">
           <string>vtkMRMLSegmentationNode</string>
          </stringlist>
         </property>
-        <property name="addEnabled">
+        <property name="addEnabled" stdset="0">
          <bool>false</bool>
         </property>
-        <property name="removeEnabled">
+        <property name="removeEnabled" stdset="0">
          <bool>false</bool>
         </property>
-        <property name="editEnabled">
+        <property name="editEnabled" stdset="0">
          <bool>true</bool>
         </property>
         <property name="SlicerParameterName" stdset="0">
@@ -90,37 +90,37 @@
        </widget>
       </item>
       <item row="2" column="1">
-       <widget class="qMRMLNodeComboBox" name="outputRgbaVolumeSelector">
+       <widget class="qMRMLNodeComboBox" name="outputRgbaVolumeSelector" native="true">
         <property name="toolTip">
          <string>Pick the output to the algorithm.</string>
         </property>
-        <property name="nodeTypes">
+        <property name="nodeTypes" stdset="0">
          <stringlist notr="true">
           <string>vtkMRMLVectorVolumeNode</string>
          </stringlist>
         </property>
-        <property name="showChildNodeTypes">
+        <property name="showChildNodeTypes" stdset="0">
          <bool>false</bool>
         </property>
-        <property name="baseName">
+        <property name="baseName" stdset="0">
          <string>Colorized volume</string>
         </property>
-        <property name="noneEnabled">
+        <property name="noneEnabled" stdset="0">
          <bool>true</bool>
         </property>
-        <property name="addEnabled">
+        <property name="addEnabled" stdset="0">
          <bool>true</bool>
         </property>
-        <property name="removeEnabled">
+        <property name="removeEnabled" stdset="0">
          <bool>true</bool>
         </property>
-        <property name="editEnabled">
+        <property name="editEnabled" stdset="0">
          <bool>true</bool>
         </property>
-        <property name="renameEnabled">
+        <property name="renameEnabled" stdset="0">
          <bool>true</bool>
         </property>
-        <property name="noneDisplay">
+        <property name="noneDisplay" stdset="0">
          <string>(Create new volume)</string>
         </property>
         <property name="SlicerParameterName" stdset="0">
@@ -132,14 +132,14 @@
     </widget>
    </item>
    <item>
-    <widget class="ctkCollapsibleButton" name="advancedCollapsibleButton">
-     <property name="text">
+    <widget class="ctkCollapsibleButton" name="advancedCollapsibleButton" native="true">
+     <property name="text" stdset="0">
       <string>Advanced</string>
      </property>
-     <property name="collapsed">
+     <property name="collapsed" stdset="0">
       <bool>true</bool>
      </property>
-     <property name="collapsedHeight">
+     <property name="collapsedHeight" stdset="0">
       <number>6</number>
      </property>
      <layout class="QFormLayout" name="formLayout_3">
@@ -151,23 +151,23 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="ctkSliderWidget" name="backgroundOpacitySliderWidget">
+       <widget class="ctkSliderWidget" name="backgroundOpacitySliderWidget" native="true">
         <property name="toolTip">
          <string>Opacity of regions outside all segments.</string>
         </property>
-        <property name="singleStep">
+        <property name="singleStep" stdset="0">
          <double>0.100000000000000</double>
         </property>
-        <property name="pageStep">
+        <property name="pageStep" stdset="0">
          <double>0.100000000000000</double>
         </property>
-        <property name="minimum">
+        <property name="minimum" stdset="0">
          <double>0.000000000000000</double>
         </property>
-        <property name="maximum">
+        <property name="maximum" stdset="0">
          <double>1.000000000000000</double>
         </property>
-        <property name="value">
+        <property name="value" stdset="0">
          <double>0.500000000000000</double>
         </property>
         <property name="SlicerParameterName" stdset="0">
@@ -183,29 +183,29 @@
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="ctkSliderWidget" name="softEdgeSliderWidget">
+       <widget class="ctkSliderWidget" name="softEdgeSliderWidget" native="true">
         <property name="enabled">
          <bool>true</bool>
         </property>
         <property name="toolTip">
          <string>Thickness of transition zone at segment edges. Increase it to make edges smoother and reduce edge artifacts (such as coloring or woodgrain pattern). Decrease it to get sharper edges.</string>
         </property>
-        <property name="singleStep">
+        <property name="singleStep" stdset="0">
          <double>0.100000000000000</double>
         </property>
-        <property name="pageStep">
+        <property name="pageStep" stdset="0">
          <double>1.000000000000000</double>
         </property>
-        <property name="minimum">
+        <property name="minimum" stdset="0">
          <double>0.000000000000000</double>
         </property>
-        <property name="maximum">
+        <property name="maximum" stdset="0">
          <double>5.000000000000000</double>
         </property>
-        <property name="value">
+        <property name="value" stdset="0">
          <double>1.000000000000000</double>
         </property>
-        <property name="suffix">
+        <property name="suffix" stdset="0">
          <string> voxels</string>
         </property>
         <property name="SlicerParameterName" stdset="0">
@@ -221,29 +221,29 @@
        </widget>
       </item>
       <item row="2" column="1">
-       <widget class="ctkSliderWidget" name="colorBleedSliderWidget">
+       <widget class="ctkSliderWidget" name="colorBleedSliderWidget" native="true">
         <property name="enabled">
          <bool>true</bool>
         </property>
         <property name="toolTip">
          <string>Segments are expanded by this much to make sure they cover the entire segmented structure. Increase the value if a structure is not fully covered by the segmentation. Decrease it to make coloring follow the segmentation more accurately.</string>
         </property>
-        <property name="singleStep">
+        <property name="singleStep" stdset="0">
          <double>0.100000000000000</double>
         </property>
-        <property name="pageStep">
+        <property name="pageStep" stdset="0">
          <double>1.000000000000000</double>
         </property>
-        <property name="minimum">
+        <property name="minimum" stdset="0">
          <double>0.000000000000000</double>
         </property>
-        <property name="maximum">
+        <property name="maximum" stdset="0">
          <double>5.000000000000000</double>
         </property>
-        <property name="value">
+        <property name="value" stdset="0">
          <double>1.000000000000000</double>
         </property>
-        <property name="suffix">
+        <property name="suffix" stdset="0">
          <string> voxels</string>
         </property>
         <property name="SlicerParameterName" stdset="0">
@@ -263,14 +263,14 @@
         <property name="toolTip">
          <string>Color of regions outside all segments.</string>
         </property>
-        <property name="color">
+        <property name="color" stdset="0">
          <color>
-          <red>255</red>
-          <green>255</green>
-          <blue>255</blue>
+          <red>80</red>
+          <green>0</green>
+          <blue>0</blue>
          </color>
         </property>
-        <property name="displayColorName">
+        <property name="displayColorName" stdset="0">
          <bool>false</bool>
         </property>
        </widget>
@@ -329,7 +329,7 @@
      <property name="title">
       <string>Display</string>
      </property>
-     <property name="collapsed">
+     <property name="collapsed" stdset="0">
       <bool>false</bool>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -347,29 +347,29 @@
           </widget>
          </item>
          <item row="0" column="1">
-          <widget class="ctkSliderWidget" name="volumeRenderingLevelWidget">
+          <widget class="ctkSliderWidget" name="volumeRenderingLevelWidget" native="true">
            <property name="enabled">
             <bool>true</bool>
            </property>
            <property name="toolTip">
             <string>Parts of the image that has intensity above this threshold will appear in the 3D view. Increase the value to show less. Specified of percentage of displayed intensity range of the input volume.</string>
            </property>
-           <property name="singleStep">
+           <property name="singleStep" stdset="0">
             <double>0.100000000000000</double>
            </property>
-           <property name="pageStep">
+           <property name="pageStep" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="minimum">
+           <property name="minimum" stdset="0">
             <double>0.000000000000000</double>
            </property>
-           <property name="maximum">
+           <property name="maximum" stdset="0">
             <double>5.000000000000000</double>
            </property>
-           <property name="value">
+           <property name="value" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="suffix">
+           <property name="suffix" stdset="0">
             <string>%</string>
            </property>
            <property name="SlicerParameterName" stdset="0">
@@ -385,29 +385,29 @@
           </widget>
          </item>
          <item row="1" column="1">
-          <widget class="ctkSliderWidget" name="volumeRenderingWindowWidget">
+          <widget class="ctkSliderWidget" name="volumeRenderingWindowWidget" native="true">
            <property name="enabled">
             <bool>true</bool>
            </property>
            <property name="toolTip">
             <string>Width of the transition zone around the threshold value. Larger window means smoother transition, more semi-transparent regions. Smaller window means a hard transition, resulting in sharper edges and opaque surfaces.</string>
            </property>
-           <property name="singleStep">
+           <property name="singleStep" stdset="0">
             <double>0.100000000000000</double>
            </property>
-           <property name="pageStep">
+           <property name="pageStep" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="minimum">
+           <property name="minimum" stdset="0">
             <double>0.000000000000000</double>
            </property>
-           <property name="maximum">
+           <property name="maximum" stdset="0">
             <double>5.000000000000000</double>
            </property>
-           <property name="value">
+           <property name="value" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="suffix">
+           <property name="suffix" stdset="0">
             <string>%</string>
            </property>
            <property name="SlicerParameterName" stdset="0">
@@ -423,29 +423,29 @@
           </widget>
          </item>
          <item row="2" column="1">
-          <widget class="ctkSliderWidget" name="volumeRenderingOpacityWidget">
+          <widget class="ctkSliderWidget" name="volumeRenderingOpacityWidget" native="true">
            <property name="enabled">
             <bool>true</bool>
            </property>
            <property name="toolTip">
             <string>Overall opacity of the image displayed in 3D.</string>
            </property>
-           <property name="singleStep">
+           <property name="singleStep" stdset="0">
             <double>0.100000000000000</double>
            </property>
-           <property name="pageStep">
+           <property name="pageStep" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="minimum">
+           <property name="minimum" stdset="0">
             <double>0.000000000000000</double>
            </property>
-           <property name="maximum">
+           <property name="maximum" stdset="0">
             <double>5.000000000000000</double>
            </property>
-           <property name="value">
+           <property name="value" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="suffix">
+           <property name="suffix" stdset="0">
             <string>%</string>
            </property>
            <property name="SlicerParameterName" stdset="0">
@@ -470,29 +470,29 @@
           </widget>
          </item>
          <item row="1" column="1">
-          <widget class="ctkSliderWidget" name="volumeRenderingGradientOpacityLevelWidget">
+          <widget class="ctkSliderWidget" name="volumeRenderingGradientOpacityLevelWidget" native="true">
            <property name="enabled">
             <bool>false</bool>
            </property>
            <property name="toolTip">
             <string>Regions that have intensity change above this value (e.g., surfaces boundaries) will appear in the 3D view, and regions that have more uniform intensity will be transparent.</string>
            </property>
-           <property name="singleStep">
+           <property name="singleStep" stdset="0">
             <double>0.100000000000000</double>
            </property>
-           <property name="pageStep">
+           <property name="pageStep" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="minimum">
+           <property name="minimum" stdset="0">
             <double>0.000000000000000</double>
            </property>
-           <property name="maximum">
+           <property name="maximum" stdset="0">
             <double>5.000000000000000</double>
            </property>
-           <property name="value">
+           <property name="value" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="suffix">
+           <property name="suffix" stdset="0">
             <string/>
            </property>
            <property name="SlicerParameterName" stdset="0">
@@ -508,29 +508,29 @@
           </widget>
          </item>
          <item row="2" column="1">
-          <widget class="ctkSliderWidget" name="volumeRenderingGradientOpacityWindowWidget">
+          <widget class="ctkSliderWidget" name="volumeRenderingGradientOpacityWindowWidget" native="true">
            <property name="enabled">
             <bool>false</bool>
            </property>
            <property name="toolTip">
             <string>Width of the transition zone around the threshold value. Larger window means smoother transition. Smaller window means a hard transition, resulting in sharper edges.</string>
            </property>
-           <property name="singleStep">
+           <property name="singleStep" stdset="0">
             <double>0.100000000000000</double>
            </property>
-           <property name="pageStep">
+           <property name="pageStep" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="minimum">
+           <property name="minimum" stdset="0">
             <double>0.000000000000000</double>
            </property>
-           <property name="maximum">
+           <property name="maximum" stdset="0">
             <double>5.000000000000000</double>
            </property>
-           <property name="value">
+           <property name="value" stdset="0">
             <double>1.000000000000000</double>
            </property>
-           <property name="suffix">
+           <property name="suffix" stdset="0">
             <string/>
            </property>
            <property name="SlicerParameterName" stdset="0">
@@ -562,19 +562,19 @@
        </widget>
       </item>
       <item>
-       <widget class="ctkCollapsibleButton" name="CollapsibleButton">
-        <property name="text">
+       <widget class="ctkCollapsibleButton" name="CollapsibleButton" native="true">
+        <property name="text" stdset="0">
          <string>Advanced</string>
         </property>
-        <property name="collapsed">
+        <property name="collapsed" stdset="0">
          <bool>true</bool>
         </property>
-        <property name="collapsedHeight">
+        <property name="collapsedHeight" stdset="0">
          <number>6</number>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_2">
          <item>
-          <widget class="qMRMLVolumePropertyNodeWidget" name="volumePropertyNodeWidget">
+          <widget class="qMRMLVolumePropertyNodeWidget" name="volumePropertyNodeWidget" native="true">
            <property name="enabled">
             <bool>false</bool>
            </property>
