@@ -697,7 +697,7 @@
       <item row="2" column="0">
        <widget class="QLabel" name="ssaoVolumeRenderingOpacityThresholdLabel">
         <property name="text">
-         <string>Volume opacity threshold:</string>
+         <string>Opacity threshold:</string>
         </property>
        </widget>
       </item>
@@ -738,7 +738,7 @@
       <item row="3" column="0">
        <widget class="QLabel" name="ambientShadowsIntensityScaleLabel">
         <property name="text">
-         <string>Volume intensity scale:</string>
+         <string>Intensity scale:</string>
         </property>
        </widget>
       </item>
@@ -748,7 +748,7 @@
          <bool>false</bool>
         </property>
         <property name="toolTip">
-         <string>Size scale used for determining size of features to be emphasized or suppressed. The scale is logairthmic, default (0.0) corresponds to object size of about 100mm.</string>
+         <string>Strength of darkening by shadows. Default is 1. Larger value means darker shadows.</string>
         </property>
         <property name="decimals" stdset="0">
          <number>1</number>
