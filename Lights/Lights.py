@@ -113,6 +113,7 @@ class LightsWidget(ScriptedLoadableModuleWidget):
     self.ui.ambientShadowsSizeScaleSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setAmbientShadowsSizeScale(value))
     self.ui.ambientShadowsVolumeOpacityThresholdPercentSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setAmbientShadowsVolumeOpacityThreshold(value*0.01))
     self.ui.ambientShadowsIntensityScaleSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setAmbientShadowsIntensityScale(value*0.01))
+    self.ui.ambientShadowsIntensityShiftSliderWidget.connect('valueChanged(double)', lambda value: self.logic.setAmbientShadowsIntensityShift(value*0.01))
 
     self.ui.adaptiveRenderingQualityCheckBox.connect('toggled(bool)', self.logic.setAdaptiveRenderingQuality)
 
@@ -302,9 +303,12 @@ class LightsWidget(ScriptedLoadableModuleWidget):
       self.ui.ambientShadowsVolumeOpacityThresholdPercentSliderWidget.value = self.logic.ambientShadowsVolumeOpacityThreshold*100
       if hasattr(slicer.vtkMRMLViewNode, "SetAmbientShadowsIntensityScale"):
         self.ui.ambientShadowsIntensityScaleSliderWidget.value = self.logic.ambientShadowsIntensityScale*100
+        self.ui.ambientShadowsIntensityShiftSliderWidget.value = self.logic.ambientShadowsIntensityShift*100
       else:
         self.ui.ambientShadowsIntensityScaleLabel.hide()
         self.ui.ambientShadowsIntensityScaleSliderWidget.hide()
+        self.ui.ambientShadowsIntensityShiftLabel.hide()
+        self.ui.ambientShadowsIntensityShiftSliderWidget.hide()
     else:
       self.ui.SSAOCollapsibleButton.hide()
 
@@ -328,12 +332,13 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     self.lightkitObserverTag = self.lightKit.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onLightkitModified)
 
     self.slicerCoreSupportsShadows = hasattr(slicer.vtkMRMLViewNode, "SetShadowsVisibility")
-    self.slicerCoreSupportsShadowsIntensityScale = hasattr(slicer.vtkMRMLViewNode, "SetAmbientShadowsIntensityScale")
+    self.slicerCoreSupportsShadowsIntensityShiftScale = hasattr(slicer.vtkMRMLViewNode, "SetAmbientShadowsIntensityScale")
 
     self.shadowsVisibility = True
     self.ambientShadowsSizeScale = 0.3
     self.ambientShadowsVolumeOpacityThreshold = 0.25
     self.ambientShadowsIntensityScale = 1.0
+    self.ambientShadowsIntensityShift = 0.0
 
     self.adaptiveRenderingQuality = True
 
@@ -401,6 +406,7 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     self.setAmbientShadowsSizeScale(self.ambientShadowsSizeScale, viewNode)
     self.setAmbientShadowsVolumeOpacityThreshold(self.ambientShadowsVolumeOpacityThreshold, viewNode)
     self.setAmbientShadowsIntensityScale(self.ambientShadowsIntensityScale, viewNode)
+    self.setAmbientShadowsIntensityShift(self.ambientShadowsIntensityShift, viewNode)
     self.setAdaptiveRenderingQuality(self.adaptiveRenderingQuality, viewNode)
     self.requestRender(viewNode)
 
@@ -504,8 +510,18 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     else:
       viewNodes = [viewNode]
     for viewNode in viewNodes:
-      if self.slicerCoreSupportsShadowsIntensityScale:
+      if self.slicerCoreSupportsShadowsIntensityShiftScale:
         viewNode.SetAmbientShadowsIntensityScale(intensityScale)
+
+  def setAmbientShadowsIntensityShift(self, intensityShift, viewNode=None):
+    if viewNode is None:
+      self.ambientShadowsIntensityShift = intensityShift
+      viewNodes = self.managedViewNodes
+    else:
+      viewNodes = [viewNode]
+    for viewNode in viewNodes:
+      if self.slicerCoreSupportsShadowsIntensityShiftScale:
+        viewNode.SetAmbientShadowsIntensityShift(intensityShift)
 
   def setAdaptiveRenderingQuality(self, enable, viewNode=None):
     if viewNode is None:
