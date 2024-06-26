@@ -209,7 +209,6 @@ Example links that open image and/or segmentation in 3D Slicer:
 - LungCTAnalyzerChestCT image + segmentation" `slicer://viewer/?show3d=true&segmentation=https%3A%2F%2Fgithub.com%2Frbumm%2FSlicerLungCTAnalyzer%2Freleases%2Fdownload%2FSampleData%2FLungCTAnalyzerMaskSegmentation.seg.nrrd&image=https%3A%2F%2Fgithub.com%2Frbumm%2FSlicerLungCTAnalyzer%2Freleases%2Fdownload%2FSampleData%2FLungCTAnalyzerChestCT.nrrd`
 
 ## DICOMToNRRD
-![Logo|128x128](DICOMToNRRD/Resources/Icons/DICOMToNRRD.png)
 
 The DICOM To NRRD module provides batch processing for converting DICOM files into NRRD files and outputs the files into a DICOM standard conforming folder hierarchy of Patient/Study/Series. Nearly Raw Raster Data (NRRD) was developed by Professor Gordon Kindlmann: https://people.cs.uchicago.edu/~glk/software/ 
 
