@@ -325,6 +325,8 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
       parameterNode.SetParameter("numberOfRetries", "2")
     if not parameterNode.GetParameter("translateRandomly"):
       parameterNode.SetParameter("translateRandomly", "4")
+    if not parameterNode.GetParameter("triangulateInputs"):
+      parameterNode.SetParameter("triangulateInputs", "True")
   
   def process(
       self, 
@@ -413,13 +415,13 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
         operation == 'union'
       ):
         if combine.GetOutput().GetNumberOfPoints() != 0:
-          # succeess
+          # success
           break
         else:
           if retry == 0:
             # check if the models are already intersecting
             collisionDetectionFilter.Update()
-          if collisionDetectionFilter.GetOutput().GetNumberOfPoints() == 0:
+          if collisionDetectionFilter.GetNumberOfContacts() == 0:
             # models do not touch so we append them
             appendFilter = vtk.vtkAppendPolyData()
             appendFilter.AddInputData(transformerA.GetOutput())
@@ -432,13 +434,13 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
         operation == 'intersection'
       ):
         if combine.GetOutput().GetNumberOfPoints() != 0:
-          # succeess
+          # success
           break
         else:
           if retry == 0:
             # check if the models are already intersecting
             collisionDetectionFilter.Update()
-          if collisionDetectionFilter.GetOutput().GetNumberOfPoints() == 0:
+          if collisionDetectionFilter.GetNumberOfContacts() == 0:
             # models do not touch so we return an empty model
             break
       
@@ -446,13 +448,13 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
         operation == 'difference'
       ):
         if combine.GetOutput().GetNumberOfPoints() != 0:
-          # succeess
+          # success
           break
         else:
           if retry == 0:
             # check if the models are already intersecting
             collisionDetectionFilter.Update()
-          if collisionDetectionFilter.GetOutput().GetNumberOfPoints() == 0:
+          if collisionDetectionFilter.GetNumberOfContacts() == 0:
             # models do not touch so we return modelA
             combine = transformerA
             break
@@ -461,14 +463,14 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
         operation == 'difference2'
       ):
         if combine.GetOutput().GetNumberOfPoints() != 0:
-          # succeess
+          # success
           break
         else:
           if retry == 0:
             # check if the models are already intersecting
             collisionDetectionFilter.Update()
-          if collisionDetectionFilter.GetOutput().GetNumberOfPoints() == 0:
-            # models do not touch so we return modelA
+          if collisionDetectionFilter.GetNumberOfContacts() == 0:
+            # models do not touch so we return modelB
             combine = transformerB
             break
 
