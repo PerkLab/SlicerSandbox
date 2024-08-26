@@ -209,62 +209,75 @@
      </property>
      <layout class="QFormLayout" name="formLayout">
       <item row="0" column="0">
-       <widget class="QLabel" name="label_5">
+       <widget class="QLabel" name="label_7">
         <property name="text">
-         <string>Number of retries:</string>
+         <string>Triangulate input models:</string>
         </property>
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QSpinBox" name="numberOfRetriesSpinBox">
-        <property name="toolTip">
-         <string/>
-        </property>
-        <property name="maximum">
-         <number>5</number>
-        </property>
-        <property name="value">
-         <number>2</number>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_6">
-        <property name="text">
-         <string>Translate
-randomly:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QSpinBox" name="translateRandomlySpinBox">
-        <property name="suffix">
-         <string>mm</string>
-        </property>
-        <property name="prefix">
-         <string>1e-</string>
-        </property>
-        <property name="maximum">
-         <number>5</number>
-        </property>
-        <property name="value">
-         <number>4</number>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_7">
-        <property name="text">
-         <string>Triangulate
-inputs:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="1">
        <widget class="QCheckBox" name="triangulateInputsCheckBox">
         <property name="text">
          <string/>
         </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
+       <widget class="QGroupBox" name="groupBox">
+        <property name="title">
+         <string>Retry failed operations</string>
+        </property>
+        <layout class="QFormLayout" name="formLayout_3">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_5">
+           <property name="text">
+            <string>Number of retries:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QSpinBox" name="numberOfRetriesSpinBox">
+           <property name="maximum">
+            <number>5</number>
+           </property>
+           <property name="value">
+            <number>2</number>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_6">
+           <property name="text">
+            <string>Translation magnitude:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="qMRMLSpinBox" name="randomTranslationMagnitudeSpinBox">
+           <property name="prefix">
+            <string>1e</string>
+           </property>
+           <property name="decimals">
+            <number>0</number>
+           </property>
+           <property name="minimum">
+            <double>-5.000000000000000</double>
+           </property>
+           <property name="maximum">
+            <double>0.000000000000000</double>
+           </property>
+           <property name="value">
+            <double>-4.000000000000000</double>
+           </property>
+           <property name="quantity">
+            <string notr="true">length</string>
+           </property>
+           <property name="unitAwareProperties">
+            <set>qMRMLSpinBox::MaximumValue|qMRMLSpinBox::MinimumValue|qMRMLSpinBox::Suffix</set>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </item>
      </layout>
@@ -313,20 +326,30 @@ inputs:</string>
  </widget>
  <customwidgets>
   <customwidget>
+   <class>ctkCollapsibleButton</class>
+   <extends>QWidget</extends>
+   <header>ctkCollapsibleButton.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkDoubleSpinBox</class>
+   <extends>QWidget</extends>
+   <header>ctkDoubleSpinBox.h</header>
+  </customwidget>
+  <customwidget>
    <class>qMRMLNodeComboBox</class>
    <extends>QWidget</extends>
    <header>qMRMLNodeComboBox.h</header>
   </customwidget>
   <customwidget>
+   <class>qMRMLSpinBox</class>
+   <extends>ctkDoubleSpinBox</extends>
+   <header>qMRMLSpinBox.h</header>
+  </customwidget>
+  <customwidget>
    <class>qMRMLWidget</class>
    <extends>QWidget</extends>
    <header>qMRMLWidget.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>ctkCollapsibleButton</class>
-   <extends>QWidget</extends>
-   <header>ctkCollapsibleButton.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>
@@ -359,8 +382,8 @@ inputs:</string>
      <y>135</y>
     </hint>
     <hint type="destinationlabel">
-     <x>260</x>
-     <y>278</y>
+     <x>331</x>
+     <y>237</y>
     </hint>
    </hints>
   </connection>
@@ -377,6 +400,22 @@ inputs:</string>
     <hint type="destinationlabel">
      <x>249</x>
      <y>77</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>CombineModels</sender>
+   <signal>mrmlSceneChanged(vtkMRMLScene*)</signal>
+   <receiver>randomTranslationMagnitudeSpinBox</receiver>
+   <slot>setMRMLScene(vtkMRMLScene*)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>283</x>
+     <y>549</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>228</x>
+     <y>372</y>
     </hint>
    </hints>
   </connection>
