@@ -91,7 +91,9 @@ class ImportOpenInventorFileReader(object):
       polyData.SetPoints(points)
       polyData.SetPolys(polygons)
 
-      modelNode = slicer.modules.models.logic().AddModel(polyData)
+      outputMeshInRAS = vtk.vtkPolyData()
+      slicer.vtkMRMLModelStorageNode.ConvertBetweenRASAndLPS(polyData, outputMeshInRAS)
+      modelNode = slicer.modules.models.logic().AddModel(outputMeshInRAS)
 
       # Get node base name from filename
       if 'name' in properties.keys():
