@@ -463,7 +463,8 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
           curvePoints_IJK.SetPoint(endPointIndex, lineEndPoint_IJK)
 
     sampledCurvePoints_IJK = vtk.vtkPoints()
-    samplingDistance = curveLengthMm / lineResolution
+    curveLengthIJK = slicer.vtkMRMLMarkupsCurveNode.GetCurveLength(curvePoints_IJK, closedCurve)
+    samplingDistance = curveLengthIJK / lineResolution
     slicer.vtkMRMLMarkupsCurveNode.ResamplePoints(curvePoints_IJK, sampledCurvePoints_IJK, samplingDistance, closedCurve)
 
     sampledCurvePoly_IJK = vtk.vtkPolyData()
