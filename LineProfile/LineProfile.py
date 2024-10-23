@@ -20,13 +20,11 @@ class LineProfile(ScriptedLoadableModule):
     self.parent.dependencies = []
     parent.contributors = ["Andras Lasso (PerkLab)"]
     self.parent.helpText = """
-This module computes the intensity profile of a volume along a markups line or curve. 
-Be aware that, due to the behavior of the underlying vtkProbeFilter, erroneous results
-are sometimes returned for values within 1/2 voxel of image boundaries. Probed points
-further than 1/2 voxel outside of the image boundary always return a value of 0. Probed
-points within the image volume are linearly interpolated among adjacent voxel centers
-and then returned with the same data type as the probed image (e.g. rounded to integers
-if the image has integer data type).
+This module computes the intensity profile of a volume along a markups line or curve.
+Notes:
+1. Lines that are on the image boundary (outside the center of border voxels) may be assigned 0 value.
+2. Probed points within the image volume are linearly interpolated among adjacent voxel centers
+and then returned with the same data type as the probed image (e.g. rounded to integers if the image has integer data type).
 """
     self.parent.helpText += self.getDefaultModuleDocumentationLink()
     self.parent.acknowledgementText = """
