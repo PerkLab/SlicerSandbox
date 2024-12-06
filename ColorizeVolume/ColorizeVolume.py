@@ -40,6 +40,44 @@ See more information in <a href="https://github.com/PerkLab/SlicerSandbox">modul
 This file was originally developed by Steve Pieper, Isomics and Andras Lasso, PerkLab.
 """
 
+        # Additional initialization step after application startup is complete
+        slicer.app.connect("startupCompleted()", registerSampleData)
+
+
+#
+# Register sample data sets in Sample Data module
+#
+
+def registerSampleData():
+    """
+    Add data sets to Sample Data module.
+    """
+    # It is always recommended to provide sample data for users to make it easy to try the module,
+    # but if no sample data is available then this method (and associated startupCompeted signal connection) can be removed.
+
+    import SampleData
+    iconsPath = os.path.join(os.path.dirname(__file__), 'Resources/Icons')
+
+    # To ensure that the source code repository remains small (can be downloaded and installed quickly)
+    # it is recommended to store data sets that are larger than a few MB in a Github release.
+
+    # CardiacAgatstonScoring1
+    SampleData.SampleDataLogic.registerCustomSampleDataSource(
+        # Category and sample name displayed in Sample Data module
+        category='Sandbox',
+        sampleName='CTLiverSegmentation',
+        # Thumbnail should have size of approximately 260x280 pixels and stored in Resources/Icons folder.
+        # It can be created by Screen Capture module, "Capture all views" option enabled, "Number of images" set to "Single".
+        thumbnailFileName=os.path.join(iconsPath, 'CTLiverSegmentation.png'),
+        # Download URL and target file name
+        uris="https://github.com/PerkLab/SlicerSandbox/releases/download/TestingData/CTLiverSegmentation.seg.nrrd",
+        fileNames='CTLiverSegmentation.seg.nrrd',
+        # Checksum to ensure file integrity. Can be computed by this command:
+        #  import hashlib; print(hashlib.sha256(open(filename, "rb").read()).hexdigest())
+        checksums='SHA256:ce9a7182a666788a2556f6cf4f59ad5dadd944171cc279e80c164496729a7032',
+        # This node name will be used when the data set is loaded
+        nodeNames='CTLiverSegmentation'
+    )
 
 #
 # ColorizeVolumeParameterNode
@@ -61,6 +99,8 @@ class ColorizeVolumeParameterNode:
     inputScalarVolume: vtkMRMLScalarVolumeNode
     inputSegmentation: vtkMRMLSegmentationNode
     outputRgbaVolume: vtkMRMLVectorVolumeNode
+    # 3-element list of floats
+    backgroundColorRgb: list[float] = [0.1, 0.1, 0.1]
     softEdgeThicknessVoxel: Annotated[float, WithinRange(0, 8)] = 4.0
     colorBleedThicknessVoxel: Annotated[float, WithinRange(0, 8)] = 1.0
     backgroundOpacityPercent: Annotated[float, WithinRange(0, 100)] = 20
@@ -115,6 +155,7 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Create logic class. Logic implements all computations that should be possible to run
         # in batch mode, without a graphical user interface.
         self.logic = ColorizeVolumeLogic()
+        self.logic.logCallback = self.log
 
         # Connections
 
@@ -130,6 +171,7 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.ui.resetVolumeRenderingSettingsButton.connect('clicked(bool)', self.onResetVolumeRenderingSettingsButton)
         self.ui.volumeRenderingSettingsButton.connect('clicked(bool)', self.onVolumeRenderingSettingsButton)
         self.ui.resetToDefaultsButton.connect('clicked(bool)', self.onResetToDefaultsButton)
+        self.ui.backgroundColorPickerButton.connect('colorChanged(QColor)', self.onBackgroundColorSelected)
 
         self.ui.volumeRenderingLevelWidget.connect('valueChanged(double)', self.onUpdateVolumeRenderingTransferFunction)
         self.ui.volumeRenderingWindowWidget.connect('valueChanged(double)', self.onUpdateVolumeRenderingTransferFunction)
@@ -222,6 +264,10 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         else:
             self.ui.applyButton.toolTip = "Select input volume and segmentation"
             self.ui.applyButton.enabled = False
+        # Parameter node modified, make sure color selector is updated
+        # (need to update manually because color picker is not supported by parameter node)
+        import qt
+        self.ui.backgroundColorPickerButton.color = qt.QColor.fromRgbF(*self._parameterNode.backgroundColorRgb)
 
     def onApplyButton(self) -> None:
         """
@@ -236,25 +282,19 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         with slicer.util.tryWithErrorDisplay("Failed to compute results.", waitCursor=True):
 
             if not self._parameterNode.outputRgbaVolume:
-                self._parameterNode.outputRgbaVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLVectorVolumeNode", f"{self._parameterNode.inputScalarVolume.GetName()} colored")
-
-            # Parameter node does not support color selector
-            backgroundColorRgba = [
-                self.ui.backgroundColorPickerButton.color.redF(),
-                self.ui.backgroundColorPickerButton.color.greenF(),
-                self.ui.backgroundColorPickerButton.color.blueF(),
-                self._parameterNode.backgroundOpacityPercent / 100.0]
+                self._parameterNode.outputRgbaVolume = self.logic.AddNewOutputVolume(f"{self._parameterNode.inputScalarVolume.GetName()} colored")
 
             # Compute output
 
             import time
             startTime = time.time()
 
-            self.logic.process(
+            self.logic._process(
                 self._parameterNode.inputScalarVolume,
                 self._parameterNode.inputSegmentation,
                 self._parameterNode.outputRgbaVolume,
-                backgroundColorRgba,
+                self._parameterNode.backgroundColorRgb,
+                self._parameterNode.backgroundOpacityPercent,
                 self._parameterNode.colorBleedThicknessVoxel,
                 self._parameterNode.softEdgeThicknessVoxel,
                 sequenceBrowserNode)
@@ -293,6 +333,9 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
             return
         self.ui.volumePropertyNodeWidget.setMRMLVolumePropertyNode(volumeRenderingPropertyNode)
 
+    def onBackgroundColorSelected(self, color) -> None:
+        self._parameterNode.backgroundColorRgb = [color.redF(), color.greenF(), color.blueF()]
+
     def onResetToDefaultsButton(self):
         for paramName in ['softEdgeThicknessVoxel', 'colorBleedThicknessVoxel', 'backgroundOpacityPercent']:
             self.logic.getParameterNode().setValue(paramName, self.logic.getParameterNode().default(paramName).value)
@@ -302,6 +345,11 @@ class ColorizeVolumeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # We call the logic update via a timer to give time for the parameter node to get updated.
         import qt
         qt.QTimer.singleShot(0, self.logic.updateVolumeRenderingOpacityTransferFunctions)
+    
+    def log(self, message):
+        slicer.util.showStatusMessage(message, 1000)
+        slicer.app.processEvents()
+
 
 #
 # ColorizeVolumeLogic
@@ -322,16 +370,29 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         Called when the logic class is instantiated. Can be used for initializing member variables.
         """
         ScriptedLoadableModuleLogic.__init__(self)
+        self.logCallback = None
+
+    def log(self, message):
+        if self.logCallback:
+            self.logCallback(message)
+        else:
+            logging.info(message)
 
     def getParameterNode(self):
         return ColorizeVolumeParameterNode(super().getParameterNode())
 
-    def processVolume(
+    def AddNewOutputVolume(self, nodeName=None):
+        outputRgbaVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLVectorVolumeNode", nodeName if nodeName else "")
+        outputRgbaVolume.SetVoxelVectorType(slicer.vtkMRMLVolumeNode.VoxelVectorTypeColorRGBA)
+        return outputRgbaVolume
+
+    def _processVolume(
         self,
         volumeNode,
         segmentationNode,
         outputRgbaVolume,
-        backgroundColorRgba,
+        backgroundColorRgb,
+        backgroundColorOpacityPercent,
         colorBleedThicknessVoxel,
         softEdgeThicknessVoxel,
     ):
@@ -341,7 +402,8 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         :param volumeNode: volume to be thresholded
         :param segmentationNode: segmentation to be used for coloring
         :param outputRgbaVolume: colorized RGBA volume
-        :param backgroundColorRgba: color and opacity of voxels that are not segmented (RGBA)
+        :param backgroundColorRgb: color and opacity of voxels that are not segmented (RGBA)
+        :param backgroundColorOpacityPercent: opacity of voxels that are not segmented (0-100)
         :oaram colorBleedThicknessVoxel: how far color bleeds out (in voxels)
         :param softEdgeThicknessVoxel: edge smoothing thickness (in voxels)
         """
@@ -350,8 +412,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         import vtk
         import vtk.util.numpy_support
         segmentIds = segmentationNode.GetDisplayNode().GetVisibleSegmentIDs()
-        slicer.util.showStatusMessage("Exporting segments...", 1000)
-        slicer.app.processEvents()
+        self.log("Exporting segments...")
         labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode", "__temp__")
         if not slicer.modules.segmentations.logic().ExportSegmentsToLabelmapNode(segmentationNode, segmentIds, labelmapVolumeNode, volumeNode):
             raise RuntimeError("Export of segment failed.")
@@ -359,7 +420,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         colorTableNode = labelmapVolumeNode.GetDisplayNode().GetColorNode()
 
         # Background color
-        colorTableNode.SetColor(0, *backgroundColorRgba)
+        colorTableNode.SetColor(0, *backgroundColorRgb, backgroundColorOpacityPercent / 100.0)
         for segmentIndex, segmentId in enumerate(segmentIds):
             segment = segmentationNode.GetSegmentation().GetSegment(segmentId)
             color = segment.GetColor()
@@ -367,8 +428,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
             colorTableNode.SetColor(segmentIndex + 1, *color, opacity)
 
         # Dilate labelmap to avoid edge artifacts
-        slicer.util.showStatusMessage(f"Dilating segments...")
-        slicer.app.processEvents()
+        self.log("Dilating segments...")
         dilate = vtkAddon.vtkImageLabelDilate3D()
         dilate.SetInputData(labelmapVolumeNode.GetImageData())
         dilationKernelSize = int(colorBleedThicknessVoxel + 0.5) * 2 + 1
@@ -377,8 +437,7 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         dilate.Update()
         labelImage = dilate.GetOutput()
 
-        slicer.util.showStatusMessage(f"Generating colorized volume...")
-        slicer.app.processEvents()
+        self.log("Generating colorized volume...")
 
         mapToRGB = vtk.vtkImageMapToColors()
         mapToRGB.ReleaseDataFlagOn()
@@ -451,11 +510,12 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         slicer.mrmlScene.RemoveNode(colorTableNode)
         slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
 
-    def process(self,
+    def _process(self,
                 inputScalarVolume: vtkMRMLScalarVolumeNode,
                 inputSegmentation: vtkMRMLSegmentationNode,
                 outputRgbaVolume: vtkMRMLVectorVolumeNode,
-                backgroundColorRgba: list,
+                backgroundColorRgb: list,
+                backgroundOpacityPercent: float,
                 colorBleedThicknessVoxel: float=1.5,
                 softEdgeThicknessVoxel: float=1.5,
                 sequenceBrowserNode: Optional[vtkMRMLSequenceBrowserNode]=None,
@@ -466,14 +526,19 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         :param inputScalarVolume: volume to be thresholded
         :param inputSegmentation: segmentation to be used for coloring
         :param outputRgbaVolume: colorized RGBA volume
-        :param backgroundColorRgba: color and opacity of voxels that are not segmented (RGBA)
+        :param backgroundColorRgb: color of voxels that are not segmented (RGB)
+        :param backgroundOpacityPercent: opacity of voxels that are not segmented (0-100)
         :oaram colorBleedThicknessVoxel: how far color bleeds out (in voxels)
         :param softEdgeThicknessVoxel: edge smoothing thickness (in voxels)
         :param sequenceBrowserNode: if set to a browser node then all items of the input volume sequence will be processed
         """
 
-        if not inputScalarVolume or not inputSegmentation or not outputRgbaVolume:
-            raise ValueError("Input or output volume is invalid")
+        if not inputScalarVolume:
+            raise ValueError("Input scalar volume is invalid")
+        if not inputSegmentation:
+            raise ValueError("Input segmentation is invalid")
+        if not outputRgbaVolume:
+            raise ValueError("Output RGBA volume is invalid")
 
         import numpy as np
         import time
@@ -489,11 +554,12 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
 
         if inputScalarVolumeSequence is None:
             # Colorize a single volume
-            self.processVolume(
+            self._processVolume(
                 inputScalarVolume,
                 inputSegmentation,
                 outputRgbaVolume,
-                backgroundColorRgba,
+                backgroundColorRgb,
+                backgroundOpacityPercent,
                 colorBleedThicknessVoxel,
                 softEdgeThicknessVoxel,
             )
@@ -516,11 +582,12 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
             numberOfItems = sequenceBrowserNode.GetNumberOfItems()
             for i in range(numberOfItems):
                 logging.info(f"Colorizing item {i+1}/{numberOfItems} of sequence")
-                self.processVolume(
+                ColorizeVolumeLogic._processVolume(
                     inputScalarVolume,
                     inputSegmentation,
                     outputRgbaVolume,
-                    backgroundColorRgba,
+                    backgroundColorRgb,
+                    backgroundOpacityPercent,
                     colorBleedThicknessVoxel,
                     softEdgeThicknessVoxel,
                 )
@@ -530,8 +597,18 @@ class ColorizeVolumeLogic(ScriptedLoadableModuleLogic):
         stopTime = time.time()
         logging.info(f'Processing completed in {stopTime-startTime:.2f} seconds')
 
-        slicer.util.showStatusMessage("Processing completed.", 1000)
+        self.log("Processing completed.")
 
+    def process(self):
+        parameterNode = self.getParameterNode()
+        self._process(
+            parameterNode.inputScalarVolume,
+            parameterNode.inputSegmentation,
+            parameterNode.outputRgbaVolume,
+            parameterNode.backgroundColorRgb,
+            parameterNode.backgroundOpacityPercent,
+            parameterNode.colorBleedThicknessVoxel,
+            parameterNode.softEdgeThicknessVoxel)
 
     def showVolumeRendering(self, resetSettings = True) -> None:
         """
@@ -654,34 +731,24 @@ class ColorizeVolumeTest(ScriptedLoadableModuleTest):
 
         self.delayDisplay("Starting the test")
 
-        # Get/create input data
-
+        # Get input data
         import SampleData
         registerSampleData()
-        inputScalarVolume = SampleData.downloadSample('ColorizeVolume1')
+        inputScalarVolume = SampleData.downloadSample('CTLiver')
+        inputSegmentation = SampleData.downloadSample('CTLiverSegmentation')
         self.delayDisplay('Loaded test data set')
 
-        inputScalarRange = inputScalarVolume.GetImageData().GetScalarRange()
-        self.assertEqual(inputScalarRange[0], 0)
-        self.assertEqual(inputScalarRange[1], 695)
-
-        outputRgbaVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode")
-        threshold = 100
-
-        # Test the module logic
-
+        # Generate colorized volume
         logic = ColorizeVolumeLogic()
+        logic.logCallback = lambda msg: self.delayDisplay(msg)
+        parameterNode = logic.getParameterNode()
+        parameterNode.inputScalarVolume = inputScalarVolume
+        parameterNode.inputSegmentation = inputSegmentation
+        parameterNode.outputRgbaVolume = logic.AddNewOutputVolume()
+        logic.process()
 
-        # Test algorithm with non-inverted threshold
-        logic.process(inputScalarVolume, outputRgbaVolume, threshold, True)
-        outputScalarRange = outputRgbaVolume.GetImageData().GetScalarRange()
-        self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-        self.assertEqual(outputScalarRange[1], threshold)
-
-        # Test algorithm with inverted threshold
-        logic.process(inputScalarVolume, outputRgbaVolume, threshold, False)
-        outputScalarRange = outputRgbaVolume.GetImageData().GetScalarRange()
-        self.assertEqual(outputScalarRange[0], inputScalarRange[0])
-        self.assertEqual(outputScalarRange[1], inputScalarRange[1])
+        # Show volume rendering
+        logic.showVolumeRendering()
+        slicer.app.layoutManager().resetThreeDViews()
 
         self.delayDisplay('Test passed')

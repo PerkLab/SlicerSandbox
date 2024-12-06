@@ -20,7 +20,11 @@ class LineProfile(ScriptedLoadableModule):
     self.parent.dependencies = []
     parent.contributors = ["Andras Lasso (PerkLab)"]
     self.parent.helpText = """
-This module computes intensity profile of a volume along a line line.
+This module computes the intensity profile of a volume along a markups line or curve.
+Notes:
+1. Lines that are on the image boundary (outside the center of border voxels) may be assigned 0 value.
+2. Probed points within the image volume are linearly interpolated among adjacent voxel centers
+and then returned with the same data type as the probed image (e.g. rounded to integers if the image has integer data type).
 """
     self.parent.helpText += self.getDefaultModuleDocumentationLink()
     self.parent.acknowledgementText = """
@@ -391,7 +395,7 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
 
   def getArrayFromTable(self, outputTable, arrayName):
     if outputTable is None:
-      return None;
+      return None
     distanceArray = outputTable.GetTable().GetColumnByName(arrayName)
     if distanceArray:
       return distanceArray
@@ -410,6 +414,9 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     curvePoints_RAS = inputCurve.GetCurvePointsWorld()
     closedCurve = inputCurve.IsA('vtkMRMLClosedCurveNode')
     curveLengthMm = slicer.vtkMRMLMarkupsCurveNode.GetCurveLength(curvePoints_RAS, closedCurve)
+    samplingDistance = curveLengthMm/lineResolution
+    sampledCurvePoints_RAS = vtk.vtkPoints()
+    slicer.vtkMRMLMarkupsCurveNode.ResamplePoints(curvePoints_RAS, sampledCurvePoints_RAS, samplingDistance, closedCurve)
 
     # Need to get the start/end point of the line in the IJK coordinate system
     # as VTK filters cannot take into account direction cosines
@@ -423,52 +430,48 @@ class LineProfileLogic(ScriptedLoadableModuleLogic):
     rasToIJKTransform.Concatenate(inputVolumeToIJK)
     rasToIJKTransform.Concatenate(rasToInputVolumeTransform)
 
-    curvePoly_RAS = vtk.vtkPolyData()
-    curvePoly_RAS.SetPoints(curvePoints_RAS)
+    sampledCurvePoly_RAS = vtk.vtkPolyData()
+    sampledCurvePoly_RAS.SetPoints(sampledCurvePoints_RAS)
 
     transformRasToIjk = vtk.vtkTransformPolyDataFilter()
-    transformRasToIjk.SetInputData(curvePoly_RAS)
+    transformRasToIjk.SetInputData(sampledCurvePoly_RAS)
     transformRasToIjk.SetTransform(rasToIJKTransform)
     transformRasToIjk.Update()
-    curvePoly_IJK = transformRasToIjk.GetOutput()
-    curvePoints_IJK = curvePoly_IJK.GetPoints()
+    sampledCurvePoly_IJK = transformRasToIjk.GetOutput()
+    sampledCurvePoints_IJK = sampledCurvePoly_IJK.GetPoints()
 
-    if curvePoints_IJK.GetNumberOfPoints() < 2:
+    if sampledCurvePoints_IJK.GetNumberOfPoints() < 2:
       # We checked before that there are at least two control points, so it should not happen
       raise ValueError()
 
     startPointIndex = 0
-    endPointIndex = curvePoints_IJK.GetNumberOfPoints() - 1
-    lineStartPoint_IJK = curvePoints_IJK.GetPoint(startPointIndex)
-    lineEndPoint_IJK = curvePoints_IJK.GetPoint(endPointIndex)
+    endPointIndex = sampledCurvePoints_IJK.GetNumberOfPoints() - 1
+    lineStartPoint_IJK = sampledCurvePoints_IJK.GetPoint(startPointIndex)
+    lineEndPoint_IJK = sampledCurvePoints_IJK.GetPoint(endPointIndex)
 
     # Special case: single-slice volume
     # vtkProbeFilter treats vtkImageData as a general data set and it considers its bounds to end
     # in the middle of edge voxels. This makes single-slice volumes to have zero thickness, which
     # can be easily missed by a line that that is drawn on the plane (e.g., they happen to be
-    # extremely on the same side of the plane, very slightly off, due to runding errors).
-    # We move the start/end points very close to the plane and force them to be on opposite sides of the plane.
+    # just barely on the same side of the plane, very slightly off, due to rounding errors).
+    # We move the start/end points very close to the plane and force them to be on opposite 
+    # sides of the plane.
     dims = inputVolume.GetImageData().GetDimensions()
     for axisIndex in range(3):
       if dims[axisIndex] == 1:
+        # This is a 2D image (only one pixel layer thick)
         if abs(lineStartPoint_IJK[axisIndex]) < 0.5 and abs(lineEndPoint_IJK[axisIndex]) < 0.5:
           # both points are inside the volume plane
-          # keep their distance the same (to keep the overall length of the line he same)
-          # but make sure the points are on the opposite side of the plane (to ensure probe filter
-          # considers the line crossing the image plane)
+          # keep their relative distance the same (or boost to 1e-6 if very small) 
+          # but make sure the points are on the opposite side of the 
+          # plane (to ensure probe filter considers the line crossing the image plane)
           pointDistance = max(abs(lineStartPoint_IJK[axisIndex]-lineEndPoint_IJK[axisIndex]), 1e-6)
           lineStartPoint_IJK[axisIndex] = -0.5 * pointDistance
           lineEndPoint_IJK[axisIndex] = 0.5 * pointDistance
-          curvePoints_IJK.SetPoint(startPointIndex, lineStartPoint_IJK)
-          curvePoints_IJK.SetPoint(endPointIndex, lineEndPoint_IJK)
+          sampledCurvePoints_IJK.SetPoint(startPointIndex, lineStartPoint_IJK)
+          sampledCurvePoints_IJK.SetPoint(endPointIndex, lineEndPoint_IJK)
 
-    sampledCurvePoints_IJK = vtk.vtkPoints()
-    samplingDistance = curveLengthMm / lineResolution
-    slicer.vtkMRMLMarkupsCurveNode.ResamplePoints(curvePoints_IJK, sampledCurvePoints_IJK, samplingDistance, closedCurve)
-
-    sampledCurvePoly_IJK = vtk.vtkPolyData()
-    sampledCurvePoly_IJK.SetPoints(sampledCurvePoints_IJK)
-
+    # Set up probe filter
     probeFilter=vtk.vtkProbeFilter()
     probeFilter.SetInputData(sampledCurvePoly_IJK)
     probeFilter.SetSourceData(inputVolume.GetImageData())
