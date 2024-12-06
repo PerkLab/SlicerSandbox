@@ -18,11 +18,11 @@ class DICOMToNRRD(ScriptedLoadableModule):
         self.parent.title = _("DICOM To NRRD")
         self.parent.categories = [translate("qSlicerAbstractCoreModule", "Utilities")]
         self.parent.dependencies = ["DICOM"]
-        self.parent.contributors = ["Alex Myers (Viable Software)"]
+        self.parent.contributors = ["Alex Myers (Virtual Dentistry, LLC)"]
         self.parent.helpText = _("""Batch processing for converting DICOM files
-            into NRRD files using a DICOM folder heirarchy of patient, study, and series names.""")
+            into NRRD files using a DICOM folder hierarchy of patient, study, and series names.""")
         self.parent.helpText += parent.defaultDocumentationLink
-        self.parent.acknowledgementText = _("""This file was originally developed by Alex Myers of Viable Software.""")
+        self.parent.acknowledgementText = _("""This file was originally developed by Alex Myers of Virtual Dentistry, LLC.""")
 
 
 # DICOMToNRRDWidget for the DICOM To NRRD Slicer module
@@ -35,7 +35,7 @@ class DICOMToNRRDWidget(ScriptedLoadableModuleWidget):
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
 
-        # Dropdown Parameters menu
+        # Drop down Parameters menu
         parametersCollapsibleButton = ctk.ctkCollapsibleButton()
         parametersCollapsibleButton.text = _("Parameters")
         self.layout.addWidget(parametersCollapsibleButton)
@@ -61,12 +61,12 @@ class DICOMToNRRDWidget(ScriptedLoadableModuleWidget):
         self.scalarVolumesCheckBox = qt.QCheckBox()
         self.scalarVolumesCheckBox.checked = False
         self.scalarVolumesCheckBox.setToolTip(_("Only produce NRRD files for scalar volumes only. " + 
-            "When checked this excludes segmentations and structure sets."))
+            "When checked this excludes segmentation and structure sets."))
         parametersFormLayout.addRow(_("NRRD Scalar Volumes Only:"), self.scalarVolumesCheckBox)        
         
         # Batch Process Button        
         self.processButton = qt.QPushButton(_("Process"))
-        self.processButton.toolTip = _("Batch process DICOM files to NRRD files with a patient, study, series folder heirarchy")
+        self.processButton.toolTip = _("Batch process DICOM files to NRRD files with a patient, study, series folder hierarchy")
         parametersFormLayout.addRow(self.processButton)
 
         # connections
@@ -229,7 +229,7 @@ class DICOMToNRRDLogic(ScriptedLoadableModuleLogic):
     # Create a patient name directory based on patient name and UID in case you have patients with the same first and last names
     # As a fail safe, create a dummy patient name with the current date
     def PatientName(self, db, patientUID, shNode, patientItem):
-        """ patientUID is unqiue in case of patients with the same first and last names """
+        """ patientUID is unique in case of patients with the same first and last names """
         patientName = db.nameForPatient(patientUID) + " " + shNode.GetItemAttribute(patientItem, 'DICOM.PatientID')
         if patientName == "":
             patientName = "Patient " + DateNowPrettyFormat()
