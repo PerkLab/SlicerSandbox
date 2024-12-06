@@ -1,0 +1,12 @@
+Test Case #,Description,“Create DICOM information file/s” Checked? Y / N," ""NRRD Scalar Volumes Only"" Checked ? Y / N",# NRRD Files Generated,# PatientDICOMInfo.json Files Generated,Data Description URI,Date Tested
+1,I tested 5 / 126 Liver Cancer B-mode-and-CEUS-Liver scans,Y,N,5,5,https://www.cancerimagingarchive.net/collection/b-mode-and-ceus-liver/,06/26/24
+2,I tested 5 / 126 Liver Cancer B-mode-and-CEUS-Liver scans,N,Y,5,0,https://www.cancerimagingarchive.net/collection/b-mode-and-ceus-liver/,06/26/24
+3,I tested ReMIND-001,Y,Y,6,6,https://www.cancerimagingarchive.net/collection/remind/,06/26/24
+4,I tested ReMIND-001,N,N,6,0,https://www.cancerimagingarchive.net/collection/remind/,06/26/24
+5,I tested folder 144126-210-T-1637,Y,Y,2,2,https://www.cancerimagingarchive.net/collection/pdmr-texture-analysis/,06/26/24
+6,I tested folder CMB-MML-MSB-07473,N,N,1,1,https://www.cancerimagingarchive.net/collection/cmb-mml/,06/26/24
+7,I tested 105 random DICOM scans,Y,Y,105,105,https://www.cancerimagingarchive.net/browse-collections/,06/26/24
+8,I tested C3N-02715,N,N,7,7,https://www.cancerimagingarchive.net/collection/cptac-luad/,06/26/24
+9,I tested 500 scans from NLST,Y,Y,500,500,https://www.cancerimagingarchive.net/collection/nlst/,06/26/24
+10,Tested one folder CMB-MML-MSB-01103,Y,Y,8,8,https://www.cancerimagingarchive.net/collection/cmb-mml/,12/06/24
+11,Tested the whole CMB-MML folder,Y,N,186,186,https://www.cancerimagingarchive.net/collection/cmb-mml/,12/06/24
