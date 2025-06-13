@@ -1,5 +1,5 @@
 /*
-Copyright 2012-2024 Ronald Römer
+Copyright 2012-2025 Ronald Römer
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -148,6 +148,9 @@ int vtkPolyDataBooleanFilter::RequestData(vtkInformation *request, vtkInformatio
             modPdA->DeepCopy(cl->GetOutput(1));
             modPdB->DeepCopy(cl->GetOutput(2));
 
+            modPdA->EditableOn();
+            modPdB->EditableOn();
+
 #ifdef DEBUG
             std::cout << "Exporting contLines.vtk" << std::endl;
             WriteVTK("contLines.vtk", contLines);
@@ -175,14 +178,21 @@ int vtkPolyDataBooleanFilter::RequestData(vtkInformation *request, vtkInformatio
 
             auto cells = vtkSmartPointer<vtkIdList>::New();
 
+            bool hasGap(false);
+
             for (i = 0; i < numPts; i++) {
                 contLines->GetPointCells(i, cells);
 
                 if (cells->GetNumberOfIds() == 1) {
-                    vtkErrorMacro("Contact ends suddenly.");
-                    return 1;
+                    vtkErrorMacro("Contact ends suddenly at point " << i << ".");
+
+                    hasGap = true;
                 }
 
+            }
+
+            if (hasGap) {
+                return 1;
             }
 
             // sichert die OrigCellIds
@@ -614,7 +624,9 @@ bool vtkPolyDataBooleanFilter::GetPolyStrips (vtkPolyData *pd, vtkIdTypeArray *c
     // sucht nach gleichen captPts
 
     {
-        std::map<Point3d, std::map<vtkIdType, std::vector<std::reference_wrapper<StripPt>>>> collapsed;
+        // std::map<Point3d, std::map<vtkIdType, std::vector<std::reference_wrapper<StripPt>>>> collapsed;
+
+        std::map<Point3d, std::set<vtkIdType>> collapsed;
 
         PolyStripsType::iterator itr;
         StripPtsType::iterator itr2;
@@ -628,39 +640,24 @@ bool vtkPolyDataBooleanFilter::GetPolyStrips (vtkPolyData *pd, vtkIdTypeArray *c
                 StripPt &sp = itr2->second;
 
                 if (sp.capt & Capt::BOUNDARY) {
-                    collapsed[{sp.cutPt[0], sp.cutPt[1], sp.cutPt[2]}][sp.ind].push_back(sp);
+                    // collapsed[{sp.cutPt[0], sp.cutPt[1], sp.cutPt[2]}][sp.ind].push_back(sp);
+
+                    auto inds = collapsed[{sp.cutPt[0], sp.cutPt[1], sp.cutPt[2]}];
+
+                    inds.emplace(sp.ind);
+
+                    if (inds.size() > 1) {
+                        return true;
+                    }
                 }
             }
         }
 
-        for (auto &[pt, map] : collapsed) {
-            if (map.size() > 1) {
-                // std::cout << pt << std::endl;
-
-                // for (auto &[ind, pts] : map) {
-                //     for (auto &p : pts) {
-                //         std::cout << p << std::endl;
-                //     }
-                // }
-
-                // if (map.size() == 2 && std::all_of(map.begin(), map.end(), [](const auto &m) { return m.second.size() == 1 && m.second.back().get().capt == Capt::EDGE; })) {
-
-                //     for (auto &[ind, pts] : map) {
-                //         StripPt &sp = pts.back();
-
-                //         sp.capt = Capt::NOT;
-                //         sp.edge[0] = sp.edge[1] = NOTSET;
-                //         Cpy(sp.cutPt, sp.pt, 3);
-                //     }
-
-                // } else {
-                //     return true;
-                // }
-
-                return true;
-
-            }
-        }
+        // for (auto &[pt, map] : collapsed) {
+        //     if (map.size() > 1) {
+        //         return true;
+        //     }
+        // }
     }
 
     for (itr = polyLines.begin(); itr != polyLines.end(); ++itr) {
