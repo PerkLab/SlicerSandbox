@@ -841,7 +841,7 @@ def getSliceIndexTuple(start, end, dim_to_stitch, nDims=3):
         shNode.GetDataNodesInBranch(sceneItemID, c, "vtkMRMLScalarVolumeNode")
         for idx in range(c.GetNumberOfItems()):
             volNodes.append(c.GetItemAsObject(idx))
-    # Loop over all volumes, renaming only if DICOM and if node name matches r"imageType \d"
+    # Loop over all volumes, renaming only if DICOM and if node name is "imageType " followed by a number
     for volNode in volNodes:
         uids = volNode.GetAttribute("DICOM.instanceUIDs")  # empty for non DICOM volumes
         imageTypeField = "0008,0008"  # DICOM field corresponding to ImageType
