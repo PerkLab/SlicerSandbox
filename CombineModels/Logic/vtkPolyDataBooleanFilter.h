@@ -1,5 +1,5 @@
 /*
-Copyright 2012-2024 Ronald Römer
+Copyright 2012-2025 Ronald Römer
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,11 +33,13 @@ limitations under the License.
 
 #include "Utilities.h"
 
-#define OPER_NONE 0
-#define OPER_UNION 1
-#define OPER_INTERSECTION 2
-#define OPER_DIFFERENCE 3
-#define OPER_DIFFERENCE2 4
+enum OperMode {
+    OPER_NONE = 0,
+    OPER_UNION,
+    OPER_INTERSECTION,
+    OPER_DIFFERENCE,
+    OPER_DIFFERENCE2
+};
 
 enum class Capt {
     NOT = 1 << 0,

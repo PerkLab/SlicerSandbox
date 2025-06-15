@@ -1,5 +1,5 @@
 /*
-Copyright 2012-2024 Ronald Römer
+Copyright 2012-2025 Ronald Römer
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ limitations under the License.
 #include <map>
 #include <tuple>
 #include <set>
+#include <string>
 
 #include <vtkPolyDataAlgorithm.h>
 #include <vtkIdTypeArray.h>
@@ -42,11 +43,16 @@ enum class End {
     END
 };
 
+enum class PointSrc {
+    CALCULATED,
+    COPIED
+};
+
 class InterPt {
 public:
     InterPt () = delete;
 
-    InterPt (double x, double y, double z, double t, vtkIdType a, vtkIdType b, End end, Src src) : t(t), edge(a, b), end(end), src(src), srcA(NOTSET), srcB(NOTSET) {
+    InterPt (double x, double y, double z, double t, vtkIdType a, vtkIdType b, End end, Src src, PointSrc pointSrc) : t(t), edge(a, b), end(end), src(src), srcA(NOTSET), srcB(NOTSET), pointSrc(pointSrc) {
         pt[0] = x;
         pt[1] = y;
         pt[2] = z;
@@ -58,12 +64,15 @@ public:
     Src src;
     vtkIdType srcA, srcB;
 
+    PointSrc pointSrc;
+
     friend std::ostream& operator<< (std::ostream &out, const InterPt &s) {
         out << "pt [" << s.pt[0] << ", " << s.pt[1] << ", " << s.pt[2] << "]"
             << ", t " << s.t
             << ", edge " << s.edge
             << ", end " << s.end
-            << ", src " << s.src;
+            << ", src " << s.src
+            << ", pointSrc " << s.pointSrc;
 
         return out;
     }
@@ -72,18 +81,30 @@ public:
         assert(src != other.src);
 
         if (src == Src::A) {
-            srcA = end == End::END ? edge.g : edge.f;
+            srcA = GetEnd();
         } else {
-            srcB = end == End::END ? edge.g : edge.f;
+            srcB = GetEnd();
         }
 
         if (std::abs(other.t-t) < 1e-5) {
             if (other.src == Src::A) {
-                srcA = other.end == End::END ? other.edge.g : other.edge.f;
+                srcA = other.GetEnd();
             } else {
-                srcB = other.end == End::END ? other.edge.g : other.edge.f;
+                srcB = other.GetEnd();
             }
         }
+    }
+
+    inline vtkIdType GetEnd() const {
+        if (end == End::BEGIN) {
+            return edge.f;
+        }
+
+        if (end == End::END) {
+            return edge.g;
+        }
+
+        return NOTSET;
     }
 
 };
@@ -137,6 +158,67 @@ private:
     vtkPolyDataContactFilter (const vtkPolyDataContactFilter&) = delete;
     void operator= (const vtkPolyDataContactFilter&) = delete;
 
+};
+
+
+using Edges = std::map<Pair, Points>;
+
+class SnapPoint {
+public:
+    SnapPoint () = delete;
+    SnapPoint (vtkIdType cellId, const Pair &line, const Point3d &point, const Point3d &inter, double d) : cellId(cellId), line(line), point(point), inter(inter), d(d) {}
+
+    vtkIdType cellId;
+    Pair line;
+    Point3d point;
+    Point3d inter;
+    double d;
+
+    friend std::ostream& operator<< (std::ostream &out, const SnapPoint &s) {
+        out << "cellId " << s.cellId
+            << ", line " << s.line
+            << ", point " << s.point
+            << ", inter " << s.inter
+            << ", d " << s.d;
+
+        return out;
+    }
+};
+
+class SnapEdge {
+public:
+    SnapEdge () = delete;
+    SnapEdge (vtkIdType cellId, const Pair &line, const Pair &edge, const Point3d &proj, const Point3d &inter, double d) : cellId(cellId), line(line), edge(edge), proj(proj), inter(inter), d(d) {}
+
+    vtkIdType cellId;
+    Pair line;
+    Pair edge;
+    Point3d proj;
+    Point3d inter;
+    double d;
+
+    friend std::ostream& operator<< (std::ostream &out, const SnapEdge &s) {
+        out << "cellId " << s.cellId
+            << ", line " << s.line
+            << ", edge " << s.edge
+            << ", proj " << s.proj
+            << ", inter " << s.inter
+            << ", d " << s.d;
+
+        return out;
+    }
+};
+
+class PreventEqualCaptPoints {
+    vtkPolyData *pdA, *pdB;
+public:
+    static void TriangluteCell (vtkPolyData *pd, vtkIdType cellId, const Edges &edges);
+    static void MovePoint (vtkPolyData *pd, vtkIdType ind, const Point3d &p);
+
+    PreventEqualCaptPoints (vtkPolyData *pdA, vtkPolyData *pdB);
+    void Run ();
+private:
+    void Find (vtkPolyData *pd, vtkPolyData *other, const std::string &name);
 };
 
 #endif
