@@ -827,36 +827,36 @@ def getSliceIndexTuple(start, end, dim_to_stitch, nDims=3):
     return tuple(sliceIndexList)
 
 
-""" def rename_dixon_dicom_volumes(volNodes=None):
-    # substitutes the "imageType N" with the Dixon type ("F","W","OP", or "IP")
-    # If volume is not a DICOM volume, then it is left unchanged
-    import re
-
-    if volNodes is None:
-        # Gather all scalar volumes in the scene
-        volNodes = []
-        shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
-        sceneItemID = shNode.GetSceneItemID()
-        c = vtk.vtkCollection()
-        shNode.GetDataNodesInBranch(sceneItemID, c, "vtkMRMLScalarVolumeNode")
-        for idx in range(c.GetNumberOfItems()):
-            volNodes.append(c.GetItemAsObject(idx))
-    # Loop over all volumes, renaming only if DICOM and if node name is "imageType " followed by a number
-    for volNode in volNodes:
-        uids = volNode.GetAttribute("DICOM.instanceUIDs")  # empty for non DICOM volumes
-        imageTypeField = "0008,0008"  # DICOM field corresponding to ImageType
-        if uids is not None:
-            uid = uids.split()[
-                0
-            ]  # all of these UIDs have the same ImageType (at least so far as I tested)
-            filename = slicer.dicomDatabase.fileForInstance(uid)
-            imageType = slicer.dicomDatabase.fileValue(
-                filename, imageTypeField
-            )  # looks like "DERIVED\PRIMARY\OP\OP\DERIVED"
-            dixonType = imageType.split("\\")[
-                2
-            ]  # pulls out the 3rd entry in that field
-            origVolName = volNode.GetName()
-            # Substitute dixon type for 'imageType N'
-            newName = re.sub(r"imageType \d", dixonType, origVolName)
-            volNode.SetName(newName) """
+# def rename_dixon_dicom_volumes(volNodes=None):
+#     # substitutes the "imageType N" with the Dixon type ("F","W","OP", or "IP")
+#     # If volume is not a DICOM volume, then it is left unchanged
+#     import re
+#
+#     if volNodes is None:
+#         # Gather all scalar volumes in the scene
+#         volNodes = []
+#         shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+#         sceneItemID = shNode.GetSceneItemID()
+#         c = vtk.vtkCollection()
+#         shNode.GetDataNodesInBranch(sceneItemID, c, "vtkMRMLScalarVolumeNode")
+#         for idx in range(c.GetNumberOfItems()):
+#             volNodes.append(c.GetItemAsObject(idx))
+#     # Loop over all volumes, renaming only if DICOM and if node name matches r"imageType \d"
+#     for volNode in volNodes:
+#         uids = volNode.GetAttribute("DICOM.instanceUIDs")  # empty for non DICOM volumes
+#         imageTypeField = "0008,0008"  # DICOM field corresponding to ImageType
+#         if uids is not None:
+#             uid = uids.split()[
+#                 0
+#             ]  # all of these UIDs have the same ImageType (at least so far as I tested)
+#             filename = slicer.dicomDatabase.fileForInstance(uid)
+#             imageType = slicer.dicomDatabase.fileValue(
+#                 filename, imageTypeField
+#             )  # looks like "DERIVED\PRIMARY\OP\OP\DERIVED"
+#             dixonType = imageType.split("\\")[
+#                 2
+#             ]  # pulls out the 3rd entry in that field
+#             origVolName = volNode.GetName()
+#             # Substitute dixon type for 'imageType N'
+#             newName = re.sub(r"imageType \d", dixonType, origVolName)
+#             volNode.SetName(newName)
