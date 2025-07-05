@@ -49,25 +49,6 @@ double ComputeNormal (vtkPoints *pts, double *n, vtkIdType num, const vtkIdType 
     return vtkMath::Normalize(n);
 }
 
-bool CheckNormal (vtkPoints *pts, vtkIdType num, const vtkIdType *poly, const double *n, double d) {
-    if (n[0] == 0 && n[1] == 0 && n[2] == 0) {
-        return false;
-    }
-
-    const double *pt;
-    vtkIdType i;
-
-    for (i = 1; i < num; i++) {
-        pt = pts->GetPoint(poly[i]);
-
-        if (std::abs(vtkMath::Dot(n, pt)-d) > 1e-6) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 void FindPoints (vtkKdTreePointLocator *pl, const double *pt, vtkIdList *pts, double tol) {
     pts->Reset();
 
@@ -75,8 +56,6 @@ void FindPoints (vtkKdTreePointLocator *pl, const double *pt, vtkIdList *pts, do
 
     vtkIdList *closest = vtkIdList::New();
 
-    // vtkKdTree.cxx#L2505
-    // arbeitet mit single-precision
     pl->FindPointsWithinRadius(std::max(1e-3, tol), pt, closest);
 
     vtkIdType i, numPts = closest->GetNumberOfIds();
@@ -95,6 +74,7 @@ void FindPoints (vtkKdTreePointLocator *pl, const double *pt, vtkIdList *pts, do
     closest->Delete();
 }
 
+#ifdef DEBUG
 void WriteVTK (const char *name, vtkPolyData *pd) {
     vtkPolyDataWriter *w = vtkPolyDataWriter::New();
     w->SetInputData(pd);
@@ -102,6 +82,7 @@ void WriteVTK (const char *name, vtkPolyData *pd) {
     w->Update();
     w->Delete();
 }
+#endif
 
 double GetAngle (const double *vA, const double *vB, const double *n) {
     // http://math.stackexchange.com/questions/878785/how-to-find-an-angle-in-range0-360-between-2-vectors
@@ -212,6 +193,7 @@ bool PointInPoly (const Poly &poly, const Point3d &p) {
     return in;
 }
 
+#ifdef DEBUG
 void WritePolys (const char *name, const PolysType &polys) {
     auto pts = vtkSmartPointer<vtkPoints>::New();
 
@@ -231,6 +213,7 @@ void WritePolys (const char *name, const PolysType &polys) {
 
     WriteVTK(name, pd);
 }
+#endif
 
 void GetPolys (const ReferencedPointsType &pts, const IndexedPolysType &indexedPolys, PolysType &polys) {
     for (const auto &poly : indexedPolys) {
@@ -269,6 +252,20 @@ void FlattenPoly (const Poly &poly, Poly &out, const Base &base) {
         Transform(pt, tr, base);
 
         out.emplace_back(tr[0], tr[1], 0, i++);
+    }
+}
+
+void FlattenPoly2 (const Poly &poly, Poly &out, const Base2 &base) {
+    double pt[3], tr[3];
+
+    for (auto &p : poly) {
+        pt[0] = p.x;
+        pt[1] = p.y;
+        pt[2] = p.z;
+
+        base.Transform(pt, tr);
+
+        out.emplace_back(tr[0], tr[1], tr[2], p.id);
     }
 }
 
@@ -326,4 +323,27 @@ void ProjOnLine (vtkPolyData *pd, const Pair &line, const Point3d &p, std::share
     double d, t;
 
     ProjOnLine(a, b, p, &d, &t, proj);
+}
+
+vtkSmartPointer<vtkPolyData> CreatePolyData (const PolysType &polys) {
+    auto pts = vtkSmartPointer<vtkPoints>::New();
+    pts->SetDataTypeToDouble();
+
+    auto pd = vtkSmartPointer<vtkPolyData>::New();
+    pd->SetPoints(pts);
+    pd->Allocate(100);
+
+    for (const auto &poly : polys) {
+        auto cell = vtkSmartPointer<vtkIdList>::New();
+
+        for (const auto &p : poly) {
+            cell->InsertNextId(pts->InsertNextPoint(p.x, p.y, p.z));
+        }
+
+        pd->InsertNextCell(VTK_POLYGON, cell);
+    }
+
+    pd->Squeeze();
+
+    return pd;
 }

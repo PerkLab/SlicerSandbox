@@ -9,16 +9,21 @@ set(${KIT}_INCLUDE_DIRECTORIES
   )
 
 set(${KIT}_SRCS
+# private details
+  Utilities.cxx
+  Optimize.cxx
+  Contact.cxx
+  Merger.cxx
+# public
   vtkPolyDataBooleanFilter.cxx
   vtkPolyDataBooleanFilter.h
-  vtkPolyDataContactFilter.cxx
-  vtkPolyDataContactFilter.h
-  # private details
-  Utilities.cxx
   )
 
 set_source_files_properties(
   Utilities.cxx
+  Optimize.cxx
+  Contact.cxx
+  Merger.cxx
   WRAP_EXCLUDE
   )
 

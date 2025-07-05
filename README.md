@@ -4,7 +4,7 @@
 Collection of modules for 3D Slicer, which are already useful, but not finalized, polished, or proven to be useful enough to be included in Slicer core.
 - Auto Save: automatically save the scene at specified time intervals.
 - [Characterize Transform Matrix](#characterize-transform-matrix): quick geometric interpretations of a transformation matrix
-- Combine Models: Boolean operations(union, intersection, difference) for models.
+- [Combine Models](#combine-models): Boolean operations(union, intersection, difference) for models.
 - [Curved Planar Reformat](#curved-planar-reformat): straighten vessels, bones, or other structures for easier visualization, quantification, creating panoramic dental X-ray, etc.
 - Documentation Tools: tools for creating documentation on read-the-docs. It can generate html documentation from a Slicer source tree, convert module documentation from MediaWiki to markdown, etc.
 - [Import ITK-Snap label description file](#ImportItkSnapLabel): import label description (*.label, *.txt) files as a color table node
@@ -133,6 +133,14 @@ decompositionResults = CharacterizeTransformMatrix.CharacterizeTransformMatrixLo
 |stretchOnlyMatrix|4x4 stretch matrix `K` from the decomposition|
 |scaleMatrixList|list of three 4x4 symmetric (likely non-uniform) scale matrices (`S1*S2*S3=K`)|
 |stretchEigenvectorMatrix|4x4 matrix with the stretch direction eigenvectors as the first 3 columns|
+
+## Combine Models
+
+This module was created by adding a Slicer module wrapper to [vtkbool](https://github.com/zippy84/vtkbool), a library used for more robust boolean operations on vtkPolyData.
+
+### If you use this module for your research please address this citation details
+
+Römer, R. vtkbool (Version 3.2.0) [Computer software]. https://github.com/zippy84/vtkbool
 
 ## Stitch Volumes
 
