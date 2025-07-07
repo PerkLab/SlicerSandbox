@@ -204,6 +204,8 @@ vtkSmartPointer<vtkPolyData> Contact::GetLines () {
         }
     }
 
+    cellItr->Delete();
+
     cleaned->RemoveDeletedCells();
 
     return cleaned;
@@ -633,15 +635,19 @@ void Contact::InterPolys (vtkIdType idA, vtkIdType idB) {
     bool hasReplB = replsB.count(idB) == 1;
 
     if (!isPlanarA && !hasReplA && newPdA->GetCellType(idA) != VTK_TRIANGLE) {
-        auto newIds = PreventEqualCaptPoints::TriangulateCell(newPdA, idA, {});
-        replsA.emplace(idA, newIds);
-        hasReplA = true;
+        try {
+            auto newIds = PreventEqualCaptPoints::TriangulateCell(newPdA, idA, {});
+            replsA.emplace(idA, newIds);
+            hasReplA = true;
+        } catch (...) {}
     }
 
     if (!isPlanarB && !hasReplB && newPdB->GetCellType(idB) != VTK_TRIANGLE) {
-        auto newIds = PreventEqualCaptPoints::TriangulateCell(newPdB, idB, {});
-        replsB.emplace(idB, newIds);
-        hasReplB = true;
+        try {
+            auto newIds = PreventEqualCaptPoints::TriangulateCell(newPdB, idB, {});
+            replsB.emplace(idB, newIds);
+            hasReplB = true;
+        } catch (...) {}
     }
 
     if (hasReplA || hasReplB) {
