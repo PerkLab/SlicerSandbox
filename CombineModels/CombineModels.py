@@ -245,7 +245,7 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._parameterNode.SetParameter("numberOfRetries", str(self.ui.numberOfRetriesSpinBox.value))
     self._parameterNode.SetParameter("randomTranslationMagnitude", str(self.ui.randomTranslationMagnitudeSpinBox.value))
 
-    self._parameterNode.SetParameter("triangulateInputs", "true" if self.ui.triangulateInputsCheckBox.checked else "false")
+    self._parameterNode.SetParameter("triangulateInputs", "True" if self.ui.triangulateInputsCheckBox.checked else "False")
 
     self._parameterNode.EndModify(wasModified)
 
@@ -271,7 +271,7 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.GetParameter("Operation"),
         int(self._parameterNode.GetParameter("numberOfRetries")),
         int(float(self._parameterNode.GetParameter("randomTranslationMagnitude"))),
-        self._parameterNode.GetParameter("triangulateInputs") == "true"
+        self._parameterNode.GetParameter("triangulateInputs") == "True"
         )
 
     except Exception as e:
@@ -325,7 +325,7 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     if not parameterNode.GetParameter("randomTranslationMagnitude"):
       parameterNode.SetParameter("randomTranslationMagnitude", "4")
     if not parameterNode.GetParameter("triangulateInputs"):
-      parameterNode.SetParameter("triangulateInputs", "true")
+      parameterNode.SetParameter("triangulateInputs", "False")
 
   def process(
       self, 
@@ -378,10 +378,11 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
         transformerToOutput = vtk.vtkTransformPolyDataFilter()
         transformerToOutput.SetTransform(transformToOutput)
         if triangulateInputs:
-            triangulatedInputModel = vtk.vtkTriangleFilter()
-            triangulatedInputModel.SetInputData(inputModel.GetPolyData())
-            triangulatedInputModel.Update()
-            transformerToOutput.SetInputData(triangulatedInputModel.GetPolyData())
+            triangulateFilter = vtk.vtkTriangleFilter()
+            triangulateFilter.SetInputData(inputModel.GetPolyData())
+            triangulateFilter.Update()
+            triangulatedInputPolyData = triangulateFilter.GetOutput()
+            transformerToOutput.SetInputData(triangulatedInputPolyData)
         else:
             transformerToOutput.SetInputData(inputModel.GetPolyData())
         transformerToOutput.Update()
