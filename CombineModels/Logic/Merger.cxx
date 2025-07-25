@@ -57,7 +57,7 @@ Merger::Merger (vtkPolyData *pd, const PStrips &pStrips, const StripsType &strip
             double proj[2];
             Transform(pt, proj, base);
 
-            p.emplace_back(proj[0], proj[1], 0);
+            p.emplace_back(proj[0], proj[1], 0, NOTSET, sp.ind);
         }
 
         p.pop_back();
@@ -84,8 +84,6 @@ void Merger::Run () {
     vtkIdTypeArray *origCellIds = vtkIdTypeArray::SafeDownCast(pd->GetCellData()->GetScalars("OrigCellIds"));
 
     assert(origCellIds != nullptr);
-
-    const Base &base = pStrips.base;
 
     std::vector<GroupType> groups(polys.size());
 
@@ -134,25 +132,22 @@ void Merger::Run () {
 
         MergeGroup(_group, merged);
 
-        std::map<Point3d, vtkIdType> newIds;
+        std::map<vtkIdType, vtkIdType> newIds;
 
         for (auto &poly : merged) {
             auto newCell = vtkSmartPointer<vtkIdList>::New();
 
             for (auto &p : poly) {
-                double in[] = {p.x, p.y},
-                    out[3];
-
-                BackTransform(in, out, base);
-
                 vtkIdType id = p.id;
 
                 if (id == NOTSET) {
-                    auto itr = newIds.find(p);
+                    auto itr = newIds.find(p.otherId);
 
                     if (itr == newIds.end()) {
-                        id = pdPts->InsertNextPoint(out);
-                        newIds.emplace(p, id);
+                        auto &q = pStrips.pts.at(p.otherId);
+
+                        id = pdPts->InsertNextPoint(q.pt);
+                        newIds.emplace(p.otherId, id);
                     } else {
                         id = itr->second;
                     }
@@ -178,6 +173,7 @@ void Merger::MergeGroup (const GroupType &group, PolysType &merged) {
     }
 
     auto pts = vtkSmartPointer<vtkPoints>::New();
+    pts->SetDataTypeToDouble();
 
     IndexedPolysType indexedPolys;
 
@@ -499,6 +495,7 @@ void Merger::MergeGroup (const GroupType &group, PolysType &merged) {
                             pts->GetPoint(conn.j, ptB);
 
                             auto intersPts = vtkSmartPointer<vtkPoints>::New();
+                            intersPts->SetDataTypeToDouble();
 
                             auto c = bspTreeB->IntersectWithLine(ptA, ptB, 1e-5, intersPts, nullptr);
 
