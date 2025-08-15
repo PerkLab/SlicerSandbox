@@ -3,6 +3,8 @@ import unittest
 import logging
 import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
+from slicer.i18n import tr as _
+from slicer.i18n import translate
 from slicer.util import VTKObservationMixin
 
 #
@@ -91,6 +93,12 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.operationIntersectionRadioButton.connect("toggled(bool)", lambda toggled, op="intersection": self.operationButtonToggled(op))
     self.ui.operationDifferenceRadioButton.connect("toggled(bool)", lambda toggled, op="difference": self.operationButtonToggled(op))
     self.ui.operationDifference2RadioButton.connect("toggled(bool)", lambda toggled, op="difference2": self.operationButtonToggled(op))
+
+    self.ui.triangulateInputsCheckBox.connect("stateChanged(int)", self.updateParameterNodeFromGUI)
+
+    # Spin Boxes
+    self.ui.numberOfRetriesSpinBox.valueChanged.connect(self.updateParameterNodeFromGUI)
+    self.ui.randomTranslationMagnitudeSpinBox.valueChanged.connect(self.updateParameterNodeFromGUI)
 
     # Buttons
     self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
@@ -198,6 +206,24 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.toggleVisibilityButton.enabled = (self._parameterNode.GetNodeReference("OutputModel") is not None)
 
+    # translate randomly order of magnitude (value is negative by default)
+    randomTranslationMagnitude = int(float(self._parameterNode.GetParameter("randomTranslationMagnitude")))
+    self.ui.randomTranslationMagnitudeSpinBox.value = randomTranslationMagnitude
+
+    numberOfRetries = int(self._parameterNode.GetParameter("numberOfRetries"))
+    self.ui.numberOfRetriesSpinBox.value = numberOfRetries
+    if numberOfRetries > 0:
+      self.ui.numberOfRetriesSpinBox.toolTip = "Model B will be randomized if operation fails"
+      self.ui.randomTranslationMagnitudeSpinBox.enabled = True
+      randomTranslationAmount = 10**-randomTranslationMagnitude
+      self.ui.randomTranslationMagnitudeSpinBox.toolTip = f"If the operation fails, it will retry with a random translation of {randomTranslationAmount}"
+    else:
+      self.ui.numberOfRetriesSpinBox.toolTip = "Computation will be attempted only with exact inputs."
+      self.ui.randomTranslationMagnitudeSpinBox.enabled = False
+      self.ui.randomTranslationMagnitudeSpinBox.toolTip = "Set a number of retries to larger than 0"
+
+    self.ui.triangulateInputsCheckBox.checked = self._parameterNode.GetParameter("triangulateInputs") == "True"
+
     # All the GUI updates are done
     self._updatingGUIFromParameterNode = False
 
@@ -215,6 +241,11 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._parameterNode.SetNodeReferenceID("InputModelA", self.ui.inputModelASelector.currentNodeID)
     self._parameterNode.SetNodeReferenceID("InputModelB", self.ui.inputModelBSelector.currentNodeID)
     self._parameterNode.SetNodeReferenceID("OutputModel", self.ui.outputModelSelector.currentNodeID)
+
+    self._parameterNode.SetParameter("numberOfRetries", str(self.ui.numberOfRetriesSpinBox.value))
+    self._parameterNode.SetParameter("randomTranslationMagnitude", str(self.ui.randomTranslationMagnitudeSpinBox.value))
+
+    self._parameterNode.SetParameter("triangulateInputs", "True" if self.ui.triangulateInputsCheckBox.checked else "False")
 
     self._parameterNode.EndModify(wasModified)
 
@@ -237,7 +268,11 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.GetNodeReference("InputModelA"),
         self._parameterNode.GetNodeReference("InputModelB"),
         self._parameterNode.GetNodeReference("OutputModel"),
-        self._parameterNode.GetParameter("Operation"))
+        self._parameterNode.GetParameter("Operation"),
+        int(self._parameterNode.GetParameter("numberOfRetries")),
+        int(float(self._parameterNode.GetParameter("randomTranslationMagnitude"))),
+        self._parameterNode.GetParameter("triangulateInputs") == "True"
+        )
 
     except Exception as e:
       slicer.util.errorDisplay("Failed to compute results: "+str(e))
@@ -285,8 +320,23 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     """
     if not parameterNode.GetParameter("Operation"):
       parameterNode.SetParameter("Operation", "union")
+    if not parameterNode.GetParameter("numberOfRetries"):
+      parameterNode.SetParameter("numberOfRetries", "2")
+    if not parameterNode.GetParameter("randomTranslationMagnitude"):
+      parameterNode.SetParameter("randomTranslationMagnitude", "4")
+    if not parameterNode.GetParameter("triangulateInputs"):
+      parameterNode.SetParameter("triangulateInputs", "False")
 
-  def process(self, inputModelA, inputModelB, outputModel, operation):
+  def process(
+      self, 
+      inputModelA, 
+      inputModelB, 
+      outputModel, 
+      operation, 
+      numberOfRetries = 2, 
+      randomTranslationMagnitude = 4, 
+      triangulateInputs = True
+    ):
     """
     Run the processing algorithm.
     Can be used without GUI widget.
@@ -294,6 +344,9 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     :param inputModelB: second input model node
     :param outputModel: result model node, if empty then a new output node will be created
     :param operation: union, intersection, difference, difference2
+    :param numberOfRetries: number of retries if operation fails
+    :param randomTranslationMagnitude: order of magnitude of the random translation
+    :param triangulateInputs: triangulate input models before boolean operation
     """
 
     if not inputModelA or not inputModelB or not outputModel:
@@ -318,32 +371,124 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     else:
       raise ValueError("Invalid operation: "+operation)
 
-    if inputModelA.GetParentTransformNode() == outputModel.GetParentTransformNode():
-      combine.SetInputConnection(0, inputModelA.GetPolyDataConnection())
-    else:
-      transformToOutput = vtk.vtkGeneralTransform()
-      slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(inputModelA.GetParentTransformNode(), outputModel.GetParentTransformNode(), transformToOutput)
-      transformer = vtk.vtkTransformPolyDataFilter()
-      transformer.SetTransform(transformToOutput)
-      transformer.SetInputConnection(inputModelA.GetPolyDataConnection())
-      combine.SetInputConnection(0, transformer.GetOutputPort())
+    inputpolyData_Output = []  # polydata inputs in "Output" coordinate system
+    for inputModel in [inputModelA, inputModelB]:
+        transformToOutput = vtk.vtkGeneralTransform()
+        slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(inputModel.GetParentTransformNode(), outputModel.GetParentTransformNode(), transformToOutput)
+        transformerToOutput = vtk.vtkTransformPolyDataFilter()
+        transformerToOutput.SetTransform(transformToOutput)
+        if triangulateInputs:
+            triangulateFilter = vtk.vtkTriangleFilter()
+            triangulateFilter.SetInputData(inputModel.GetPolyData())
+            triangulateFilter.Update()
+            triangulatedInputPolyData = triangulateFilter.GetOutput()
+            transformerToOutput.SetInputData(triangulatedInputPolyData)
+        else:
+            transformerToOutput.SetInputData(inputModel.GetPolyData())
+        transformerToOutput.Update()
+        inputpolyData_Output.append(transformerToOutput.GetOutput())
 
-    if inputModelB.GetParentTransformNode() == outputModel.GetParentTransformNode():
-      combine.SetInputConnection(1, inputModelB.GetPolyDataConnection())
-    else:
-      transformToOutput = vtk.vtkGeneralTransform()
-      slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(inputModelB.GetParentTransformNode(), outputModel.GetParentTransformNode(), transformToOutput)
-      transformer = vtk.vtkTransformPolyDataFilter()
-      transformer.SetTransform(transformToOutput)
-      transformer.SetInputConnection(inputModelB.GetPolyDataConnection())
-      combine.SetInputConnection(1, transformer.GetOutputPort())
+    polydataA = inputpolyData_Output[0]
+    polydataB = inputpolyData_Output[1]
 
-    # These parameters might be useful to expose:
-    # combine.MergeRegsOn()  # default off
-    # combine.DecPolysOff()  # default on
-    combine.Update()
+    # First handle cases where inputs are not valid otherwise the boolean filter will crash
+    modelAEmpty = polydataA.GetNumberOfPoints() == 0
+    modelBEmpty = polydataB.GetNumberOfPoints() == 0
+    if modelAEmpty and modelBEmpty:
+        # both inputs are empty, output is empty regardless of the operation
+        outputModel.SetAndObservePolyData(vtk.vtkPolyData())
+        return
+    elif modelAEmpty or modelBEmpty:
+        # exactly one input is empty
+        if operation == "union":
+            outputModel.SetAndObservePolyData(polydataA if modelBEmpty else polydataB)
+            return
+        elif operation == "intersection":
+            # if one model is empty then intersection is empty
+            outputModel.SetAndObservePolyData(vtk.vtkPolyData())
+            return
+        elif operation == "difference":
+            # A-B
+            outputModel.SetAndObservePolyData(polydataA if modelBEmpty else vtk.vtkPolyData())
+            return
+        elif operation == "difference2":
+            # B-A
+            outputModel.SetAndObservePolyData(polydataB if modelAEmpty else vtk.vtkPolyData())
+            return
 
-    outputModel.SetAndObservePolyData(combine.GetOutput())
+    # We need to combine the models
+    polydataBOriginal = polydataB
+    polydataCombined = vtk.vtkPolyData()
+    for attemptIndex in range(numberOfRetries+1):
+
+        if attemptIndex == 0:
+            polydataB = polydataBOriginal
+        else:
+            # Add random translation to model B
+            # https://github.com/zippy84/vtkbool/issues/81
+            logging.info(f"Retrying boolean operation with random translation (attempt {attemptIndex+1})")
+            transform = vtk.vtkTransform()
+            unitVector = [vtk.vtkMath.Random()-0.5 for _ in range(3)]
+            vtk.vtkMath.Normalize(unitVector)
+            import numpy as np
+            translationVector = np.array(unitVector) * (10**-randomTranslationMagnitude)
+            perturbationTransform = vtk.vtkTransform()
+            perturbationTransform.Translate(translationVector)
+            perturbationTransformer = vtk.vtkTransformPolyDataFilter()
+            perturbationTransformer.SetTransform(perturbationTransform)
+            perturbationTransformer.SetInputData(polydataBOriginal)
+            perturbationTransformer.Update()
+            polydataB = perturbationTransformer.GetOutput()
+
+        # Calculate the result using Boolean operation
+        combine.SetInputData(0, polydataA)
+        combine.SetInputData(1, polydataB)
+        # These parameters might be useful to expose:
+        # combine.MergeRegsOn()  # default off
+        # combine.DecPolysOff()  # default on
+        combine.Update()
+
+        combineFilterSuccessful = combine.GetOutput().GetNumberOfPoints() != 0
+        if combineFilterSuccessful:
+            polydataCombined = combine.GetOutput()
+            break
+
+        # Boolean operation failed, but if the meshes are not intersecting
+        # then it may be a special case that we can handle with simpler methods
+        collisionDetectionFilter = vtk.vtkCollisionDetectionFilter()
+        collisionDetectionFilter.SetInputData(0, polydataA)
+        collisionDetectionFilter.SetInputData(1, polydataB)
+        identityMatrix = vtk.vtkMatrix4x4()
+        collisionDetectionFilter.SetMatrix(0,identityMatrix)
+        collisionDetectionFilter.SetMatrix(1,identityMatrix)
+        collisionDetectionFilter.SetCollisionModeToFirstContact()
+        collisionDetectionFilter.Update()
+        intersecting = collisionDetectionFilter.GetNumberOfContacts() > 0
+        if intersecting:
+            # this is not a trivial case, try again
+            continue
+
+        # No intersection, we can do without computing Boolean operation
+        if operation == 'union':
+            # models do not touch so we can simply append them
+            appendFilter = vtk.vtkAppendPolyData()
+            appendFilter.AddInputData(polydataA)
+            appendFilter.AddInputData(polydataB)
+            appendFilter.Update()
+            polydataCombined = appendFilter.GetOutput()
+            break
+        elif operation == 'intersection':
+            # models do not touch so we return an empty model
+            polydataCombined = vtk.vtkPolyData()
+            break
+        elif operation == 'difference':  # A-B
+            polydataCombined = polydataA
+            break
+        elif operation == 'difference2':  # B-A
+            polydataCombined = polydataB
+            break
+
+    outputModel.SetAndObservePolyData(polydataCombined)
     outputModel.CreateDefaultDisplayNodes()
     # The filter creates a few scalars, don't show them by default, as they would be somewhat distracting
     outputModel.GetDisplayNode().SetScalarVisibility(False)

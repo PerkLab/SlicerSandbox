@@ -131,19 +131,46 @@ class DocumentationToolsLogic(ScriptedLoadableModuleLogic):
     wikiText = wikiText.replace("{{documentation/modulename}}",moduleName)  # module name
     wikiText = wikiText.replace("<br>","\n")  # newline
 
-    wikiText = re.sub("\n\*\*\*(.+)", "\n        - \\1", wikiText)  # bullet-point level 3
-    wikiText = re.sub("\n\*\*(.+)", "\n    - \\1", wikiText)  # bullet-point level 2
-    wikiText = re.sub("\n\*(.+)", "\n- \\1", wikiText)  # bullet-point level 1
+    # bullet-point level 3
+    wikiText = re.sub(
+      r"\n\*\*\*(.+)",
+      r"\n        - \1",
+      wikiText)
 
-    wikiText = re.sub("'''[ ]*(.*[^ ]+)[ ]*'''", "**\\1**", wikiText)  # bold text
+    # bullet-point level 2
+    wikiText = re.sub(
+      r"\n\*\*(.+)",
+      r"\n    - \1",
+      wikiText)
 
-    wikiText = re.sub(re.escape("[[Documentation/{{documentation/version}}/Modules/")+"(.+[^\|])\|(.+[^\]])\]\]","[\\2](Module_\\1)",wikiText)
+    # bullet-point level 1
+    wikiText = re.sub(
+      r"\n\*(.+)",
+      r"\n- \1",
+      wikiText)
+
+    # bold text
+    wikiText = re.sub(
+      r"'''[ ]*(.*[^ ]+)[ ]*'''",
+      r"**\1**",
+      wikiText)
+
     # From: [[Documentation/{{documentation/version}}/Modules/SegmentEditor|Segment Editor]]
     # To: [Segment Editor](module_SegmentEditor)
+    wikiText = re.sub(
+      r"\[\[Documentation/\{\{documentation/version\}\}/Modules/(.+?)\|(.+?)\]\]",
+      r"[\2](Module_\1)",
+      wikiText
+    )
 
-    wikiText = re.sub("\[\[\:File\:([^\|\[]+)\|([^\[]+)\]\]", "[\\2](https://www.slicer.org/wiki/File:\\1)", wikiText)  # wiki File: links
+    # wiki File: links
     # From: [[:File:20160526_Segmentations.pptx|these slides]]
     # To: https://www.slicer.org/wiki/File:20160526_Segmentations.pptx
+    wikiText = re.sub(
+      r"\[\[:File:([^\|\[]+)\|([^\[]+)\]\]",
+      r"[\2](https://www.slicer.org/wiki/File:\1)",
+      wikiText
+    )
 
     # remove versioncheck
     wikiText = wikiText.replace("<noinclude>{{documentation/versioncheck}}</noinclude>","")
@@ -173,9 +200,6 @@ class DocumentationToolsLogic(ScriptedLoadableModuleLogic):
     intro = intro.replace("{{documentation/{{documentation/version}}/module-introduction-row}}", "\n")
     logoGalleryPrefix = "{{documentation/{{documentation/version}}/module-introduction-logo-gallery"
     logoGallerySuffix = "}}"
-    # result = re.match("(.*)"+re.escape(logoGalleryPrefix)+"("
-    #                   + re.escape()
-    #                   +")*"+re.escape(logoGallerySuffix))
     print(intro)
 
     standardSectionTitles = [
