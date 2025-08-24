@@ -85,6 +85,8 @@ void PreventEqualCaptPoints::Find (vtkPolyData *pd, vtkPolyData *other, [[maybe_
     tree->BuildLocator();
 
     auto pts = vtkSmartPointer<vtkPoints>::New();
+    pts->SetDataTypeToDouble();
+
     auto cells = vtkSmartPointer<vtkIdList>::New();
 
     double pA[3], pB[3];
@@ -98,6 +100,7 @@ void PreventEqualCaptPoints::Find (vtkPolyData *pd, vtkPolyData *other, [[maybe_
     pdVerts->Allocate(1);
 
     auto ptsVerts = vtkSmartPointer<vtkPoints>::New();
+    ptsVerts->SetDataTypeToDouble();
 #endif
 
     std::map<vtkIdType, std::vector<SnapPoint>> pointSnaps;
@@ -291,7 +294,7 @@ void PreventEqualCaptPoints::Find (vtkPolyData *pd, vtkPolyData *other, [[maybe_
             const auto &snapA = snaps[0];
             const auto &snapB = snaps[1];
 
-            if (Point3d::GetDist(snapA.inter, snapB.inter) > 1e-10) {
+            {
                 Pair edge(snapA.edge);
 
                 if (edge.f > edge.g) {
