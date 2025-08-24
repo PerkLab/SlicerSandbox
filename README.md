@@ -215,3 +215,22 @@ Example module that allows opening a file in 3D Slicer by clicking on a link in 
 Example links that open image and/or segmentation in 3D Slicer:
 - LungCTAnalyzerChestCT image: `slicer://viewer/?download=https%3A%2F%2Fgithub.com%2Frbumm%2FSlicerLungCTAnalyzer%2Freleases%2Fdownload%2FSampleData%2FLungCTAnalyzerChestCT.nrrd`
 - LungCTAnalyzerChestCT image + segmentation" `slicer://viewer/?show3d=true&segmentation=https%3A%2F%2Fgithub.com%2Frbumm%2FSlicerLungCTAnalyzer%2Freleases%2Fdownload%2FSampleData%2FLungCTAnalyzerMaskSegmentation.seg.nrrd&image=https%3A%2F%2Fgithub.com%2Frbumm%2FSlicerLungCTAnalyzer%2Freleases%2Fdownload%2FSampleData%2FLungCTAnalyzerChestCT.nrrd`
+
+## DICOMToNRRD
+
+The DICOM To NRRD module provides batch processing for converting DICOM files into NRRD files and outputs the files into a DICOM standard conforming folder hierarchy of Patient/Study/Series. Nearly Raw Raster Data (NRRD) was developed by Professor Gordon Kindlmann: https://people.cs.uchicago.edu/~glk/software/ 
+
+![image](DICOMToNRRD/Resources/DICOMToNRRD.png)
+
+### Tutorial
+
+- Click the magnifying glass next to "Modules:" (near the top left of the window)
+- Scroll down and click `DICOM To NRRD`
+- Ensure the Parameters window is expanded (you may need to click the arrow to the left of Parameters)
+- Select an input DICOM directory
+- Select an output NRRD directory
+- Optionally uncheck "NRRD Scalar Volumes Only:"
+- Optionally uncheck "Create DICOM metadata file/s:"
+- Click Process button to convert DICOM files to NRRD files
+- Wait for the popup window: "DICOM to NRRD processing finished" and then click OK
+- The outputted DICOM NRRD directory shall contain a hierarchy of Patient/Study/Series folders each with a NRRD file
