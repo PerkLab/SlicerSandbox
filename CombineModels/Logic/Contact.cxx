@@ -17,6 +17,8 @@ limitations under the License.
 #include "Contact.h"
 #include "Optimize.h"
 
+#include <sstream>
+
 #include <vtkCleanPolyData.h>
 #include <vtkCellIterator.h>
 #include <vtkCellData.h>
