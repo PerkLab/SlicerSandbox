@@ -246,7 +246,7 @@
          <bool>true</bool>
         </property>
         <property name="addEnabled">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
         <property name="removeEnabled">
          <bool>true</bool>
