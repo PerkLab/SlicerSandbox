@@ -379,21 +379,16 @@ class LightsLogic(ScriptedLoadableModuleLogic):
     self.requestRender()
 
   def renderWindowFromViewNode(self, viewNode):
-    renderView = None
-    lm = slicer.app.layoutManager()
-    for widgetIndex in range(lm.threeDViewCount):
-      view = lm.threeDWidget(widgetIndex).threeDView()
-      if viewNode == view.mrmlViewNode():
-        return view.renderWindow()
-    raise ValueError('Selected 3D view is not visible in the current layout.')
-
-  def threeDViewFromViewNode(self, viewNode):
-    renderView = None
-    lm = slicer.app.layoutManager()
-    for widgetIndex in range(lm.threeDViewCount):
-      view = lm.threeDWidget(widgetIndex).threeDView()
-      if viewNode == view.mrmlViewNode():
-        return view
+    if viewNode.IsA("vtkMRMLVirtualRealityViewNode"):
+      # Special case for virtual reality, the view widget is not owned by the layout manager
+      vrViewWidget = slicer.modules.virtualreality.viewWidget()
+      return vrViewWidget.renderWindow()
+    else:
+      lm = slicer.app.layoutManager()
+      for widgetIndex in range(lm.threeDViewCount):
+        view = lm.threeDWidget(widgetIndex).threeDView()
+        if viewNode == view.mrmlViewNode():
+          return view.renderWindow()
     raise ValueError('Selected 3D view is not visible in the current layout.')
 
   def addManagedView(self, viewNode):
