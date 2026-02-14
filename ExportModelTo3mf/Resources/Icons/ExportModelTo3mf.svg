@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="64" height="64" fill="#f0f0f0" rx="4"/>
+  
+  <!-- 3MF Text/Symbol -->
+  <g transform="translate(32, 32)">
+    <!-- 3D Cube representation -->
+    <path d="M -15 -10 L -5 -15 L 5 -10 L 5 5 L -5 10 L -15 5 Z" 
+          fill="none" stroke="#0066cc" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M -5 -15 L -5 10" stroke="#0066cc" stroke-width="2"/>
+    <path d="M 5 -10 L 5 5" stroke="#0066cc" stroke-width="2"/>
+    
+    <!-- File indicator (small sheet in corner) -->
+    <rect x="8" y="8" width="12" height="14" fill="#0066cc" rx="1"/>
+    <line x1="10" y1="13" x2="18" y2="13" stroke="white" stroke-width="1"/>
+    <line x1="10" y1="16" x2="18" y2="16" stroke="white" stroke-width="1"/>
+  </g>
+</svg>

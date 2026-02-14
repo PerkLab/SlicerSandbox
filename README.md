@@ -7,6 +7,7 @@ Collection of modules for 3D Slicer, which are already useful, but not finalized
 - [Combine Models](#combine-models): Boolean operations(union, intersection, difference) for models.
 - [Curved Planar Reformat](#curved-planar-reformat): straighten vessels, bones, or other structures for easier visualization, quantification, creating panoramic dental X-ray, etc.
 - Documentation Tools: tools for creating documentation on read-the-docs. It can generate html documentation from a Slicer source tree, convert module documentation from MediaWiki to markdown, etc.
+- [Export Model to 3MF](#export-model-to-3mf): export model nodes as 3MF files for 3D printing.
 - [Import ITK-Snap label description file](#ImportItkSnapLabel): import label description (*.label, *.txt) files as a color table node
 - Import OCT: Load Topcon OCT image file (`*.fda`).
 - Import Osirix ROI: Load Osirix ROI files as segmentation.
@@ -70,6 +71,27 @@ If the slice size is increased then folding occurs:
 ![image|489x500](CurvedPlanarReformat_3.png)
 
 Probably you can find a parameter set that works for a large group of patients. Maybe one parameter set works for all, but maybe you need to have a few different presets (small, medium, large)
+
+## Export Model to 3MF
+
+Export model nodes as 3MF (3D Manufacturing Format) files for 3D printing and CAD applications. 3MF is an open-source file format specifically designed for 3D printing. The module automatically installs the required Lib3MF library on first use.
+
+### Usage
+
+Export is available in the following places:
+- Export model node as a 3MF file from the subject hierarchy tree (using right-click menu) in Data module
+- Save model as .3mf file in "Save data" dialog (loading is not implemented)
+- Export Model to 3MF module GUI
+
+### For developers
+
+Usage via Python:
+
+```python
+from ExportModelTo3mf import ExportModelTo3mfLogic
+logic = ExportModelTo3mfLogic()
+logic.exportModelTo3MF(modelNode, "/path/to/output.3mf")
+```
 
 ## Characterize Transform Matrix
 
