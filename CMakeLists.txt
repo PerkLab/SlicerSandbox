@@ -47,6 +47,7 @@ add_subdirectory(UserStatistics)
 add_subdirectory(VolumeRenderingSpecialEffects)
 add_subdirectory(RemoveCtTable)
 add_subdirectory(ColorizeVolume)
+add_subdirectory(JoystickControl)
 
 #-----------------------------------------------------------------------------
 include(${Slicer_EXTENSION_GENERATE_CONFIG})
