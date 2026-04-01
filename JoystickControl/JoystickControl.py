@@ -355,7 +355,8 @@ class XboxController:
 
     def button_mapping(self) -> dict:
         return {
-            "Pan / rotate":   "Right stick",
+            "Selected mode":  "Right stick",
+            "Opposite mode":  "Left stick",
             "Zoom in":        "RT",
             "Zoom out":       "LT",
             "Translate mode": "Y",
@@ -375,12 +376,16 @@ class XboxController:
         gp = state.Gamepad
         buttons = gp.wButtons
 
-        h = _deadzone_axis(gp.sThumbRX / self._THUMB_MAX, 0.0, 1.0, self.DEADZONE)
-        v = _deadzone_axis(gp.sThumbRY / self._THUMB_MAX, 0.0, 1.0, self.DEADZONE)
+        right_h = _deadzone_axis(gp.sThumbRX / self._THUMB_MAX, 0.0, 1.0, self.DEADZONE)
+        right_v = _deadzone_axis(gp.sThumbRY / self._THUMB_MAX, 0.0, 1.0, self.DEADZONE)
+        left_h  = _deadzone_axis(gp.sThumbLX / self._THUMB_MAX, 0.0, 1.0, self.DEADZONE)
+        left_v  = _deadzone_axis(gp.sThumbLY / self._THUMB_MAX, 0.0, 1.0, self.DEADZONE)
 
         return {
-            "h":              h,
-            "v":              v,
+            "h":              right_h,
+            "v":              right_v,
+            "h_alt":          left_h,
+            "v_alt":          left_v,
             "roll":           0.0,
             "zoom_in":        gp.bRightTrigger / self._TRIGGER_MAX,
             "zoom_out":       gp.bLeftTrigger  / self._TRIGGER_MAX,
@@ -419,6 +424,7 @@ class JoystickControlWidget(ScriptedLoadableModuleWidget):
 
         for label, _ in _CONTROLLER_TYPES:
             self.ui.controllerTypeComboBox.addItem(label)
+        self.ui.controllerTypeComboBox.connect("currentIndexChanged(int)", self.onControllerTypeChanged)
 
         self.ui.enableCheckBox.connect("toggled(bool)", self.onEnableToggled)
         self.ui.sensitivitySlider.connect("valueChanged(double)", self.onSensitivityChanged)
@@ -436,6 +442,18 @@ class JoystickControlWidget(ScriptedLoadableModuleWidget):
         self.ui.sensitivitySlider.value = sensitivity
         self.logic.sensitivity = sensitivity
 
+        # Restore last-selected controller type.
+        savedControllerType = str(
+            slicer.app.settings().value("JoystickControl/controllerType", JoystickControlLogic.CONTROLLER_JOYCON)
+        )
+        savedIndex = 0
+        for i, (_, key) in enumerate(_CONTROLLER_TYPES):
+            if key == savedControllerType:
+                savedIndex = i
+                break
+        self.ui.controllerTypeComboBox.currentIndex = savedIndex
+        self.logic.controllerType = _CONTROLLER_TYPES[savedIndex][1]
+
     def cleanup(self) -> None:
         if self.logic:
             self.logic.stopControl()
@@ -445,6 +463,7 @@ class JoystickControlWidget(ScriptedLoadableModuleWidget):
             try:
                 idx = self.ui.controllerTypeComboBox.currentIndex
                 self.logic.controllerType = _CONTROLLER_TYPES[idx][1]
+                slicer.app.settings().setValue("JoystickControl/controllerType", self.logic.controllerType)
                 self.logic.startControl()
                 self._setActiveStatusLabel()
                 self._updateMappingLabel()
@@ -463,6 +482,13 @@ class JoystickControlWidget(ScriptedLoadableModuleWidget):
     def onSensitivityChanged(self, value: float) -> None:
         self.logic.sensitivity = value
         slicer.app.settings().setValue("JoystickControl/sensitivity", value)
+
+    def onControllerTypeChanged(self, index: int) -> None:
+        if index < 0 or index >= len(_CONTROLLER_TYPES):
+            return
+        selectedType = _CONTROLLER_TYPES[index][1]
+        self.logic.controllerType = selectedType
+        slicer.app.settings().setValue("JoystickControl/controllerType", selectedType)
 
     def _updateMappingLabel(self) -> None:
         mapping = self.logic.getButtonMapping()
@@ -658,6 +684,8 @@ class JoystickControlLogic(ScriptedLoadableModuleLogic):
 
         h    = inp["h"]
         v    = inp["v"]
+        h_alt = inp.get("h_alt", 0.0)
+        v_alt = inp.get("v_alt", 0.0)
         roll = inp["roll"]
 
         zoom_in  = inp["zoom_in"]
@@ -696,6 +724,13 @@ class JoystickControlLogic(ScriptedLoadableModuleLogic):
             else:
                 self._apply_rotate(camera, h, v)
 
+        # Optional secondary stick (Xbox left stick): always performs opposite mode.
+        if h_alt != 0 or v_alt != 0:
+            if self._mode == self.MODE_TRANSLATE:
+                self._apply_rotate(camera, h_alt, v_alt)
+            else:
+                self._apply_pan(camera, h_alt, v_alt)
+
         if roll != 0 and self._mode == self.MODE_ROTATE:
             self._apply_roll(camera, roll)
 
@@ -704,7 +739,7 @@ class JoystickControlLogic(ScriptedLoadableModuleLogic):
         elif zoom_out > 0.05:
             self._apply_zoom(camera, -self.ZOOM_SPEED * self.sensitivity * zoom_out)
 
-        if h != 0 or v != 0 or roll != 0 or zoom_in > 0.05 or zoom_out > 0.05:
+        if h != 0 or v != 0 or h_alt != 0 or v_alt != 0 or roll != 0 or zoom_in > 0.05 or zoom_out > 0.05:
             self._get_three_d_view().renderWindow().Render()
 
 
