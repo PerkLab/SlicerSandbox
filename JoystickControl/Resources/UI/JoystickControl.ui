@@ -7,59 +7,73 @@
     <x>0</x>
     <y>0</y>
     <width>325</width>
-    <height>193</height>
+    <height>210</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="ctkCollapsibleButton" name="controlCollapsibleButton">
      <property name="text">
-      <string>JoyCon Camera Control</string>
+      <string>Controller Camera Control</string>
      </property>
      <layout class="QFormLayout" name="formLayout">
-      <item row="0" column="0" colspan="2">
+      <item row="0" column="0">
+       <widget class="QLabel" name="controllerTypeTitleLabel">
+        <property name="text">
+         <string>Controller:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="controllerTypeComboBox">
+        <property name="toolTip">
+         <string>Select the type of controller to use.</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
        <widget class="QCheckBox" name="enableCheckBox">
         <property name="text">
          <string>Enable camera control</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
+      <item row="2" column="0">
        <widget class="QLabel" name="cameraTitleLabel">
         <property name="text">
          <string>Camera:</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
+      <item row="2" column="1">
        <widget class="qMRMLNodeComboBox" name="cameraNodeComboBox">
         <property name="toolTip">
          <string>Camera node to control. Defaults to the first 3D view camera.</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
+      <item row="3" column="0">
        <widget class="QLabel" name="statusTitleLabel">
         <property name="text">
          <string>Status:</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
+      <item row="3" column="1">
        <widget class="QLabel" name="statusLabel">
         <property name="text">
          <string>Stopped</string>
         </property>
        </widget>
       </item>
-      <item row="3" column="0">
+      <item row="4" column="0">
        <widget class="QLabel" name="sensitivityTitleLabel">
         <property name="text">
          <string>Sensitivity:</string>
         </property>
        </widget>
       </item>
-      <item row="3" column="1">
+      <item row="4" column="1">
        <widget class="ctkSliderWidget" name="sensitivitySlider">
         <property name="toolTip">
          <string>Scales pan, rotate, and zoom speed.</string>
