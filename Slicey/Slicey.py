@@ -4,7 +4,6 @@ import logging
 import queue
 import threading
 
-import ctk
 import qt
 
 import slicer
@@ -29,6 +28,18 @@ _PRIMARY_BUTTON_STYLE = (
 
 def _escape(text):
     return html.escape(str(text))
+
+
+def _escapeMultiline(text):
+    """Escapes text for HTML and turns newlines into <br> so multi-line replies actually
+    render as multiple lines instead of being collapsed onto one (HTML ignores raw \\n)."""
+    return _escape(text).replace("\n", "<br>")
+
+
+# Plain <pre> never wraps (white-space: pre disables wrapping entirely), which forces
+# horizontal scrolling for long code/JSON lines. pre-wrap keeps formatting but allows
+# wrapping, and word-break/overflow-wrap let it break even an unbroken long token if needed.
+_PRE_WRAP_STYLE = "white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere;"
 
 
 def _contentBlockToDict(block):
@@ -96,6 +107,20 @@ class SliceyLogic(ScriptedLoadableModuleLogic):
         self._busy = False
         self._cancelRequested = False
 
+        # Session usage: resets when the user clears the chat.
+        self.sessionInputTokens = 0
+        self.sessionOutputTokens = 0
+        self.sessionCostUsd = 0.0
+        self.sessionCostEstimateIncomplete = False
+
+        # All-time usage: persisted in Slicer settings, survives Slicer restarts,
+        # only reset by the user explicitly clicking "Reset total".
+        allTime = Settings.getAllTimeUsage()
+        self.allTimeInputTokens = allTime.get("inputTokens", 0)
+        self.allTimeOutputTokens = allTime.get("outputTokens", 0)
+        self.allTimeCostUsd = allTime.get("costUsd", 0.0)
+        self.allTimeCostEstimateIncomplete = allTime.get("costEstimateIncomplete", False)
+
         self._resultQueue = queue.Queue()
         self._pollTimer = qt.QTimer()
         self._pollTimer.setInterval(100)
@@ -114,6 +139,45 @@ class SliceyLogic(ScriptedLoadableModuleLogic):
 
     def resetConversation(self):
         self.messages = []
+
+    def resetSessionUsage(self):
+        self.sessionInputTokens = 0
+        self.sessionOutputTokens = 0
+        self.sessionCostUsd = 0.0
+        self.sessionCostEstimateIncomplete = False
+        self._emitUsage()
+
+    def resetAllTimeUsage(self):
+        self.allTimeInputTokens = 0
+        self.allTimeOutputTokens = 0
+        self.allTimeCostUsd = 0.0
+        self.allTimeCostEstimateIncomplete = False
+        self._persistAllTimeUsage()
+        self._emitUsage()
+
+    def _persistAllTimeUsage(self):
+        Settings.setAllTimeUsage({
+            "inputTokens": self.allTimeInputTokens,
+            "outputTokens": self.allTimeOutputTokens,
+            "costUsd": self.allTimeCostUsd,
+            "costEstimateIncomplete": self.allTimeCostEstimateIncomplete,
+        })
+
+    def _emitUsage(self):
+        self._emit("usage_updated", {
+            "session": {
+                "inputTokens": self.sessionInputTokens,
+                "outputTokens": self.sessionOutputTokens,
+                "costUsd": self.sessionCostUsd,
+                "costEstimateIncomplete": self.sessionCostEstimateIncomplete,
+            },
+            "allTime": {
+                "inputTokens": self.allTimeInputTokens,
+                "outputTokens": self.allTimeOutputTokens,
+                "costUsd": self.allTimeCostUsd,
+                "costEstimateIncomplete": self.allTimeCostEstimateIncomplete,
+            },
+        })
 
     def cancel(self):
         self._cancelRequested = True
@@ -162,7 +226,7 @@ class SliceyLogic(ScriptedLoadableModuleLogic):
         def worker():
             try:
                 response = ClaudeClient.sendMessage(client, model, messagesSnapshot, systemPrompt)
-                self._resultQueue.put(("claude_response", response))
+                self._resultQueue.put(("claude_response", response, model))
             except Exception as e:
                 self._resultQueue.put(("claude_error", e))
 
@@ -186,7 +250,7 @@ class SliceyLogic(ScriptedLoadableModuleLogic):
             self._emit("error", str(item[1]))
             self._finishTurn()
         elif kind == "claude_response":
-            self._handleClaudeResponse(item[1])
+            self._handleClaudeResponse(item[1], item[2])
         elif kind == "tool_result":
             _, blockId, result = item
             self._pendingResults[blockId] = result
@@ -195,7 +259,9 @@ class SliceyLogic(ScriptedLoadableModuleLogic):
             if self._pendingAsyncCount <= 0:
                 self._finishToolBatch()
 
-    def _handleClaudeResponse(self, response):
+    def _handleClaudeResponse(self, response, model):
+        self._recordUsage(response, model)
+
         blocks = [_contentBlockToDict(b) for b in response.content]
         self.messages.append({"role": "assistant", "content": blocks})
 
@@ -233,6 +299,35 @@ class SliceyLogic(ScriptedLoadableModuleLogic):
         if self._pendingAsyncCount <= 0:
             self._finishToolBatch()
 
+    def _recordUsage(self, response, model):
+        """Reads the per-call token usage Anthropic returns with every Messages API response
+        (no extra network call needed) and accumulates it, and an estimated USD cost, into
+        both the session counter (resets on Clear chat) and the persisted all-time counter
+        (resets only via "Reset total"). Cost is computed per-turn using the model active
+        for that turn, so it stays accurate even if the user switches models mid-session."""
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return
+        inputTokens = getattr(usage, "input_tokens", 0) or 0
+        outputTokens = getattr(usage, "output_tokens", 0) or 0
+
+        cost = Settings.estimateCostUsd(model, inputTokens, outputTokens)
+        costUnknown = cost is None
+        cost = cost or 0.0
+
+        self.sessionInputTokens += inputTokens
+        self.sessionOutputTokens += outputTokens
+        self.sessionCostUsd += cost
+        self.allTimeInputTokens += inputTokens
+        self.allTimeOutputTokens += outputTokens
+        self.allTimeCostUsd += cost
+        if costUnknown:
+            self.sessionCostEstimateIncomplete = True
+            self.allTimeCostEstimateIncomplete = True
+
+        self._persistAllTimeUsage()
+        self._emitUsage()
+
     def _needsConfirmation(self, name):
         if not Settings.getRequireConfirmation():
             return False
@@ -266,20 +361,24 @@ class SliceyLogic(ScriptedLoadableModuleLogic):
 
 
 #
-# Small QPlainTextEdit subclass so Enter sends the message and Shift+Enter inserts a newline.
-# (PythonQt supports overriding virtual methods of native Qt classes from Python.)
+# Event filter so Enter sends the chat message and Shift+Enter inserts a newline. Used
+# instead of subclassing QPlainTextEdit because the input box now comes from the .ui file
+# as a plain QPlainTextEdit, which can't be promoted to a Python subclass at load time.
+# (PythonQt does support subclassing QObject and overriding eventFilter, the same way it
+# supports subclassing QWidget classes and overriding keyPressEvent.)
 #
 
-class _ChatInputEdit(qt.QPlainTextEdit):
+class _EnterKeySendFilter(qt.QObject):
     def __init__(self, sendCallback, parent=None):
-        qt.QPlainTextEdit.__init__(self, parent)
+        qt.QObject.__init__(self, parent)
         self._sendCallback = sendCallback
 
-    def keyPressEvent(self, event):
-        if event.key() in (qt.Qt.Key_Return, qt.Qt.Key_Enter) and not (event.modifiers() & qt.Qt.ShiftModifier):
-            self._sendCallback()
-            return
-        qt.QPlainTextEdit.keyPressEvent(self, event)
+    def eventFilter(self, obj, event):
+        if event.type() == qt.QEvent.KeyPress:
+            if event.key() in (qt.Qt.Key_Return, qt.Qt.Key_Enter) and not (event.modifiers() & qt.Qt.ShiftModifier):
+                self._sendCallback()
+                return True
+        return False
 
 
 #
@@ -301,13 +400,17 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
 
+        uiWidget = slicer.util.loadUI(self.resourcePath('UI/Slicey.ui'))
+        self.layout.addWidget(uiWidget)
+        self.ui = slicer.util.childWidgetVariables(uiWidget)
+
         self.logic.onEvent = self._onLogicEvent
         self.logic.confirmCallback = self._confirmToolCall
 
-        self._buildConnectionSection()
-        self._buildFoldersSection()
-        self._buildExecutionSection()
-        self._buildChatSection()
+        self._wireConnectionSection()
+        self._wireFoldersSection()
+        self._wireExecutionSection()
+        self._wireChatSection()
 
         self._updateConnectionStatus()
         self._refreshFoldersTable()
@@ -319,68 +422,80 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
 
     # ---------------------------------------------------------------- Connection panel
 
-    def _buildConnectionSection(self):
-        box = ctk.ctkCollapsibleButton()
-        box.text = "Connection"
-        self.layout.addWidget(box)
-        form = qt.QFormLayout(box)
+    def _wireConnectionSection(self):
+        self.ui.connectButton.clicked.connect(self.onConnectClicked)
+        self.ui.disconnectButton.clicked.connect(self.onDisconnectClicked)
+        self.ui.viewUsageButton.clicked.connect(self.onViewUsageClicked)
+        self.ui.saveKeyButton.clicked.connect(self.onSaveKeyClicked)
+        self.ui.resetSessionUsageButton.clicked.connect(self.onResetSessionUsageClicked)
+        self.ui.resetTotalUsageButton.clicked.connect(self.onResetTotalUsageClicked)
 
-        self.connectionStatusLabel = qt.QLabel()
-        form.addRow("Status:", self.connectionStatusLabel)
+        self.ui.modelComboBox.addItems(Settings.MODEL_PRESETS)
+        self.ui.modelComboBox.setCurrentText(Settings.getModel())
+        self.ui.modelComboBox.currentTextChanged.connect(self.onModelChanged)
 
-        self.connectButton = qt.QPushButton("Connect Claude account...")
-        self.connectButton.clicked.connect(self.onConnectClicked)
-        form.addRow(self.connectButton)
+        self._updateSessionUsageLabel({
+            "inputTokens": self.logic.sessionInputTokens,
+            "outputTokens": self.logic.sessionOutputTokens,
+            "costUsd": self.logic.sessionCostUsd,
+            "costEstimateIncomplete": self.logic.sessionCostEstimateIncomplete,
+        })
+        self._updateTotalUsageLabel({
+            "inputTokens": self.logic.allTimeInputTokens,
+            "outputTokens": self.logic.allTimeOutputTokens,
+            "costUsd": self.logic.allTimeCostUsd,
+            "costEstimateIncomplete": self.logic.allTimeCostEstimateIncomplete,
+        })
 
-        self.apiKeyLineEdit = qt.QLineEdit()
-        self.apiKeyLineEdit.setEchoMode(qt.QLineEdit.Password)
-        self.apiKeyLineEdit.setPlaceholderText("Paste the API key you just created here")
-        self.apiKeyLineEdit.visible = False
-        form.addRow(self.apiKeyLineEdit)
+    def onViewUsageClicked(self):
+        qt.QDesktopServices.openUrl(qt.QUrl("https://platform.claude.com/settings/keys"))
 
-        self.saveKeyButton = qt.QPushButton("Save key")
-        self.saveKeyButton.visible = False
-        self.saveKeyButton.clicked.connect(self.onSaveKeyClicked)
-        form.addRow(self.saveKeyButton)
+    def onResetSessionUsageClicked(self):
+        self.logic.resetSessionUsage()
 
-        self.disconnectButton = qt.QPushButton("Disconnect")
-        self.disconnectButton.clicked.connect(self.onDisconnectClicked)
-        form.addRow(self.disconnectButton)
-
-        self.modelComboBox = qt.QComboBox()
-        self.modelComboBox.setEditable(True)
-        self.modelComboBox.addItems(Settings.MODEL_PRESETS)
-        self.modelComboBox.setCurrentText(Settings.getModel())
-        self.modelComboBox.currentTextChanged.connect(self.onModelChanged)
-        form.addRow("Model:", self.modelComboBox)
+    def onResetTotalUsageClicked(self):
+        if not slicer.util.confirmYesNoDisplay(
+            "Reset the all-time total usage counter? This cannot be undone.",
+            windowTitle="Slicey",
+        ):
+            return
+        self.logic.resetAllTimeUsage()
 
     def onConnectClicked(self):
         qt.QDesktopServices.openUrl(qt.QUrl("https://console.anthropic.com/settings/keys"))
-        self.apiKeyLineEdit.visible = True
-        self.saveKeyButton.visible = True
-        self.apiKeyLineEdit.setFocus()
+        self.ui.apiKeyLineEdit.visible = True
+        self.ui.saveKeyButton.visible = True
+        self.ui.apiKeyLineEdit.setFocus()
 
     def onSaveKeyClicked(self):
-        key = self.apiKeyLineEdit.text.strip()
+        key = self.ui.apiKeyLineEdit.text.strip()
         if not key:
             return
-        self.saveKeyButton.enabled = False
-        self.saveKeyButton.text = "Validating..."
+        self.ui.saveKeyButton.enabled = False
+        self.ui.saveKeyButton.text = "Validating..."
         slicer.app.processEvents()
         try:
             ok, message = ClaudeClient.testApiKey(key)
         finally:
-            self.saveKeyButton.enabled = True
-            self.saveKeyButton.text = "Save key"
+            self.ui.saveKeyButton.enabled = True
+            self.ui.saveKeyButton.text = "Save key"
         if not ok:
             slicer.util.errorDisplay(f"Could not validate this API key:\n{message}")
             return
         Settings.setApiKey(key)
         self.logic.invalidateClient()
-        self.apiKeyLineEdit.text = ""
-        self.apiKeyLineEdit.visible = False
-        self.saveKeyButton.visible = False
+        self.ui.apiKeyLineEdit.text = ""
+        self.ui.apiKeyLineEdit.visible = False
+        self.ui.saveKeyButton.visible = False
         self._updateConnectionStatus()
+        slicer.util.infoDisplay(
+            "Connected to Claude.\n\n"
+            "Every message you send, and every tool call Slicey makes on its behalf "
+            "(reading/writing files, running Python), uses the Claude API and incurs "
+            "usage costs on your Anthropic account. Use the \"View usage / manage keys\" "
+            "button below the model selector to monitor your usage.",
+            windowTitle="Slicey",
+        )
 
     def onDisconnectClicked(self):
         Settings.clearApiKey()
@@ -395,37 +510,43 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
         if key:
             secure = Settings.isApiKeyStoredSecurely()
             suffix = "" if secure else " (key stored without OS-level encryption on this system)"
-            self.connectionStatusLabel.text = "Connected" + suffix
+            self.ui.connectionStatusLabel.text = "Connected" + suffix
         else:
-            self.connectionStatusLabel.text = "Not connected"
+            self.ui.connectionStatusLabel.text = "Not connected"
+
+    def _updateSessionUsageLabel(self, session):
+        text = (
+            f"Session: {session['inputTokens']:,} in / {session['outputTokens']:,} out, "
+            f"<b>~${session['costUsd']:.4f}</b>"
+        )
+        if session["costEstimateIncomplete"]:
+            text += " (incl. unrecognized model)"
+        self.ui.sessionUsageLabel.text = text
+
+    def _updateTotalUsageLabel(self, allTime):
+        text = (
+            f"Total: {allTime['inputTokens']:,} in / {allTime['outputTokens']:,} out, "
+            f"<b>~${allTime['costUsd']:.4f}</b>"
+        )
+        if allTime["costEstimateIncomplete"]:
+            text += " (incl. unrecognized model)"
+        self.ui.totalUsageLabel.text = text
 
     # ---------------------------------------------------------------- Shared folders panel
 
-    def _buildFoldersSection(self):
-        box = ctk.ctkCollapsibleButton()
-        box.text = "Shared folders"
-        self.layout.addWidget(box)
-        layout = qt.QVBoxLayout(box)
-
-        self.foldersTable = qt.QTableWidget(0, 3)
-        self.foldersTable.setHorizontalHeaderLabels(["Folder", "Read-write", ""])
-        self.foldersTable.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.Stretch)
-        self.foldersTable.verticalHeader().visible = False
-        self.foldersTable.setSelectionMode(qt.QAbstractItemView.NoSelection)
-        layout.addWidget(self.foldersTable)
-
-        addButton = qt.QPushButton("Add folder...")
-        addButton.clicked.connect(self.onAddFolderClicked)
-        layout.addWidget(addButton)
+    def _wireFoldersSection(self):
+        self.ui.foldersTable.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.Stretch)
+        self.ui.foldersTable.verticalHeader().visible = False
+        self.ui.addFolderButton.clicked.connect(self.onAddFolderClicked)
 
     def _refreshFoldersTable(self):
         folders = FolderAccess.listSharedFolders()
-        self.foldersTable.setRowCount(len(folders))
+        self.ui.foldersTable.setRowCount(len(folders))
         for row, folder in enumerate(folders):
             label = folder["path"] + ("" if folder["exists"] else "  [missing]")
             pathItem = qt.QTableWidgetItem(label)
             pathItem.setFlags(pathItem.flags() & ~qt.Qt.ItemIsEditable)
-            self.foldersTable.setItem(row, 0, pathItem)
+            self.ui.foldersTable.setItem(row, 0, pathItem)
 
             writableCheck = qt.QCheckBox()
             writableCheck.checked = folder["writable"]
@@ -435,11 +556,11 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
             cellLayout.setContentsMargins(0, 0, 0, 0)
             cellLayout.setAlignment(qt.Qt.AlignCenter)
             cellLayout.addWidget(writableCheck)
-            self.foldersTable.setCellWidget(row, 1, cellWidget)
+            self.ui.foldersTable.setCellWidget(row, 1, cellWidget)
 
             removeButton = qt.QPushButton("Remove")
             removeButton.clicked.connect(lambda checked=False, p=folder["path"]: self.onRemoveFolderClicked(p))
-            self.foldersTable.setCellWidget(row, 2, removeButton)
+            self.ui.foldersTable.setCellWidget(row, 2, removeButton)
 
     def onAddFolderClicked(self):
         directory = qt.QFileDialog.getExistingDirectory(self.parent, "Select folder to share with Slicey")
@@ -458,110 +579,41 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
 
     # ---------------------------------------------------------------- Execution panel
 
-    def _buildExecutionSection(self):
-        box = ctk.ctkCollapsibleButton()
-        box.text = "Execution"
-        self.layout.addWidget(box)
-        layout = qt.QVBoxLayout(box)
-
-        radioLayout = qt.QHBoxLayout()
-        self.currentRadio = qt.QRadioButton("Run in current Slicer")
-        self.newInstanceRadio = qt.QRadioButton("Run in separate Slicer instance")
+    def _wireExecutionSection(self):
         if Settings.getExecutionTarget() == "new_instance":
-            self.newInstanceRadio.checked = True
+            self.ui.newInstanceRadio.checked = True
         else:
-            self.currentRadio.checked = True
-        self.currentRadio.toggled.connect(self.onExecutionTargetChanged)
-        radioLayout.addWidget(self.currentRadio)
-        radioLayout.addWidget(self.newInstanceRadio)
-        layout.addLayout(radioLayout)
-
-        note = qt.QLabel(
-            "Code execution is not restricted to the shared folders above - it has the same full "
-            "access to this machine as Slicer's own Python console. Confirmation (see the "
-            "auto-accept checkbox below the chat) is the only safeguard."
-        )
-        note.setWordWrap(True)
-        note.setStyleSheet("color: gray; font-style: italic;")
-        layout.addWidget(note)
-
-        self.stopInstanceButton = qt.QPushButton("Stop sandbox instance")
-        self.stopInstanceButton.clicked.connect(self.onStopInstanceClicked)
-        layout.addWidget(self.stopInstanceButton)
+            self.ui.currentRadio.checked = True
+        self.ui.currentRadio.toggled.connect(self.onExecutionTargetChanged)
+        self.ui.stopInstanceButton.clicked.connect(self.onStopInstanceClicked)
 
     def onExecutionTargetChanged(self, checked):
-        Settings.setExecutionTarget("current" if self.currentRadio.checked else "new_instance")
+        Settings.setExecutionTarget("current" if self.ui.currentRadio.checked else "new_instance")
 
     def onStopInstanceClicked(self):
         PythonExecutor.stopCompanionInstance()
 
     # ---------------------------------------------------------------- Chat panel
 
-    def _buildChatSection(self):
-        self.chatView = qt.QTextBrowser()
-        self.chatView.openExternalLinks = True
-        self.layout.addWidget(self.chatView)
+    def _wireChatSection(self):
+        # Wrap at the widget width, breaking even long unbroken tokens (paths, hashes, ...)
+        # if needed, so nothing ever forces horizontal scrolling. (lineWrapMode/wordWrapMode
+        # and the Enter-to-send filter aren't expressible as static .ui properties tied to
+        # a Python callback, so they're wired up here instead.)
+        self._enterKeySendFilter = _EnterKeySendFilter(self.onSendClicked, self.ui.inputEdit)
+        self.ui.inputEdit.installEventFilter(self._enterKeySendFilter)
 
-        # Inline confirmation panel, shown in place of a modal popup whenever a risky tool
-        # call (running code / writing a file) needs the user's okay. Hidden the rest of the time.
-        self.confirmPanel = qt.QWidget()
-        confirmLayout = qt.QVBoxLayout(self.confirmPanel)
-        confirmLayout.setContentsMargins(0, 4, 0, 4)
+        self.ui.sendButton.setStyleSheet(_PRIMARY_BUTTON_STYLE)
+        self.ui.sendButton.clicked.connect(self.onSendClicked)
+        self.ui.stopButton.clicked.connect(self.onStopClicked)
+        self.ui.clearButton.clicked.connect(self.onClearChatClicked)
 
-        self.confirmLabel = qt.QLabel()
-        self.confirmLabel.setWordWrap(True)
-        self.confirmLabel.setStyleSheet("font-weight: bold;")
-        confirmLayout.addWidget(self.confirmLabel)
+        self.ui.approveButton.setStyleSheet(_PRIMARY_BUTTON_STYLE)
+        self.ui.approveButton.clicked.connect(self.onApproveClicked)
+        self.ui.rejectButton.clicked.connect(self.onRejectClicked)
 
-        self.confirmTextEdit = qt.QPlainTextEdit()
-        self.confirmTextEdit.setReadOnly(True)
-        self.confirmTextEdit.setMaximumHeight(120)
-        self.confirmTextEdit.setFont(qt.QFont("Courier New"))
-        confirmLayout.addWidget(self.confirmTextEdit)
-
-        confirmButtonLayout = qt.QHBoxLayout()
-        self.approveButton = qt.QPushButton("Approve")
-        self.approveButton.setStyleSheet(_PRIMARY_BUTTON_STYLE)
-        self.approveButton.setAutoDefault(True)
-        self.approveButton.setDefault(True)
-        self.approveButton.clicked.connect(self.onApproveClicked)
-        confirmButtonLayout.addWidget(self.approveButton)
-        self.rejectButton = qt.QPushButton("Reject")
-        self.rejectButton.clicked.connect(self.onRejectClicked)
-        confirmButtonLayout.addWidget(self.rejectButton)
-        confirmButtonLayout.addStretch(1)
-        confirmLayout.addLayout(confirmButtonLayout)
-
-        self.confirmPanel.visible = False
-        self.layout.addWidget(self.confirmPanel)
-
-        self.autoAcceptCheckBox = qt.QCheckBox("Auto-accept actions (skip confirmation before running code or writing files)")
-        self.autoAcceptCheckBox.checked = not Settings.getRequireConfirmation()
-        self.autoAcceptCheckBox.toggled.connect(self.onAutoAcceptToggled)
-        self.layout.addWidget(self.autoAcceptCheckBox)
-
-        inputLayout = qt.QHBoxLayout()
-        self.inputEdit = _ChatInputEdit(self.onSendClicked)
-        self.inputEdit.setFixedHeight(60)
-        inputLayout.addWidget(self.inputEdit)
-
-        buttonLayout = qt.QVBoxLayout()
-        self.sendButton = qt.QPushButton("Send")
-        self.sendButton.setStyleSheet(_PRIMARY_BUTTON_STYLE)
-        self.sendButton.setAutoDefault(True)
-        self.sendButton.setDefault(True)
-        self.sendButton.clicked.connect(self.onSendClicked)
-        buttonLayout.addWidget(self.sendButton)
-        self.stopButton = qt.QPushButton("Stop")
-        self.stopButton.enabled = False
-        self.stopButton.clicked.connect(self.onStopClicked)
-        buttonLayout.addWidget(self.stopButton)
-        self.clearButton = qt.QPushButton("Clear chat")
-        self.clearButton.clicked.connect(self.onClearChatClicked)
-        buttonLayout.addWidget(self.clearButton)
-        inputLayout.addLayout(buttonLayout)
-
-        self.layout.addLayout(inputLayout)
+        self.ui.autoAcceptCheckBox.checked = not Settings.getRequireConfirmation()
+        self.ui.autoAcceptCheckBox.toggled.connect(self.onAutoAcceptToggled)
 
     def onAutoAcceptToggled(self, checked):
         Settings.setRequireConfirmation(not checked)
@@ -569,13 +621,13 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
     def onSendClicked(self):
         if self.logic.isBusy():
             return
-        text = self.inputEdit.plainText.strip()
+        text = self.ui.inputEdit.plainText.strip()
         if not text:
             return
         if not Settings.getApiKey():
             slicer.util.errorDisplay("Connect your Claude account first (see the Connection panel above).")
             return
-        self.inputEdit.plainText = ""
+        self.ui.inputEdit.plainText = ""
         self._appendUser(text)
         self.logic.sendUserMessage(text)
 
@@ -584,22 +636,26 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
 
     def onClearChatClicked(self):
         self.logic.resetConversation()
-        self.chatView.clear()
+        self.logic.resetSessionUsage()
+        self.ui.chatView.clear()
         self._toolNames = {}
 
     # ---------------------------------------------------------------- Logic event handling
 
     def _onLogicEvent(self, eventType, payload):
         if eventType == "turn_started":
-            self.sendButton.enabled = False
-            self.stopButton.enabled = True
+            self.ui.sendButton.enabled = False
+            self.ui.stopButton.enabled = True
         elif eventType == "turn_finished":
-            self.sendButton.enabled = True
-            self.stopButton.enabled = False
+            self.ui.sendButton.enabled = True
+            self.ui.stopButton.enabled = False
         elif eventType == "assistant_text":
             self._appendAssistant(payload)
         elif eventType == "error":
             self._appendError(payload)
+        elif eventType == "usage_updated":
+            self._updateSessionUsageLabel(payload["session"])
+            self._updateTotalUsageLabel(payload["allTime"])
         elif eventType == "tool_started":
             blockId, name, toolInput = payload
             self._appendToolStarted(blockId, name, toolInput)
@@ -625,9 +681,9 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
             detail = toolInput.get("content", "")
             summary = f"Slicey wants to write to this file: {toolInput.get('path', '')}. Approve?"
 
-        self.confirmLabel.text = summary
-        self.confirmTextEdit.plainText = detail
-        self.confirmPanel.visible = True
+        self.ui.confirmLabel.text = summary
+        self.ui.confirmTextEdit.plainText = detail
+        self.ui.confirmPanel.visible = True
         # Deferred so it runs after the panel's geometry/layout has actually updated.
         qt.QTimer.singleShot(0, self._onConfirmPanelShown)
 
@@ -640,13 +696,13 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
         self._confirmLoop = None
         self.logic.resumePolling()
 
-        self.confirmPanel.visible = False
-        self.inputEdit.setFocus()
+        self.ui.confirmPanel.visible = False
+        self.ui.inputEdit.setFocus()
         return self._confirmResult
 
     def _onConfirmPanelShown(self):
         self._scrollModulePanelToBottom()
-        self.approveButton.setFocus()
+        self.ui.approveButton.setFocus()
 
     def _scrollModulePanelToBottom(self):
         """Scrolls the module panel's containing scroll area all the way down so the chat
@@ -662,13 +718,13 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
     # ---------------------------------------------------------------- Chat rendering
 
     def _appendUser(self, text):
-        self.chatView.append(f'<div style="margin:6px 0;"><b>You:</b><br>{_escape(text)}</div>')
+        self.ui.chatView.append(f'<div style="margin:6px 0;"><b>You:</b><br>{_escapeMultiline(text)}</div>')
 
     def _appendAssistant(self, text):
-        self.chatView.append(f'<div style="margin:6px 0;"><b>Slicey:</b><br>{_escape(text)}</div>')
+        self.ui.chatView.append(f'<div style="margin:6px 0;"><b>Slicey:</b><br>{_escapeMultiline(text)}</div>')
 
     def _appendError(self, message):
-        self.chatView.append(f'<div style="margin:6px 0; color:#b00020;"><b>Error:</b> {_escape(message)}</div>')
+        self.ui.chatView.append(f'<div style="margin:6px 0; color:#b00020;"><b>Error:</b> {_escapeMultiline(message)}</div>')
 
     def _appendToolStarted(self, blockId, name, toolInput):
         self._toolNames[blockId] = name
@@ -677,17 +733,17 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
         header = f"Running tool: {_escape(name)}"
         if argsSummary:
             header += f" {_escape(json.dumps(argsSummary))}"
-        block = f'<pre style="background:#f0f0f0; padding:4px;">{_escape(detail)}</pre>' if detail else ""
-        self.chatView.append(f'<div style="margin:6px 0; color:#555;"><b>{header}</b>{block}</div>')
+        block = f'<pre style="background:#f0f0f0; padding:4px; {_PRE_WRAP_STYLE}">{_escape(detail)}</pre>' if detail else ""
+        self.ui.chatView.append(f'<div style="margin:6px 0; color:#555;"><b>{header}</b>{block}</div>')
 
     def _appendToolResult(self, blockId, result):
         name = self._toolNames.get(blockId, "tool")
         text = json.dumps(result, indent=2) if isinstance(result, (dict, list)) else str(result)
         if len(text) > 4000:
             text = text[:4000] + "\n... [truncated]"
-        self.chatView.append(
+        self.ui.chatView.append(
             f'<div style="margin:6px 0 12px 0; color:#555;">Result of {_escape(name)}:'
-            f'<pre style="background:#f7f7f7; padding:4px;">{_escape(text)}</pre></div>'
+            f'<pre style="background:#f7f7f7; padding:4px; {_PRE_WRAP_STYLE}">{_escape(text)}</pre></div>'
         )
 
 

@@ -21,6 +21,25 @@ MODEL_PRESETS = [
 # selected chat model.
 VALIDATION_MODEL = "claude-haiku-4-5-20251001"
 
+# USD per 1,000,000 tokens (input, output). Update if Anthropic changes pricing.
+MODEL_PRICING_USD_PER_MTOK = {
+    "claude-sonnet-4-6": (3.00, 15.00),
+    "claude-opus-4-8": (5.00, 25.00),
+    "claude-haiku-4-5-20251001": (1.00, 5.00),
+    "claude-haiku-4-5": (1.00, 5.00),
+    "claude-fable-5": (10.00, 50.00),
+}
+
+
+def estimateCostUsd(model, inputTokens, outputTokens):
+    """Returns an estimated USD cost for the given token counts on `model`, or None if
+    the model isn't in the pricing table (e.g. a custom/unrecognized model string)."""
+    pricing = MODEL_PRICING_USD_PER_MTOK.get(model)
+    if pricing is None:
+        return None
+    inputPrice, outputPrice = pricing
+    return (inputTokens * inputPrice + outputTokens * outputPrice) / 1_000_000
+
 
 def _settings():
     return slicer.app.userSettings()
@@ -69,6 +88,16 @@ def getSharedFolders():
 
 def setSharedFolders(folders):
     setJson("SharedFolders", folders)
+
+
+def getAllTimeUsage():
+    """Returns the persisted all-time usage counter as a
+    {"inputTokens": int, "outputTokens": int, "costUsd": float, "costEstimateIncomplete": bool} dict."""
+    return getJson("AllTimeUsage", {"inputTokens": 0, "outputTokens": 0, "costUsd": 0.0, "costEstimateIncomplete": False})
+
+
+def setAllTimeUsage(usage):
+    setJson("AllTimeUsage", usage)
 
 
 def getModel():
