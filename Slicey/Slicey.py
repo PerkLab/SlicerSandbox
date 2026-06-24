@@ -408,12 +408,18 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
         self.logic.confirmCallback = self._confirmToolCall
 
         self._wireConnectionSection()
-        self._wireFoldersSection()
+        self._wireSettingsSection()
         self._wireExecutionSection()
         self._wireChatSection()
 
         self._updateConnectionStatus()
         self._refreshFoldersTable()
+
+        # If Claude is already connected when the user first opens the module, there's
+        # nothing to set up - start with the Connection section out of the way.
+        if Settings.getApiKey():
+            self.ui.connectionCollapsibleButton.collapsed = True
+        self._updateConnectionSectionTitle()
 
     def cleanup(self):
         if self._confirmLoop is not None:
@@ -429,6 +435,9 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
         self.ui.saveKeyButton.clicked.connect(self.onSaveKeyClicked)
         self.ui.resetSessionUsageButton.clicked.connect(self.onResetSessionUsageClicked)
         self.ui.resetTotalUsageButton.clicked.connect(self.onResetTotalUsageClicked)
+        # Collapsing/expanding the section changes whether its title should carry the
+        # compact status/usage summary - see _updateConnectionSectionTitle().
+        self.ui.connectionCollapsibleButton.clicked.connect(self.onConnectionSectionToggled)
 
         self.ui.modelComboBox.addItems(Settings.MODEL_PRESETS)
         self.ui.modelComboBox.setCurrentText(Settings.getModel())
@@ -446,6 +455,9 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
             "costUsd": self.logic.allTimeCostUsd,
             "costEstimateIncomplete": self.logic.allTimeCostEstimateIncomplete,
         })
+
+    def onConnectionSectionToggled(self):
+        self._updateConnectionSectionTitle()
 
     def onViewUsageClicked(self):
         qt.QDesktopServices.openUrl(qt.QUrl("https://platform.claude.com/settings/keys"))
@@ -513,6 +525,20 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
             self.ui.connectionStatusLabel.text = "Connected" + suffix
         else:
             self.ui.connectionStatusLabel.text = "Not connected"
+        self._updateConnectionSectionTitle()
+
+    def _updateConnectionSectionTitle(self):
+        """While the Connection section is collapsed, its title carries a compact summary
+        (status + usage) so that information stays visible without expanding it."""
+        box = self.ui.connectionCollapsibleButton
+        if not box.collapsed:
+            box.text = "Connection"
+            return
+        status = "Connected" if Settings.getApiKey() else "Not connected"
+        box.text = (
+            f"Connection: {status}. Usage: ~${self.logic.sessionCostUsd:.4f} session, "
+            f"~${self.logic.allTimeCostUsd:.4f} total."
+        )
 
     def _updateSessionUsageLabel(self, session):
         text = (
@@ -532,12 +558,18 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
             text += " (incl. unrecognized model)"
         self.ui.totalUsageLabel.text = text
 
-    # ---------------------------------------------------------------- Shared folders panel
+    # ---------------------------------------------------------------- Settings panel
 
-    def _wireFoldersSection(self):
+    def _wireSettingsSection(self):
         self.ui.foldersTable.horizontalHeader().setSectionResizeMode(0, qt.QHeaderView.Stretch)
         self.ui.foldersTable.verticalHeader().visible = False
         self.ui.addFolderButton.clicked.connect(self.onAddFolderClicked)
+
+        self.ui.customInstructionsTextEdit.plainText = Settings.getCustomSystemPromptText()
+        self.ui.customInstructionsTextEdit.textChanged.connect(self.onCustomInstructionsChanged)
+
+    def onCustomInstructionsChanged(self):
+        Settings.setCustomSystemPromptText(self.ui.customInstructionsTextEdit.plainText)
 
     def _refreshFoldersTable(self):
         folders = FolderAccess.listSharedFolders()
@@ -656,6 +688,7 @@ class SliceyWidget(ScriptedLoadableModuleWidget):
         elif eventType == "usage_updated":
             self._updateSessionUsageLabel(payload["session"])
             self._updateTotalUsageLabel(payload["allTime"])
+            self._updateConnectionSectionTitle()
         elif eventType == "tool_started":
             blockId, name, toolInput = payload
             self._appendToolStarted(blockId, name, toolInput)

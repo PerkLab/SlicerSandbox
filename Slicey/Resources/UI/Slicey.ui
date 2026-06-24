@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>413</width>
-    <height>700</height>
+    <height>852</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -141,94 +141,122 @@
     </widget>
    </item>
    <item>
-    <widget class="ctkCollapsibleButton" name="foldersCollapsibleButton">
+    <widget class="ctkCollapsibleButton" name="settingsCollapsibleButton">
      <property name="text">
-      <string>Shared folders</string>
+      <string>Settings</string>
      </property>
      <property name="collapsed">
       <bool>true</bool>
      </property>
-     <layout class="QVBoxLayout" name="foldersVerticalLayout">
+     <layout class="QVBoxLayout" name="settingsVerticalLayout">
       <item>
-       <widget class="QTableWidget" name="foldersTable">
-        <property name="selectionMode">
-         <enum>QAbstractItemView::NoSelection</enum>
+       <widget class="QGroupBox" name="groupBox">
+        <property name="title">
+         <string>Execution</string>
         </property>
-        <column>
-         <property name="text">
-          <string>Folder</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>Read-write</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string/>
-         </property>
-        </column>
+        <layout class="QVBoxLayout" name="verticalLayout_2">
+         <item>
+          <layout class="QHBoxLayout" name="executionRadioLayout">
+           <item>
+            <widget class="QRadioButton" name="currentRadio">
+             <property name="text">
+              <string>Run in current Slicer</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="newInstanceRadio">
+             <property name="text">
+              <string>Run in separate Slicer instance</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QLabel" name="executionNoteLabel">
+           <property name="styleSheet">
+            <string>color: gray; font-style: italic;</string>
+           </property>
+           <property name="text">
+            <string>Code execution is not restricted to the shared folders above - it has the same full access to this machine as Slicer's own Python console. Confirmation (see the auto-accept checkbox below the chat) is the only safeguard.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="stopInstanceButton">
+           <property name="text">
+            <string>Stop sandbox instance</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="addFolderButton">
-        <property name="text">
-         <string>Add folder...</string>
+       <widget class="QGroupBox" name="groupBox_2">
+        <property name="title">
+         <string>Folders</string>
         </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="ctkCollapsibleButton" name="executionCollapsibleButton">
-     <property name="text">
-      <string>Execution</string>
-     </property>
-     <property name="collapsed">
-      <bool>true</bool>
-     </property>
-     <layout class="QVBoxLayout" name="executionVerticalLayout">
-      <item>
-       <layout class="QHBoxLayout" name="executionRadioLayout">
-        <item>
-         <widget class="QRadioButton" name="currentRadio">
-          <property name="text">
-           <string>Run in current Slicer</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QRadioButton" name="newInstanceRadio">
-          <property name="text">
-           <string>Run in separate Slicer instance</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
-       <widget class="QLabel" name="executionNoteLabel">
-        <property name="styleSheet">
-         <string>color: gray; font-style: italic;</string>
-        </property>
-        <property name="text">
-         <string>Code execution is not restricted to the shared folders above - it has the same full access to this machine as Slicer's own Python console. Confirmation (see the auto-accept checkbox below the chat) is the only safeguard.</string>
-        </property>
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
+        <layout class="QVBoxLayout" name="verticalLayout_3">
+         <item>
+          <widget class="QTableWidget" name="foldersTable">
+           <property name="selectionMode">
+            <enum>QAbstractItemView::NoSelection</enum>
+           </property>
+           <column>
+            <property name="text">
+             <string>Folder</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>Read-write</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string/>
+            </property>
+           </column>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="addFolderButton">
+           <property name="text">
+            <string>Add folder...</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="stopInstanceButton">
-        <property name="text">
-         <string>Stop sandbox instance</string>
+       <widget class="QGroupBox" name="groupBox_3">
+        <property name="title">
+         <string>Custom instructions</string>
         </property>
+        <layout class="QVBoxLayout" name="verticalLayout_4">
+         <item>
+          <widget class="QLabel" name="customInstructionsLabel">
+           <property name="text">
+            <string>Extra instructions to append to Slicey's system prompt (optional):</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPlainTextEdit" name="customInstructionsTextEdit"/>
+         </item>
+        </layout>
        </widget>
       </item>
      </layout>
@@ -322,6 +350,12 @@
          <spacer name="confirmButtonSpacer">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
           </property>
          </spacer>
         </item>

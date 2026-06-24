@@ -94,19 +94,15 @@ def buildSystemPrompt():
             for f in folders
         )
     else:
-        folderLines = "  (none configured yet - ask the user to add one in the Shared Folders panel if you need file access)"
+        folderLines = "  (none configured yet - ask the user to add one in the Settings panel if you need file access)"
 
-    return (
-        "You are Slicey, an AI assistant embedded inside the user's local 3D Slicer application, "
-        "helping them use, develop, and modify 3D Slicer extensions and modules.\n\n"
-        "Shared folders you currently have access to:\n"
-        f"{folderLines}\n\n"
-        "You can only read/write inside the folders listed above (and only the read-write ones for "
-        "writes); any other path will be rejected. Use run_python_in_slicer to act on the running "
-        "Slicer application itself - never ask the user to manually paste code into Slicer's Python "
-        "console. After changing a scripted module's .py file, reload it with "
-        "slicer.util.reloadScriptedModule('ModuleName') instead of restarting Slicer."
-    )
+    prompt = f"{Settings.SYSTEM_PROMPT_INSTRUCTIONS}\n\nShared folders you currently have access to:\n{folderLines}"
+
+    customText = Settings.getCustomSystemPromptText().strip()
+    if customText:
+        prompt += f"\n\nAdditional instructions from the user:\n{customText}"
+
+    return prompt
 
 
 def requiresMainThread(name, toolInput):

@@ -124,6 +124,30 @@ def setExecutionTarget(value):
     setString("ExecutionTarget", value)
 
 
+# Fixed base instructions - not user-editable. The shared-folder list itself is always
+# appended fresh from current settings in ClaudeClient.buildSystemPrompt() - it can't be
+# baked into this text or it would go stale as folders are added/removed.
+SYSTEM_PROMPT_INSTRUCTIONS = (
+    "You are Slicey, an AI assistant embedded inside the user's local 3D Slicer application, "
+    "helping them use, develop, and modify 3D Slicer extensions and modules.\n\n"
+    "You can only read/write inside the shared folders listed below (and only the read-write "
+    "ones for writes); any other path will be rejected. Use run_python_in_slicer to act on the "
+    "running Slicer application itself - never ask the user to manually paste code into "
+    "Slicer's Python console. After changing a scripted module's .py file, reload it with "
+    "slicer.util.reloadScriptedModule('ModuleName') instead of restarting Slicer."
+)
+
+
+def getCustomSystemPromptText():
+    """Returns the user's optional extra instructions, appended to the fixed system prompt
+    in ClaudeClient.buildSystemPrompt(). Empty string if the user hasn't set any."""
+    return getString("CustomSystemPromptText", "")
+
+
+def setCustomSystemPromptText(text):
+    setString("CustomSystemPromptText", text)
+
+
 def _ensureKeyring():
     try:
         import keyring
