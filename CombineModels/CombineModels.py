@@ -335,7 +335,7 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
       operation, 
       numberOfRetries = 2, 
       randomTranslationMagnitude = 4, 
-      triangulateInputs = True
+      triangulateInputs = False
     ):
     """
     Run the processing algorithm.
