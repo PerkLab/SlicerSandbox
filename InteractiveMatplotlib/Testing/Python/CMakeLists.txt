@@ -1,0 +1,2 @@
+slicer_add_python_unittest(SCRIPT test_interactivematplotlib_backend.py)
+slicer_add_python_unittest(SCRIPT test_interactivematplotlib_vtkcanvas.py)

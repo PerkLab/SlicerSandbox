@@ -33,6 +33,7 @@ add_subdirectory(ImportOCT)
 add_subdirectory(ImportOpenInventor)
 add_subdirectory(ImportOsirixROI)
 add_subdirectory(ImportSliceOmatic)
+add_subdirectory(InteractiveMatplotlib)
 add_subdirectory(Lights)
 if (Slicer_VERSION VERSION_LESS 5.9)
   # Latest Slicer 5.9 and above has Line Profile module built in

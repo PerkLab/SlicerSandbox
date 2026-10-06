@@ -12,6 +12,7 @@ Collection of modules for 3D Slicer, which are already useful, but not finalized
 - Import OCT: Load Topcon OCT image file (`*.fda`).
 - Import Osirix ROI: Load Osirix ROI files as segmentation.
 - Import SliceOmatic: Load SliceOmatic segmentation files.
+- [Interactive Matplotlib](#interactive-matplotlib): interactive Matplotlib figures in module panels, pyplot windows, and the view layout.
 - [Lights](#lights): customize lighting in 3D views.
 - Line Profile: compute and plot image intensity profile along a line.
 - Scene Recorder: record all MRML node change events into a json document.
@@ -237,3 +238,71 @@ Example module that allows opening a file in 3D Slicer by clicking on a link in 
 Example links that open image and/or segmentation in 3D Slicer:
 - LungCTAnalyzerChestCT image: `slicer://viewer/?download=https%3A%2F%2Fgithub.com%2Frbumm%2FSlicerLungCTAnalyzer%2Freleases%2Fdownload%2FSampleData%2FLungCTAnalyzerChestCT.nrrd`
 - LungCTAnalyzerChestCT image + segmentation" `slicer://viewer/?show3d=true&segmentation=https%3A%2F%2Fgithub.com%2Frbumm%2FSlicerLungCTAnalyzer%2Freleases%2Fdownload%2FSampleData%2FLungCTAnalyzerMaskSegmentation.seg.nrrd&image=https%3A%2F%2Fgithub.com%2Frbumm%2FSlicerLungCTAnalyzer%2Freleases%2Fdownload%2FSampleData%2FLungCTAnalyzerChestCT.nrrd`
+
+## Interactive Matplotlib
+
+Interactive [Matplotlib](https://matplotlib.org/) figures in Slicer: pan, zoom, hover, pick, Matplotlib widgets and animations all work, and figures can be shown in module panels, in their own windows, or in the view layout next to slice views.
+
+Matplotlib's own interactive backends do not work in Slicer: Slicer's Python is built without Tcl/Tk, so `TkAgg` is unavailable, and Slicer binds Qt through PythonQt rather than PyQt or PySide, so `QtAgg` cannot be used either. Installing PyQt or PySide into Slicer's Python would load a second copy of Qt into the process, which is unstable. This module provides two canvases that render with Agg instead:
+
+- **Qt canvas** (`InteractiveMatplotlibLib.backend`): a pyplot backend whose canvas is a Qt widget, driven by Slicer's own event loop. Use it for `plt.show()` windows and to embed a plot in a module panel.
+- **VTK view** (`InteractiveMatplotlibLib.view`): shows a figure in the view layout. The figure is drawn by `InteractiveMatplotlibLib.vtkcanvas.FigureCanvasVTK` into a VTK render view and gets its input and timers from the VTK render window interactor. The canvas does not use Qt, so it can be hosted by any VTK render window, for example in a web browser.
+
+Matplotlib 3.10 or later is required. Install it with the button in the module panel, or with `slicer.packaging.pip_ensure("matplotlib>=3.10")`. The module panel also runs the examples below, and has a *Use as pyplot backend* option that makes the Qt canvas the default pyplot backend at every startup.
+
+![](InteractiveMatplotlib_1.png)
+
+### Interactive pyplot figures
+
+```python
+import slicer.packaging
+slicer.packaging.pip_ensure("matplotlib>=3.10")
+
+# Select the interactive backend and enable interactive mode.
+import InteractiveMatplotlibLib.backend
+InteractiveMatplotlibLib.backend.enable()
+
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+ax.plot([0, 1, 2], [0, 1, 0])
+plt.show()  # returns immediately, Slicer stays responsive
+```
+
+### Plot in a module panel
+
+```python
+from matplotlib.figure import Figure
+from InteractiveMatplotlibLib.backend import FigureCanvasSlicer, NavigationToolbar2Slicer
+
+figure = Figure()
+figure.add_subplot().plot([0, 1, 2], [0, 1, 0])
+
+self.canvas = FigureCanvasSlicer(figure)  # keep a reference while the plot is shown
+toolbar = NavigationToolbar2Slicer(self.canvas)
+self.layout.addWidget(self.canvas.get_widget())
+self.layout.addWidget(toolbar.get_widget())
+```
+
+Call `canvas.draw_idle()` after modifying the figure. Call `canvas.set_size_hint(width, height)` with a small size to let a shared layout drive the size of the plot.
+
+### Plot in the view layout
+
+```python
+from matplotlib.figure import Figure
+import InteractiveMatplotlibLib.view
+
+figure = Figure()
+figure.add_subplot().plot([0, 1, 2], [0, 1, 0])
+canvas = InteractiveMatplotlibLib.view.showFigure(figure)
+```
+
+The view is placed in the layout by a view factory for the custom `<matplotlibview>` layout element, so it can be used in any custom layout description. If the current layout has no such element, `showFigure()` switches to a Four-Up layout with the figure in place of the 3D view (`InteractiveMatplotlibLib.view.FOUR_UP_LAYOUT_ID`). Call `InteractiveMatplotlibLib.view.viewWidget().setFigure(None)` to clear the view.
+
+Use the Qt canvas rather than the VTK view in module panels: every VTK view has its own OpenGL context. The view has no MRML view node, so it is not saved with the scene, and there is one view per layout element name.
+
+### Examples
+
+`InteractiveMatplotlibLib/examples.py` contains the examples that the module panel runs, using the MRHead sample volume:
+
+- `showSliceHistogram()`: histogram of the slice shown in the red slice view, updated while scrolling through slices. Drag over the histogram to set that intensity range as the window/level.
+- `showSegmentStatistics()`: segments MRHead into brain, skull and scalp, and background with built-in Segment Editor effects, computes statistics with the Segment Statistics module, and shows them as a [seaborn](https://seaborn.pydata.org/) dashboard. Requires `seaborn` and `pandas`.
