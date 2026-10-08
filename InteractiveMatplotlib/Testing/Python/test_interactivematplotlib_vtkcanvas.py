@@ -308,6 +308,41 @@ class MatplotlibVTKCanvasTest(unittest.TestCase):
         self.assertEqual(received, [])
         self.assertEqual(self.renderWindow.GetRenderers().GetNumberOfItems(), 0)
 
+    def test_attach_to_another_window(self):
+        """A canvas made without a window draws once attached, and can move to another one."""
+        figure = Figure(dpi=100)
+        figure.add_subplot().plot([0, 1], [0, 1])
+        canvas = FigureCanvasVTK(figure)
+        draws = []
+        canvas.mpl_connect("draw_event", lambda e: draws.append(1))
+        canvas.draw_idle()
+        self.assertEqual(draws, [])
+
+        renders = []
+        renderWindow, interactor = _make_window(320, 200)
+        canvas.attach(renderWindow, interactor, renderCallback=lambda: renders.append(1))
+        _fire(interactor, canvas._idle_timer)
+        self.assertEqual(draws, [1])
+        self.assertTrue(renders)
+        self.assertEqual(canvas.get_width_height(physical=True), (320, 200))
+
+        received = []
+        canvas.mpl_connect("button_press_event", lambda e: received.append(1))
+        otherWindow, otherInteractor = _make_window(200, 100)
+        canvas.attach(otherWindow, otherInteractor)
+        self.assertEqual(renderWindow.GetRenderers().GetNumberOfItems(), 0)
+        _invoke(interactor, "LeftButtonPressEvent", 10, 10)
+        _invoke(otherInteractor, "LeftButtonPressEvent", 10, 10)
+        self.assertEqual(received, [1])
+        canvas.flush_events()
+        self.assertEqual(canvas.get_width_height(physical=True), (200, 100))
+
+        canvas.detach()
+        self.assertEqual(otherWindow.GetRenderers().GetNumberOfItems(), 0)
+        canvas.destroy()
+        renderWindow.Finalize()
+        otherWindow.Finalize()
+
     def test_unreferenced_canvas_is_released(self):
         """Observers, timers and the toolbar do not keep the canvas alive, and a released
         canvas removes its renderer from the window.

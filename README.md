@@ -300,6 +300,10 @@ The view is placed in the layout by a view factory for the custom `<matplotlibvi
 
 Use the Qt canvas rather than the VTK view in module panels: every VTK view has its own OpenGL context. The view has no MRML view node, so it is not saved with the scene, and there is one view per layout element name.
 
+### SlicerWeb
+
+The module also runs in [SlicerWeb](https://github.com/lassoan/SlicerWeb) (Slicer in a web browser), which has no Qt. There, only the VTK view is available: the Qt canvas, pyplot windows and the *Use as pyplot backend* option are not. `showFigure()` and `viewWidget()` work the same, but the plot is drawn in a 3D view of the layout (view node singleton tag `matplotlibview`, labeled *Plot*) whose own rendering is hidden while a figure is shown, because SlicerWeb layouts cannot host custom view widgets. Navigate the plot with Matplotlib's keyboard shortcuts (`h`, `p`, `o`, `c`, `v`...) or the *Navigation* section of the module panel. The install button installs Matplotlib from the Pyodide distribution in the background; the seaborn example installs seaborn from PyPI the same way.
+
 ### Examples
 
 `InteractiveMatplotlibLib/examples.py` contains the examples that the module panel runs, using the MRHead sample volume:

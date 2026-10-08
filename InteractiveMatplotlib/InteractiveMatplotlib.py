@@ -1,9 +1,12 @@
 import os
+import re
 
 import ctk
 import qt
 import slicer
 from slicer.ScriptedLoadableModule import *
+
+from InteractiveMatplotlibLib import isSlicerWeb
 
 #
 # InteractiveMatplotlib
@@ -29,13 +32,15 @@ class InteractiveMatplotlib(ScriptedLoadableModule):
         self.parent.helpText = """
 Interactive Matplotlib figures in Slicer: a pyplot backend built on Slicer's own Qt binding,
 and a Matplotlib view that can be placed in the view layout next to slice views.
+In Slicer in the web browser (SlicerWeb) only the layout view is available.
 See more information in <a href="https://github.com/PerkLab/SlicerSandbox#interactive-matplotlib">module documentation</a>.
 """
         self.parent.acknowledgementText = """
 Developed with feedback from the 3D Slicer community on
 <a href="https://github.com/Slicer/Slicer/pull/9441">Slicer/Slicer#9441</a>.
 """
-        slicer.app.connect("startupCompleted()", applyPyplotBackendSetting)
+        if not isSlicerWeb():
+            slicer.app.connect("startupCompleted()", applyPyplotBackendSetting)
 
 
 def applyPyplotBackendSetting():
@@ -79,12 +84,15 @@ class InteractiveMatplotlibWidget(ScriptedLoadableModuleWidget):
         self.installButton.toolTip = f"Install {MATPLOTLIB_REQUIREMENT} into Slicer's Python environment."
         setupLayout.addRow(self.installButton)
 
-        self.pyplotBackendCheckBox = qt.QCheckBox("Use as pyplot backend")
-        self.pyplotBackendCheckBox.toolTip = (
-            "Show pyplot figures (plt.show()) in interactive Slicer windows. "
-            "Applies now and at every application startup.")
-        self.pyplotBackendCheckBox.checked = InteractiveMatplotlibLogic.pyplotBackendAtStartup()
-        setupLayout.addRow(self.pyplotBackendCheckBox)
+        # The pyplot backend draws into Qt widgets, which the web browser does not have.
+        self.pyplotBackendCheckBox = None
+        if not isSlicerWeb():
+            self.pyplotBackendCheckBox = qt.QCheckBox("Use as pyplot backend")
+            self.pyplotBackendCheckBox.toolTip = (
+                "Show pyplot figures (plt.show()) in interactive Slicer windows. "
+                "Applies now and at every application startup.")
+            self.pyplotBackendCheckBox.checked = InteractiveMatplotlibLogic.pyplotBackendAtStartup()
+            setupLayout.addRow(self.pyplotBackendCheckBox)
 
         # Examples
         examplesSection = ctk.ctkCollapsibleButton()
@@ -107,10 +115,31 @@ class InteractiveMatplotlibWidget(ScriptedLoadableModuleWidget):
         self.clearButton = qt.QPushButton("Clear Matplotlib view")
         examplesLayout.addWidget(self.clearButton)
 
+        # The desktop view has a navigation bar of its own; the web view does not.
+        self.navigationButtons = []
+        if isSlicerWeb():
+            navigationSection = ctk.ctkCollapsibleButton()
+            navigationSection.text = "Navigation"
+            self.layout.addWidget(navigationSection)
+            navigationLayout = qt.QHBoxLayout(navigationSection)
+            for text, action, toolTip in (
+                ("Home", "home", "Reset the original view (h)"),
+                ("Back", "back", "Back to the previous view (c)"),
+                ("Forward", "forward", "Forward to the next view (v)"),
+                ("Pan", "pan", "Left button pans, right button zooms (p)"),
+                ("Zoom", "zoom", "Zoom to rectangle (o)"),
+            ):
+                button = qt.QPushButton(text)
+                button.toolTip = toolTip
+                button.connect("clicked()", lambda action=action: self.onNavigate(action))
+                navigationLayout.addWidget(button)
+                self.navigationButtons.append(button)
+
         self.layout.addStretch(1)
 
         self.installButton.connect("clicked()", self.onInstall)
-        self.pyplotBackendCheckBox.connect("toggled(bool)", self.onPyplotBackendToggled)
+        if self.pyplotBackendCheckBox is not None:
+            self.pyplotBackendCheckBox.connect("toggled(bool)", self.onPyplotBackendToggled)
         self.histogramButton.connect("clicked()", self.onSliceHistogram)
         self.statisticsButton.connect("clicked()", self.onSegmentStatistics)
         self.clearButton.connect("clicked()", self.onClear)
@@ -129,13 +158,23 @@ class InteractiveMatplotlibWidget(ScriptedLoadableModuleWidget):
         else:
             self.statusLabel.text = f"Matplotlib {version} is installed."
         self.installButton.enabled = not supported
-        for widget in (self.histogramButton, self.statisticsButton, self.clearButton):
+        for widget in [self.histogramButton, self.statisticsButton, self.clearButton] + self.navigationButtons:
             widget.enabled = supported
 
     def onInstall(self):
         with slicer.util.tryWithErrorDisplay("Failed to install Matplotlib.", waitCursor=True):
-            self.logic.installRequirements(MATPLOTLIB_REQUIREMENT)
+            if not self.logic.installRequirements(MATPLOTLIB_REQUIREMENT):
+                self.statusLabel.text = "Matplotlib is being installed. Try again in a moment."
+                qt.QTimer.singleShot(3000, self.updateGUI)
+                return
         self.updateGUI()
+
+    def onNavigate(self, action):
+        import InteractiveMatplotlibLib.view
+        view = InteractiveMatplotlibLib.view.viewWidget()
+        toolbar = view.toolbar() if view is not None else None
+        if toolbar is not None:
+            getattr(toolbar, action)()
 
     def onPyplotBackendToggled(self, enabled):
         InteractiveMatplotlibLogic.setPyplotBackendAtStartup(enabled)
@@ -157,7 +196,9 @@ class InteractiveMatplotlibWidget(ScriptedLoadableModuleWidget):
 
     def onSegmentStatistics(self):
         with slicer.util.tryWithErrorDisplay("Failed to show the segment statistics.", waitCursor=True):
-            self.logic.installRequirements(SEABORN_REQUIREMENTS)
+            if not self.logic.installRequirements(SEABORN_REQUIREMENTS):
+                slicer.util.infoDisplay("Seaborn and pandas are being installed. Try again in a moment.")
+                return
             self._cleanupDemo()
             import InteractiveMatplotlibLib.examples
             self.demo, summary = InteractiveMatplotlibLib.examples.showSegmentStatistics()
@@ -187,19 +228,37 @@ class InteractiveMatplotlibLogic(ScriptedLoadableModuleLogic):
             installed = version("matplotlib")
         except PackageNotFoundError:
             return None, False
-        from packaging.version import Version
-
-        return installed, Version(installed) >= Version("3.10")
+        # Not packaging.version, which the web browser may not have loaded.
+        major, minor = (int(part) for part in re.findall(r"\d+", installed)[:2])
+        return installed, (major, minor) >= (3, 10)
 
     @staticmethod
     def installRequirements(requirements):
-        """Install ``requirements`` unless they are already satisfied."""
+        """Install ``requirements`` unless they are already satisfied.
+
+        Return ``True`` when they are installed. In SlicerWeb the page installs packages in
+        the background, so this returns ``False`` until they are there.
+        """
+        if isSlicerWeb():
+            import importlib.util
+
+            import slicerweb.packages
+
+            names = [re.split(r"[<>=!~\[; ]", requirement)[0] for requirement in requirements.split()]
+            missing = [name for name in names if importlib.util.find_spec(name) is None]
+            for name in missing:
+                slicerweb.packages.ensure_in_background(name)
+            return not missing
+
         import slicer.packaging
 
         slicer.packaging.pip_ensure(requirements)
+        return True
 
     @staticmethod
     def pyplotBackendAtStartup():
+        if isSlicerWeb():
+            return False
         return slicer.util.toBool(qt.QSettings().value(PYPLOT_BACKEND_SETTING, False))
 
     @staticmethod

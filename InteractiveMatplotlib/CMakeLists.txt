@@ -8,8 +8,10 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Lib/_common.py
   ${MODULE_NAME}Lib/backend.py
   ${MODULE_NAME}Lib/examples.py
+  ${MODULE_NAME}Lib/qtview.py
   ${MODULE_NAME}Lib/view.py
   ${MODULE_NAME}Lib/vtkcanvas.py
+  ${MODULE_NAME}Lib/webview.py
   )
 
 set(MODULE_PYTHON_RESOURCES

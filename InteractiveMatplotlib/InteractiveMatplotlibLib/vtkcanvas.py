@@ -226,15 +226,19 @@ class FigureCanvasVTK(FigureCanvasAgg):
     ----------
     figure : `~matplotlib.figure.Figure`, optional
         The figure to display. A new figure is created when omitted.
-    renderWindow : vtkRenderWindow
+    renderWindow : vtkRenderWindow, optional
         The render window the figure is displayed in. The canvas adds its own renderer,
-        which covers the whole window.
+        which covers the whole window. Without a render window the canvas draws
+        nothing until it is given one with :meth:`attach`.
     interactor : vtkRenderWindowInteractor, optional
         Source of mouse, keyboard and timer events. Defaults to the interactor of
         ``renderWindow``. Without an interactor the canvas is display-only.
     devicePixelRatio : float, default: 1.0
         Ratio of physical to logical pixels of the window, used to scale fonts and
         line widths on high-DPI screens. VTK sizes and positions are in physical pixels.
+    renderCallback : callable, optional
+        Called instead of ``renderWindow.Render()`` to show a new image, for hosts that
+        schedule rendering themselves (for example once per browser animation frame).
     """
 
     #: Interactor events translated into Matplotlib events, besides the button events.
@@ -249,16 +253,20 @@ class FigureCanvasVTK(FigureCanvasAgg):
         "LeaveEvent",
     )
 
-    def __init__(self, figure=None, renderWindow=None, interactor=None, devicePixelRatio=1.0):
-        if renderWindow is None:
-            raise ValueError("FigureCanvasVTK requires a renderWindow")
+    def __init__(self, figure=None, renderWindow=None, interactor=None, devicePixelRatio=1.0,
+                 renderCallback=None):
         super().__init__(figure=figure)
-        self._render_window = renderWindow
-        self._interactor = interactor if interactor is not None else renderWindow.GetInteractor()
+        self._render_window = None
+        self._interactor = None
+        self._render_callback = None
         self._draw_pending = False
         self._is_drawing = False
         self._pressed_buttons = set()
         self._image_array = None  # Keeps the pixels shown by VTK alive.
+        self._observers = []
+        self._interactor_tags = {}
+        self._finalizer = None
+        self._idle_timer = None
 
         self._renderer = vtk.vtkRenderer()
         self._renderer.SetBackground(1.0, 1.0, 1.0)
@@ -275,10 +283,25 @@ class FigureCanvasVTK(FigureCanvasAgg):
         self._rubberband_points = vtk.vtkPoints()
         self._rubberband_actor = self._make_rubberband_actor(self._rubberband_points)
         self._renderer.AddActor2D(self._rubberband_actor)
+
+        self._set_device_pixel_ratio(devicePixelRatio)
+        if renderWindow is not None:
+            self.attach(renderWindow, interactor, renderCallback)
+
+    def attach(self, renderWindow, interactor=None, renderCallback=None):
+        """Display the figure in ``renderWindow``, replacing any previous window.
+
+        ``interactor`` and ``renderCallback`` are as in the constructor. Hosts whose
+        render windows come and go (for example browser views that are recreated when the
+        layout changes) keep one canvas, and so the figure's widgets and callbacks, and
+        attach it to each new window.
+        """
+        self.detach()
+        self._render_window = renderWindow
+        self._interactor = interactor if interactor is not None else renderWindow.GetInteractor()
+        self._render_callback = renderCallback
         renderWindow.AddRenderer(self._renderer)
 
-        self._observers = []
-        self._interactor_tags = {}
         self._observe(renderWindow, "WindowResizeEvent", self._on_window_resize)
         if self._interactor is not None:
             # High priority so that the interactor style, which would otherwise rotate
@@ -289,18 +312,35 @@ class FigureCanvasVTK(FigureCanvasAgg):
             for event in events:
                 self._interactor_tags[event] = self._observe(
                     self._interactor, event, self._on_interactor_event, 10.0)
-        self._finalizer = weakref.finalize(
-            self, _detach, self._interactor, self._observers, renderWindow, self._renderer)
-
-        self._idle_timer = None
-        if self._interactor is not None:
             self._idle_timer = TimerVTK(self._interactor, interval=0)
             self._idle_timer.single_shot = True
             self._idle_timer.add_callback(weak_callback(self._draw_idle))
+        self._finalizer = weakref.finalize(
+            self, _detach, self._interactor, self._observers, renderWindow, self._renderer)
 
-        self._set_device_pixel_ratio(devicePixelRatio)
+        # A draw requested while detached is carried out now.
+        pending, self._draw_pending = self._draw_pending, False
         self._on_window_resize()
+        if pending:
+            self.draw_idle()
 
+    def detach(self):
+        """Remove the canvas from its render window and interactor, keeping the figure.
+
+        The canvas can be attached to another window with :meth:`attach`.
+        """
+        if self._idle_timer is not None:
+            self._idle_timer.stop()
+            self._idle_timer._interactor = None
+            self._idle_timer = None
+        if self._finalizer is not None:
+            self._finalizer()
+            self._finalizer = None
+        self._interactor_tags.clear()
+        self._pressed_buttons.clear()
+        self._interactor = None
+        self._render_window = None
+        self._render_callback = None
     @staticmethod
     def _make_rubberband_actor(points):
         lines = vtk.vtkCellArray()
@@ -342,15 +382,14 @@ class FigureCanvasVTK(FigureCanvasAgg):
             self._on_window_resize()
 
     def destroy(self):
-        """Detach the canvas from its render window and interactor."""
-        if self._idle_timer is not None:
-            self._idle_timer.stop()
-            self._idle_timer._interactor = None
-        self._finalizer()
-        self._interactor = None
-        if self._render_window is not None:
-            self._render_window.Render()
-        self._render_window = None
+        """Detach the canvas from its render window and interactor, and redraw the window."""
+        renderWindow, renderCallback = self._render_window, self._render_callback
+        self.detach()
+        self._draw_pending = False
+        if renderCallback is not None:
+            renderCallback()
+        elif renderWindow is not None:
+            renderWindow.Render()
 
     # -- rendering ---------------------------------------------------------
     def draw(self):
@@ -364,6 +403,9 @@ class FigureCanvasVTK(FigureCanvasAgg):
     def draw_idle(self):
         """Coalesce redraw requests and service them from an interactor timer."""
         if self._draw_pending or self._is_drawing:
+            return
+        if self._render_window is None:
+            self._draw_pending = True  # Drawn once the canvas is attached.
             return
         if self._idle_timer is None:
             self.draw()
@@ -413,7 +455,9 @@ class FigureCanvasVTK(FigureCanvasAgg):
         self._render()
 
     def _render(self):
-        if self._render_window is not None:
+        if self._render_callback is not None:
+            self._render_callback()
+        elif self._render_window is not None:
             self._render_window.Render()
 
     def drawRectangle(self, rect):

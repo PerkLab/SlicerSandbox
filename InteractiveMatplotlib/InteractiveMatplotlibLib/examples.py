@@ -17,6 +17,7 @@ from matplotlib.figure import Figure
 from matplotlib.widgets import SpanSelector
 
 import InteractiveMatplotlibLib.view as view
+from InteractiveMatplotlibLib import isSlicerWeb
 
 
 class SliceHistogramPlot:
@@ -101,21 +102,7 @@ def buildTissueSegmentation(volumeNode):
     segmentationNode.CreateDefaultDisplayNodes()
     segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(volumeNode)
     segmentation = segmentationNode.GetSegmentation()
-
-    segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
-    segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
-    segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
-    segmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)
-    segmentEditorWidget.setSegmentationNode(segmentationNode)
-    segmentEditorWidget.setSourceVolumeNode(volumeNode)
-
-    def applyEffect(segmentId, effectName, **parameters):
-        segmentEditorNode.SetSelectedSegmentID(segmentId)
-        segmentEditorWidget.setActiveEffectByName(effectName)
-        effect = segmentEditorWidget.activeEffect()
-        for name, value in parameters.items():
-            effect.setParameter(name, str(value))
-        effect.self().onApply()
+    applyEffect, closeEditor = _segmentEditor(segmentationNode, volumeNode)
 
     # Two scaffold segments, removed once the real segments are built.
     # "Image" covers every voxel so that "Background" stays inside the image.
@@ -146,11 +133,58 @@ def buildTissueSegmentation(volumeNode):
 
     segmentation.RemoveSegment(headId)
     segmentation.RemoveSegment(imageId)
-    segmentEditorWidget.setActiveEffectByName(None)
-    segmentEditorWidget = None
-    slicer.mrmlScene.RemoveNode(segmentEditorNode)
+    closeEditor()
 
     return segmentationNode, [brainId, shellId, backgroundId]
+
+
+def _segmentEditor(segmentationNode, volumeNode):
+    """Return ``applyEffect(segmentId, effectName, **parameters)`` and a function that closes the editor.
+
+    On the desktop the effects are those of ``qMRMLSegmentEditorWidget``; in SlicerWeb, which
+    has no Qt, they are those of its browser Segment Editor (same effects and parameter names).
+    """
+    if isSlicerWeb():
+        from slicerweb import segment_editor
+        from slicerweb import segment_editor_effects
+
+        editor = segment_editor.editor()
+        editor.setup(segmentationNode.GetID(), volumeNode.GetID())
+        effects = {"Smoothing": editor.smoothing, "Islands": editor.islands, "Margin": editor.marginEffect}
+
+        def applyEffect(segmentId, effectName, **parameters):
+            editor.selectSegment(segmentId)
+            if effectName == "Threshold":
+                editor.threshold(parameters["MinimumThreshold"], parameters["MaximumThreshold"])
+            elif effectName == "Logical operators":
+                editor.logicalOperation(parameters["Operation"].lower(), parameters.get("ModifierSegmentID"))
+            else:
+                for name, value in parameters.items():
+                    segment_editor_effects.setParameter(editor.editorNode, effectName, name, value)
+                effects[effectName].apply()
+
+        return applyEffect, lambda: None
+
+    segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
+    segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
+    segmentEditorNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentEditorNode")
+    segmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)
+    segmentEditorWidget.setSegmentationNode(segmentationNode)
+    segmentEditorWidget.setSourceVolumeNode(volumeNode)
+
+    def applyEffect(segmentId, effectName, **parameters):
+        segmentEditorNode.SetSelectedSegmentID(segmentId)
+        segmentEditorWidget.setActiveEffectByName(effectName)
+        effect = segmentEditorWidget.activeEffect()
+        for name, value in parameters.items():
+            effect.setParameter(name, str(value))
+        effect.self().onApply()
+
+    def closeEditor():
+        segmentEditorWidget.setActiveEffectByName(None)
+        slicer.mrmlScene.RemoveNode(segmentEditorNode)
+
+    return applyEffect, closeEditor
 
 
 def collectStatistics(segmentationNode, volumeNode, segmentIds, maxSamples=20000):
@@ -247,7 +281,13 @@ class SegmentStatisticsPlot:
 def _mrHead():
     import SampleData
 
-    volumeNode = SampleData.SampleDataLogic().downloadMRHead()
+    # SlicerWeb names the sample data set it loads at startup (?sample=MRHead) after its file.
+    for name in ("MRHead", "MR-head"):
+        volumeNode = slicer.mrmlScene.GetFirstNodeByName(name)
+        if volumeNode is not None and volumeNode.IsA("vtkMRMLScalarVolumeNode"):
+            break
+    else:
+        volumeNode = SampleData.SampleDataLogic().downloadMRHead()
     slicer.util.setSliceViewerLayers(background=volumeNode, fit=True)
     return volumeNode
 
