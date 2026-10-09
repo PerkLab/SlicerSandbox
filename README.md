@@ -160,7 +160,11 @@ decompositionResults = CharacterizeTransformMatrix.CharacterizeTransformMatrixLo
 
 This module was created by adding a Slicer module wrapper to [vtkbool](https://github.com/zippy84/vtkbool), a library used for more robust boolean operations on vtkPolyData.
 
+The default backend is [kigumi](https://github.com/unageek/kigumi), which computes Boolean operations exactly, so the result does not depend on numerical tolerances. vtkbool can still be selected in the Advanced section of the module. Building the kigumi backend downloads Boost at configure time; set `CombineModels_USE_KIGUMI=OFF` to build with vtkbool only.
+
 ### If you use this module for your research please address this citation details
+
+Mizuno, M. kigumi [Computer software]. https://github.com/unageek/kigumi
 
 Römer, R. vtkbool (Version 3.2.0) [Computer software]. https://github.com/zippy84/vtkbool
 

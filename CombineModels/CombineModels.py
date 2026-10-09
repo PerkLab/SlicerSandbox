@@ -24,10 +24,11 @@ class CombineModels(ScriptedLoadableModule):
     self.parent.contributors = ["Andras Lasso (PerkLab)"]
     self.parent.helpText = """
 This module can perform Boolean operations on model nodes (surface meshes).</a>.
+The default backend is kigumi, which computes exact results; vtkbool can be selected in the Advanced section.
 """
     # TODO: replace with organization, grant and thanks
     self.parent.acknowledgementText = """
-The module uses https://github.com/zippy84/vtkbool for processing.
+The module uses https://github.com/unageek/kigumi and https://github.com/zippy84/vtkbool for processing.
 """
 
     for subfolder in ['Release', 'Debug', 'RelWithDebInfo', 'MinSizeRel', '.']:
@@ -95,6 +96,10 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.operationDifference2RadioButton.connect("toggled(bool)", lambda toggled, op="difference2": self.operationButtonToggled(op))
 
     self.ui.triangulateInputsCheckBox.connect("stateChanged(int)", self.updateParameterNodeFromGUI)
+
+    for backend in self.logic.availableBackends():
+      self.ui.backendComboBox.addItem(backend)
+    self.ui.backendComboBox.currentTextChanged.connect(self.updateParameterNodeFromGUI)
 
     # Spin Boxes
     self.ui.numberOfRetriesSpinBox.valueChanged.connect(self.updateParameterNodeFromGUI)
@@ -224,6 +229,8 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.triangulateInputsCheckBox.checked = self._parameterNode.GetParameter("triangulateInputs") == "True"
 
+    self.ui.backendComboBox.setCurrentText(self._parameterNode.GetParameter("Backend"))
+
     # All the GUI updates are done
     self._updatingGUIFromParameterNode = False
 
@@ -246,6 +253,8 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._parameterNode.SetParameter("randomTranslationMagnitude", str(self.ui.randomTranslationMagnitudeSpinBox.value))
 
     self._parameterNode.SetParameter("triangulateInputs", "True" if self.ui.triangulateInputsCheckBox.checked else "False")
+
+    self._parameterNode.SetParameter("Backend", self.ui.backendComboBox.currentText)
 
     self._parameterNode.EndModify(wasModified)
 
@@ -271,7 +280,8 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.GetParameter("Operation"),
         int(self._parameterNode.GetParameter("numberOfRetries")),
         int(float(self._parameterNode.GetParameter("randomTranslationMagnitude"))),
-        self._parameterNode.GetParameter("triangulateInputs") == "True"
+        self._parameterNode.GetParameter("triangulateInputs") == "True",
+        self._parameterNode.GetParameter("Backend")
         )
 
     except Exception as e:
@@ -314,6 +324,19 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     """
     ScriptedLoadableModuleLogic.__init__(self)
 
+  @staticmethod
+  def availableBackends():
+    """
+    Return the names of the Boolean operation backends in this build, the default one first.
+    kigumi is not available if the extension was built with CombineModels_USE_KIGUMI=OFF.
+    """
+    import vtkSlicerCombineModelsModuleLogicPython as logicModule
+    backends = []
+    if hasattr(logicModule, "vtkKigumiBooleanFilter"):
+      backends.append("kigumi")
+    backends.append("vtkbool")
+    return backends
+
   def setDefaultParameters(self, parameterNode):
     """
     Initialize parameter node with default settings.
@@ -326,6 +349,8 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
       parameterNode.SetParameter("randomTranslationMagnitude", "4")
     if not parameterNode.GetParameter("triangulateInputs"):
       parameterNode.SetParameter("triangulateInputs", "False")
+    if not parameterNode.GetParameter("Backend"):
+      parameterNode.SetParameter("Backend", self.availableBackends()[0])
 
   def process(
       self, 
@@ -335,7 +360,8 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
       operation, 
       numberOfRetries = 2, 
       randomTranslationMagnitude = 4, 
-      triangulateInputs = True
+      triangulateInputs = True,
+      backend = None
     ):
     """
     Run the processing algorithm.
@@ -347,18 +373,27 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     :param numberOfRetries: number of retries if operation fails
     :param randomTranslationMagnitude: order of magnitude of the random translation
     :param triangulateInputs: triangulate input models before boolean operation
+    :param backend: kigumi or vtkbool, if None then the default backend (kigumi) is used
     """
 
     if not inputModelA or not inputModelB or not outputModel:
       raise ValueError("Input or output model nodes are invalid")
 
+    if not backend:
+      backend = self.availableBackends()[0]
+    if backend not in self.availableBackends():
+      raise ValueError("Backend is not available: "+backend)
+
     import time
     startTime = time.time()
-    logging.info('Processing started')
+    logging.info(f'Processing started (backend: {backend})')
 
-    import vtkSlicerCombineModelsModuleLogicPython as vtkbool
+    import vtkSlicerCombineModelsModuleLogicPython as logicModule
 
-    combine = vtkbool.vtkPolyDataBooleanFilter()
+    if backend == 'kigumi':
+      combine = logicModule.vtkKigumiBooleanFilter()
+    else:
+      combine = logicModule.vtkPolyDataBooleanFilter()
 
     if operation == 'union':
       combine.SetOperModeToUnion()
@@ -547,9 +582,12 @@ class CombineModelsTest(ScriptedLoadableModuleTest):
 
     logic = CombineModelsLogic()
 
-    for operation in ['union', 'intersection', 'difference', 'difference2']:
-      outputModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", 'Output '+operation)
-      logic.process(inputModelA, inputModelB, outputModel, operation)
-      self.assertTrue(outputModel.GetPolyData().GetNumberOfPoints()>0)
+    self.assertIn("kigumi", logic.availableBackends())
+
+    for backend in logic.availableBackends():
+      for operation in ['union', 'intersection', 'difference', 'difference2']:
+        outputModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", f'Output {operation} ({backend})')
+        logic.process(inputModelA, inputModelB, outputModel, operation, backend=backend)
+        self.assertTrue(outputModel.GetPolyData().GetNumberOfPoints()>0)
 
     self.delayDisplay('Test passed')
