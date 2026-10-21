@@ -2,9 +2,6 @@
 
 #include <kigumi/Boolean_operator.h>
 #include <kigumi/Boolean_region_builder.h>
-#include <kigumi/Exact_kernel.h>
-#include <kigumi/Region.h>
-#include <kigumi/Warnings.h>
 #include <kigumi/threading.h>
 #include <kigumi/vtk_polydata.h>
 
@@ -12,34 +9,19 @@
 #include "vtkIdTypeArray.h"
 #include "vtkInformation.h"
 #include "vtkInformationVector.h"
+#include "vtkKigumiBooleanInternals.h"
 #include "vtkObjectFactory.h"
 #include "vtkPolyData.h"
 
-#include <cstdint>
 #include <exception>
 #include <utility>
 
 namespace {
 
-using K = kigumi::Exact_kernel;
-
-// The input and the cell that a face originates from.
-struct Face_source {
-  std::int8_t input{-1};
-  vtkIdType cell_id{-1};
-};
-
-using Region = kigumi::Region<K, Face_source>;
-using Triangle_soup = kigumi::Triangle_soup<K, Face_source>;
-
-Region to_region(vtkPolyData* polydata, std::int8_t input) {
-  auto soup = kigumi::to_triangle_soup<K, Face_source>(
-      polydata, [input](vtkIdType cell_id) { return Face_source{input, cell_id}; });
-  if (soup.num_faces() == 0) {
-    return Region::empty();
-  }
-  return Region{std::move(soup)};
-}
+using vtkKigumiBooleanInternals::Face_source;
+using vtkKigumiBooleanInternals::K;
+using vtkKigumiBooleanInternals::Triangle_soup;
+using vtkKigumiBooleanInternals::to_region;
 
 Triangle_soup concatenate(const Triangle_soup& first, const Triangle_soup& second) {
   Triangle_soup soup;
@@ -104,49 +86,24 @@ int vtkKigumiBooleanFilter::RequestData(vtkInformation* /*request*/,
 
     kigumi::Boolean_region_builder<K, Face_source> builder{a, b};
 
-    auto warnings = builder.warnings();
-    if ((warnings & kigumi::Warnings::FIRST_MESH_PARTIALLY_INTERSECTS_WITH_SECOND_MESH) !=
-        kigumi::Warnings::NONE) {
-      vtkWarningMacro(<< "The first mesh partially intersects with the second mesh.");
-    }
-    if ((warnings & kigumi::Warnings::SECOND_MESH_PARTIALLY_INTERSECTS_WITH_FIRST_MESH) !=
-        kigumi::Warnings::NONE) {
-      vtkWarningMacro(<< "The second mesh partially intersects with the first mesh.");
+    for (const auto* message : vtkKigumiBooleanInternals::warning_messages(builder.warnings())) {
+      vtkWarningMacro(<< message);
     }
 
     Triangle_soup soup;
     auto is_full = false;
-    kigumi::Boolean_operator op{};
-    switch (this->OperMode) {
-      case OPER_NONE:
-        // The boundaries of A and B, split along their intersection.
-        break;
-      case OPER_UNION:
-        op = kigumi::Boolean_operator::UNION;
-        break;
-      case OPER_INTERSECTION:
-        op = kigumi::Boolean_operator::INTERSECTION;
-        break;
-      case OPER_DIFFERENCE:
-        op = kigumi::Boolean_operator::DIFFERENCE;
-        break;
-      case OPER_DIFFERENCE2:
-        op = kigumi::Boolean_operator::M;
-        break;
-      case OPER_SYMMETRIC_DIFFERENCE:
-        op = kigumi::Boolean_operator::SYMMETRIC_DIFFERENCE;
-        break;
-      default:
-        vtkErrorMacro(<< "Invalid operation mode: " << this->OperMode);
-        return 0;
-    }
-
     if (this->OperMode == OPER_NONE) {
+      // The boundaries of A and B, split along their intersection.
       auto boundary_a = builder(kigumi::Boolean_operator::I, true);
       auto boundary_b = builder(kigumi::Boolean_operator::H, false);
       soup = concatenate(boundary_a.boundary(), boundary_b.boundary());
     } else {
-      auto result = builder(op, this->PreferFirst);
+      auto op = vtkKigumiBooleanInternals::to_boolean_operator(this->OperMode);
+      if (!op) {
+        vtkErrorMacro(<< "Invalid operation mode: " << this->OperMode);
+        return 0;
+      }
+      auto result = builder(*op, this->PreferFirst);
       is_full = result.is_full();
       soup = std::move(result.boundary_unsafe());
     }
