@@ -147,6 +147,72 @@
         </layout>
        </widget>
       </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="furtherStepsLabel">
+        <property name="text">
+         <string>Further steps:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QFrame" name="stepsFrame">
+        <property name="frameShape">
+         <enum>QFrame::NoFrame</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Plain</enum>
+        </property>
+        <layout class="QVBoxLayout" name="stepsFrameLayout">
+         <property name="leftMargin">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <property name="rightMargin">
+          <number>0</number>
+         </property>
+         <property name="bottomMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <widget class="QWidget" name="stepsRowsWidget">
+           <layout class="QVBoxLayout" name="stepsRowsLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="addStepButton">
+           <property name="toolTip">
+            <string>Combine the result with another model. Steps are applied in order, and intermediate results are computed exactly (requires the kigumi backend).</string>
+           </property>
+           <property name="text">
+            <string>Add step</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="stepsSummaryLabel">
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

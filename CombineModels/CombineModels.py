@@ -56,6 +56,8 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.logic = None
     self._parameterNode = None
     self._updatingGUIFromParameterNode = False
+    # Widgets of the further steps, one dict per step
+    self._stepWidgets = []
 
   def setup(self):
     """
@@ -104,6 +106,12 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     # Spin Boxes
     self.ui.numberOfRetriesSpinBox.valueChanged.connect(self.updateParameterNodeFromGUI)
     self.ui.randomTranslationMagnitudeSpinBox.valueChanged.connect(self.updateParameterNodeFromGUI)
+
+    # Further steps
+    self.ui.addStepButton.connect('clicked(bool)', self.onAddStepButton)
+    if "kigumi" not in self.logic.availableBackends():
+      self.ui.addStepButton.enabled = False
+      self.ui.addStepButton.toolTip = "Further steps require the kigumi backend, which is not available in this build"
 
     # Buttons
     self.ui.applyButton.connect('clicked(bool)', self.onApplyButton)
@@ -200,14 +208,30 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self.ui.operationDifferenceRadioButton.checked = (operation == "difference")
     self.ui.operationDifference2RadioButton.checked = (operation == "difference2")
 
+    # Update further steps
+    numberOfSteps = self._numberOfSteps()
+    if len(self._stepWidgets) != numberOfSteps:
+      self._createStepWidgets(numberOfSteps)
+    for stepIndex, stepWidgets in enumerate(self._stepWidgets):
+      operationComboBox = stepWidgets["operation"]
+      operationComboBox.setCurrentIndex(max(0, operationComboBox.findData(self._parameterNode.GetParameter(f"StepOperation{stepIndex}"))))
+      stepWidgets["model"].setCurrentNode(self._parameterNode.GetNodeReference(f"StepModel{stepIndex}"))
+    self.ui.stepsSummaryLabel.text = self._stepsSummary() if numberOfSteps > 0 else ""
+    self.ui.stepsSummaryLabel.visible = numberOfSteps > 0
+
     # Update buttons states and tooltips
-    if (self._parameterNode.GetNodeReference("InputModelA")
-      and self._parameterNode.GetNodeReference("InputModelB")):
-      self.ui.applyButton.toolTip = "Compute output model"
-      self.ui.applyButton.enabled = True
-    else:
+    stepModelsSelected = all(self._parameterNode.GetNodeReference(f"StepModel{stepIndex}") for stepIndex in range(numberOfSteps))
+    if not (self._parameterNode.GetNodeReference("InputModelA")
+      and self._parameterNode.GetNodeReference("InputModelB")
+      and stepModelsSelected):
       self.ui.applyButton.toolTip = "Select input model nodes"
       self.ui.applyButton.enabled = False
+    elif numberOfSteps > 0 and self._parameterNode.GetParameter("Backend") != "kigumi":
+      self.ui.applyButton.toolTip = "Further steps require the kigumi backend (see Advanced section)"
+      self.ui.applyButton.enabled = False
+    else:
+      self.ui.applyButton.toolTip = "Compute output model"
+      self.ui.applyButton.enabled = True
 
     self.ui.toggleVisibilityButton.enabled = (self._parameterNode.GetNodeReference("OutputModel") is not None)
 
@@ -217,7 +241,12 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     numberOfRetries = int(self._parameterNode.GetParameter("numberOfRetries"))
     self.ui.numberOfRetriesSpinBox.value = numberOfRetries
-    if numberOfRetries > 0:
+    self.ui.numberOfRetriesSpinBox.enabled = numberOfSteps == 0
+    if numberOfSteps > 0:
+      self.ui.numberOfRetriesSpinBox.toolTip = "Not used with further steps, which are computed exactly"
+      self.ui.randomTranslationMagnitudeSpinBox.enabled = False
+      self.ui.randomTranslationMagnitudeSpinBox.toolTip = "Not used with further steps, which are computed exactly"
+    elif numberOfRetries > 0:
       self.ui.numberOfRetriesSpinBox.toolTip = "Model B will be randomized if operation fails"
       self.ui.randomTranslationMagnitudeSpinBox.enabled = True
       randomTranslationAmount = 10**-randomTranslationMagnitude
@@ -256,6 +285,97 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self._parameterNode.SetParameter("Backend", self.ui.backendComboBox.currentText)
 
+    for stepIndex, stepWidgets in enumerate(self._stepWidgets):
+      self._parameterNode.SetParameter(f"StepOperation{stepIndex}", stepWidgets["operation"].currentData)
+      self._parameterNode.SetNodeReferenceID(f"StepModel{stepIndex}", stepWidgets["model"].currentNodeID)
+
+    self._parameterNode.EndModify(wasModified)
+
+  def _numberOfSteps(self):
+    return int(self._parameterNode.GetParameter("NumberOfAdditionalSteps") or 0)
+
+  @staticmethod
+  def _stepLetter(stepIndex):
+    """Name of the model of a further step in the summary: C, D, ..."""
+    return chr(ord("C") + stepIndex) if stepIndex < 24 else f"M{stepIndex + 3}"
+
+  def _stepsSummary(self):
+    """Text that shows the order in which the operations are applied, e.g. "Result = ((A|B)-C)&&D"."""
+    def combined(operation, result, model):
+      if operation == "intersection":
+        return f"{result}&&{model}"
+      elif operation == "difference":
+        return f"{result}-{model}"
+      elif operation == "difference2":
+        return f"{model}-{result}"
+      return f"{result}|{model}"
+    summary = combined(self._parameterNode.GetParameter("Operation"), "A", "B")
+    for stepIndex in range(self._numberOfSteps()):
+      summary = combined(self._parameterNode.GetParameter(f"StepOperation{stepIndex}"), f"({summary})", self._stepLetter(stepIndex))
+    return "Result = " + summary
+
+  def _createStepWidgets(self, numberOfSteps):
+    """Replace the widgets of the further steps with numberOfSteps rows of operation, model and remove button."""
+    for stepWidgets in self._stepWidgets:
+      stepWidgets["row"].setParent(None)
+      stepWidgets["row"].deleteLater()
+    self._stepWidgets = []
+
+    for stepIndex in range(numberOfSteps):
+      row = qt.QWidget()
+      rowLayout = qt.QHBoxLayout(row)
+      rowLayout.setContentsMargins(0, 0, 0, 0)
+
+      operationComboBox = qt.QComboBox()
+      operationComboBox.addItem("Union", "union")
+      operationComboBox.addItem("Intersection", "intersection")
+      operationComboBox.addItem("Difference (result-model)", "difference")
+      operationComboBox.addItem("Difference (model-result)", "difference2")
+      operationComboBox.toolTip = "Operation that combines the result of the previous steps with the model"
+      rowLayout.addWidget(operationComboBox)
+
+      rowLayout.addWidget(qt.QLabel(self._stepLetter(stepIndex) + ":"))
+
+      modelSelector = slicer.qMRMLNodeComboBox()
+      modelSelector.nodeTypes = ["vtkMRMLModelNode"]
+      modelSelector.showChildNodeTypes = False
+      modelSelector.addEnabled = False
+      modelSelector.removeEnabled = False
+      modelSelector.renameEnabled = True
+      modelSelector.toolTip = "Model that is combined with the result of the previous steps"
+      modelSelector.setMRMLScene(slicer.mrmlScene)
+      rowLayout.addWidget(modelSelector, 1)
+
+      removeButton = qt.QToolButton()
+      removeButton.text = "Remove"
+      removeButton.toolTip = "Remove this step"
+      rowLayout.addWidget(removeButton)
+
+      operationComboBox.connect("currentIndexChanged(int)", self.updateParameterNodeFromGUI)
+      modelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.updateParameterNodeFromGUI)
+      removeButton.connect("clicked(bool)", lambda checked, stepIndex=stepIndex: self.onRemoveStepButton(stepIndex))
+
+      self.ui.stepsRowsWidget.layout().addWidget(row)
+      self._stepWidgets.append({"row": row, "operation": operationComboBox, "model": modelSelector})
+
+  def onAddStepButton(self):
+    numberOfSteps = self._numberOfSteps()
+    wasModified = self._parameterNode.StartModify()
+    self._parameterNode.SetParameter(f"StepOperation{numberOfSteps}", "union")
+    self._parameterNode.SetNodeReferenceID(f"StepModel{numberOfSteps}", None)
+    self._parameterNode.SetParameter("NumberOfAdditionalSteps", str(numberOfSteps + 1))
+    self._parameterNode.EndModify(wasModified)
+
+  def onRemoveStepButton(self, removedStepIndex):
+    numberOfSteps = self._numberOfSteps()
+    wasModified = self._parameterNode.StartModify()
+    # Move the following steps up
+    for stepIndex in range(removedStepIndex, numberOfSteps - 1):
+      self._parameterNode.SetParameter(f"StepOperation{stepIndex}", self._parameterNode.GetParameter(f"StepOperation{stepIndex + 1}"))
+      self._parameterNode.SetNodeReferenceID(f"StepModel{stepIndex}", self._parameterNode.GetNodeReferenceID(f"StepModel{stepIndex + 1}"))
+    self._parameterNode.UnsetParameter(f"StepOperation{numberOfSteps - 1}")
+    self._parameterNode.RemoveNodeReferenceIDs(f"StepModel{numberOfSteps - 1}")
+    self._parameterNode.SetParameter("NumberOfAdditionalSteps", str(numberOfSteps - 1))
     self._parameterNode.EndModify(wasModified)
 
   def operationButtonToggled(self, operation):
@@ -273,6 +393,18 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self._parameterNode.SetNodeReferenceID("OutputModel", outputModel.GetID())
 
       # Compute output
+      numberOfSteps = self._numberOfSteps()
+      if numberOfSteps > 0:
+        self.logic.processSteps(
+          [self._parameterNode.GetNodeReference("InputModelA"), self._parameterNode.GetNodeReference("InputModelB")]
+            + [self._parameterNode.GetNodeReference(f"StepModel{stepIndex}") for stepIndex in range(numberOfSteps)],
+          [self._parameterNode.GetParameter("Operation")]
+            + [self._parameterNode.GetParameter(f"StepOperation{stepIndex}") for stepIndex in range(numberOfSteps)],
+          self._parameterNode.GetNodeReference("OutputModel"),
+          self._parameterNode.GetParameter("triangulateInputs") == "True"
+          )
+        return
+
       self.logic.process(
         self._parameterNode.GetNodeReference("InputModelA"),
         self._parameterNode.GetNodeReference("InputModelB"),
@@ -299,8 +431,10 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
       return
     outputModel.CreateDefaultDisplayNodes()
     showOutput = not outputModel.GetDisplayNode().GetVisibility()
-    inputModelA.GetDisplayNode().SetVisibility(not showOutput)
-    inputModelB.GetDisplayNode().SetVisibility(not showOutput)
+    inputModels = [inputModelA, inputModelB] + [self._parameterNode.GetNodeReference(f"StepModel{stepIndex}") for stepIndex in range(self._numberOfSteps())]
+    for inputModel in inputModels:
+      if inputModel and inputModel.GetDisplayNode():
+        inputModel.GetDisplayNode().SetVisibility(not showOutput)
     outputModel.GetDisplayNode().SetVisibility(showOutput)
 
 
@@ -351,6 +485,11 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
       parameterNode.SetParameter("triangulateInputs", "False")
     if not parameterNode.GetParameter("Backend"):
       parameterNode.SetParameter("Backend", self.availableBackends()[0])
+    if not parameterNode.GetParameter("NumberOfAdditionalSteps"):
+      parameterNode.SetParameter("NumberOfAdditionalSteps", "0")
+    for stepIndex in range(int(parameterNode.GetParameter("NumberOfAdditionalSteps"))):
+      if not parameterNode.GetParameter(f"StepOperation{stepIndex}"):
+        parameterNode.SetParameter(f"StepOperation{stepIndex}", "union")
 
   def process(
       self, 
@@ -406,25 +545,9 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     else:
       raise ValueError("Invalid operation: "+operation)
 
-    inputpolyData_Output = []  # polydata inputs in "Output" coordinate system
-    for inputModel in [inputModelA, inputModelB]:
-        transformToOutput = vtk.vtkGeneralTransform()
-        slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(inputModel.GetParentTransformNode(), outputModel.GetParentTransformNode(), transformToOutput)
-        transformerToOutput = vtk.vtkTransformPolyDataFilter()
-        transformerToOutput.SetTransform(transformToOutput)
-        if triangulateInputs:
-            triangulateFilter = vtk.vtkTriangleFilter()
-            triangulateFilter.SetInputData(inputModel.GetPolyData())
-            triangulateFilter.Update()
-            triangulatedInputPolyData = triangulateFilter.GetOutput()
-            transformerToOutput.SetInputData(triangulatedInputPolyData)
-        else:
-            transformerToOutput.SetInputData(inputModel.GetPolyData())
-        transformerToOutput.Update()
-        inputpolyData_Output.append(transformerToOutput.GetOutput())
-
-    polydataA = inputpolyData_Output[0]
-    polydataB = inputpolyData_Output[1]
+    # polydata inputs in "Output" coordinate system
+    polydataA = self._polyDataInOutputCoordinates(inputModelA, outputModel, triangulateInputs)
+    polydataB = self._polyDataInOutputCoordinates(inputModelB, outputModel, triangulateInputs)
 
     # First handle cases where inputs are not valid otherwise the boolean filter will crash
     modelAEmpty = polydataA.GetNumberOfPoints() == 0
@@ -523,13 +646,93 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
             polydataCombined = polydataB
             break
 
-    outputModel.SetAndObservePolyData(polydataCombined)
-    outputModel.CreateDefaultDisplayNodes()
-    # The filter creates a few scalars, don't show them by default, as they would be somewhat distracting
-    outputModel.GetDisplayNode().SetScalarVisibility(False)
+    self._setOutputPolyData(outputModel, polydataCombined)
 
     stopTime = time.time()
     logging.info('Processing completed in {0:.2f} seconds'.format(stopTime-startTime))
+
+  def processSteps(self, inputModels, operations, outputModel, triangulateInputs = False):
+    """
+    Combine several models in order: the result is
+    (((inputModels[0] operations[0] inputModels[1]) operations[1] inputModels[2]) ...).
+    Intermediate results are computed exactly and only the final result is rounded,
+    which requires the kigumi backend.
+    Can be used without GUI widget.
+    :param inputModels: list of at least two input model nodes
+    :param operations: list of len(inputModels)-1 operations, each of them union, intersection,
+      difference (result of the previous steps minus the model), or difference2 (the model minus the result)
+    :param outputModel: result model node
+    :param triangulateInputs: triangulate input models before boolean operation
+    """
+
+    if len(inputModels) < 2 or not all(inputModels) or not outputModel:
+      raise ValueError("Input or output model nodes are invalid")
+    if len(operations) != len(inputModels) - 1:
+      raise ValueError(f"Expected {len(inputModels) - 1} operations for {len(inputModels)} input models, got {len(operations)}")
+    if "kigumi" not in self.availableBackends():
+      raise ValueError("Multi-step operations require the kigumi backend, which is not available in this build")
+
+    import vtkSlicerCombineModelsModuleLogicPython as logicModule
+    operModes = {
+      "union": logicModule.vtkKigumiBooleanFilter.OPER_UNION,
+      "intersection": logicModule.vtkKigumiBooleanFilter.OPER_INTERSECTION,
+      "difference": logicModule.vtkKigumiBooleanFilter.OPER_DIFFERENCE,
+      "difference2": logicModule.vtkKigumiBooleanFilter.OPER_DIFFERENCE2,
+    }
+    for operation in operations:
+      if operation not in operModes:
+        raise ValueError("Invalid operation: "+str(operation))
+
+    import time
+    startTime = time.time()
+    logging.info(f'Processing started (backend: kigumi, {len(operations)} steps)')
+
+    combine = logicModule.vtkKigumiBooleanSequenceFilter()
+    for index, operation in enumerate(operations):
+      combine.SetOperation(index + 1, operModes[operation])
+    for inputModel in inputModels:
+      combine.AddInputData(self._polyDataInOutputCoordinates(inputModel, outputModel, triangulateInputs))
+
+    # Report errors of the filter (e.g., self-intersecting inputs) as an exception
+    errors = []
+    @vtk.calldata_type(vtk.VTK_STRING)
+    def onError(caller, event, message):
+      errors.append(message)
+    errorObserver = combine.AddObserver(vtk.vtkCommand.ErrorEvent, onError)
+    combine.Update()
+    combine.RemoveObserver(errorObserver)
+    if errors:
+      # Keep only the text after "vtkKigumiBooleanSequenceFilter (0x...): "
+      raise RuntimeError(errors[0].strip().splitlines()[-1].split("): ", 1)[-1])
+
+    self._setOutputPolyData(outputModel, combine.GetOutput())
+
+    stopTime = time.time()
+    logging.info('Processing completed in {0:.2f} seconds'.format(stopTime-startTime))
+
+  def _polyDataInOutputCoordinates(self, inputModel, outputModel, triangulateInputs):
+    """
+    Return the polydata of inputModel in the coordinate system of outputModel, triangulated if requested.
+    """
+    transformToOutput = vtk.vtkGeneralTransform()
+    slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(inputModel.GetParentTransformNode(), outputModel.GetParentTransformNode(), transformToOutput)
+    transformerToOutput = vtk.vtkTransformPolyDataFilter()
+    transformerToOutput.SetTransform(transformToOutput)
+    if triangulateInputs:
+      triangulateFilter = vtk.vtkTriangleFilter()
+      triangulateFilter.SetInputData(inputModel.GetPolyData())
+      triangulateFilter.Update()
+      transformerToOutput.SetInputData(triangulateFilter.GetOutput())
+    else:
+      transformerToOutput.SetInputData(inputModel.GetPolyData())
+    transformerToOutput.Update()
+    return transformerToOutput.GetOutput()
+
+  def _setOutputPolyData(self, outputModel, polyData):
+    outputModel.SetAndObservePolyData(polyData)
+    outputModel.CreateDefaultDisplayNodes()
+    # The filter creates a few scalars, don't show them by default, as they would be somewhat distracting
+    outputModel.GetDisplayNode().SetScalarVisibility(False)
 
 #
 # CombineModelsTest
@@ -552,6 +755,8 @@ class CombineModelsTest(ScriptedLoadableModuleTest):
     """
     self.setUp()
     self.test_CombineModels1()
+    self.setUp()
+    self.test_CombineModelsMultiStep()
 
   def test_CombineModels1(self):
     """ Ideally you should have several levels of tests.  At the lowest level
@@ -591,3 +796,74 @@ class CombineModelsTest(ScriptedLoadableModuleTest):
         self.assertTrue(outputModel.GetPolyData().GetNumberOfPoints()>0)
 
     self.delayDisplay('Test passed')
+
+  def test_CombineModelsMultiStep(self):
+    """Test combining more than two models with exact intermediate results."""
+
+    self.delayDisplay("Starting the multi-step test")
+
+    logic = CombineModelsLogic()
+    if "kigumi" not in logic.availableBackends():
+      self.delayDisplay("kigumi backend is not available, skipping the multi-step test")
+      return
+
+    sphere = vtk.vtkSphereSource()
+    sphere.SetRadius(30)
+    sphere.SetThetaResolution(48)
+    sphere.SetPhiResolution(48)
+    cylinder = vtk.vtkCylinderSource()
+    cylinder.SetRadius(20)
+    cylinder.SetHeight(75)
+    cylinder.SetResolution(48)
+    # The box cuts through the curve where the sphere and the cylinder intersect
+    box = vtk.vtkCubeSource()
+    box.SetBounds(-40, 40, 10, 40, -10, 10)
+    inputModels = [slicer.modules.models.logic().AddModel(source.GetOutputPort()) for source in [sphere, cylinder, box]]
+
+    def volume(polyData):
+      massProperties = vtk.vtkMassProperties()
+      massProperties.SetInputData(polyData)
+      massProperties.Update()
+      return massProperties.GetVolume()
+
+    def numberOfBoundaryEdges(polyData):
+      featureEdges = vtk.vtkFeatureEdges()
+      featureEdges.SetInputData(polyData)
+      featureEdges.BoundaryEdgesOn()
+      featureEdges.FeatureEdgesOff()
+      featureEdges.ManifoldEdgesOff()
+      featureEdges.NonManifoldEdgesOff()
+      featureEdges.Update()
+      return featureEdges.GetOutput().GetNumberOfCells()
+
+    # (A|B)-C computed exactly
+    outputModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", "Output (A|B)-C")
+    logic.processSteps(inputModels, ["union", "difference"], outputModel)
+    outputPolyData = outputModel.GetPolyData()
+    self.assertGreater(outputPolyData.GetNumberOfPoints(), 0)
+    self.assertEqual(numberOfBoundaryEdges(outputPolyData), 0)
+
+    # Same result as two separate operations, where the intermediate result is rounded
+    intermediateModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", "Output A|B")
+    logic.process(inputModels[0], inputModels[1], intermediateModel, "union", triangulateInputs=False, backend="kigumi")
+    chainedModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", "Output (A|B)-C chained")
+    logic.process(intermediateModel, inputModels[2], chainedModel, "difference", triangulateInputs=False, backend="kigumi")
+    chainedVolume = volume(chainedModel.GetPolyData())
+    self.assertAlmostEqual(volume(outputPolyData), chainedVolume, delta=1e-6 * chainedVolume)
+
+    # A single step gives the same result as process()
+    for operation in ["union", "intersection", "difference", "difference2"]:
+      stepsModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", f"Output {operation} (steps)")
+      logic.processSteps(inputModels[:2], [operation], stepsModel)
+      pairModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", f"Output {operation} (pair)")
+      logic.process(inputModels[0], inputModels[1], pairModel, operation, triangulateInputs=False, backend="kigumi")
+      self.assertEqual(stepsModel.GetPolyData().GetNumberOfCells(), pairModel.GetPolyData().GetNumberOfCells())
+      self.assertAlmostEqual(volume(stepsModel.GetPolyData()), volume(pairModel.GetPolyData()), places=6)
+
+    # Invalid arguments
+    with self.assertRaises(ValueError):
+      logic.processSteps(inputModels, ["union"], outputModel)
+    with self.assertRaises(ValueError):
+      logic.processSteps(inputModels, ["union", "xor"], outputModel)
+
+    self.delayDisplay('Multi-step test passed')
