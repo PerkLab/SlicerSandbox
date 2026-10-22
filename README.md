@@ -16,11 +16,23 @@ Collection of modules for 3D Slicer, which are already useful, but not finalized
 - [Lights](#lights): customize lighting in 3D views.
 - Line Profile: compute and plot image intensity profile along a line.
 - Scene Recorder: record all MRML node change events into a json document.
+- [Slice Plane Opacity](#slice-plane-opacity): control the transparency and 3D visibility of the standard Red, Yellow, and Green slice planes.
 - Segment Cross-Section Area: Measure cross-section of a segmentation along one of its axis. Note there are more advanced tools for this now in [Segment Geometry](https://github.com/jmhuie/Slicer-SegmentGeometry) and [SlicerVMTK](https://github.com/vmtk/SlicerExtension-VMTK#the-vmtk-extension-for-3d-slicer) extensions.
 - [Stitch Volumes](#stitch-volumes): stitch together image volumes which share physical coordinate systems (e.g. CT scans with different stations)
 - Style Tester: test Qt style sheet changes.
 - User Statistics: collect statistics about what modules and tools are used and for how long.
 - Volume Rendering Special Effects: custom shaders for special volume rendering effects.
+
+## Slice Plane Opacity
+
+This module provides a compact user interface for adjusting the opacity of the standard Red, Yellow, and Green slice planes in **3D views**. It includes one slider that sets all three planes to the same opacity, independent sliders for each plane, and checkboxes to show or hide each plane in 3D.
+
+1. Load a volume in 3D Slicer.
+2. Open **Slice Plane Opacity** from the **Utilities** module category.
+3. Enable **Show in 3D** for the slice planes you want to see.
+4. Adjust opacity from 0 (fully transparent) to 1 (fully opaque), or use **Reset opacity**.
+
+This affects only slice-plane models in 3D views, **not** the foreground/background opacity of 2D slice views. The original standalone module and its development history are available in [youyouhdhd/SlicerSlicePlaneOpacity](https://github.com/youyouhdhd/SlicerSlicePlaneOpacity). Its module-specific source files are distributed under the [BSD 3-Clause license](SlicePlaneOpacity/LICENSE.txt).
 
 ## Lights
 
