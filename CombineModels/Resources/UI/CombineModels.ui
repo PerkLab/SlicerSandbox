@@ -176,20 +176,22 @@
           <number>0</number>
          </property>
          <item>
-          <layout class="QVBoxLayout" name="stepsRowsLayout">
-           <property name="leftMargin">
-            <number>0</number>
-           </property>
-           <property name="topMargin">
-            <number>0</number>
-           </property>
-           <property name="rightMargin">
-            <number>0</number>
-           </property>
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
-          </layout>
+          <widget class="QWidget" name="stepsRowsWidget">
+           <layout class="QVBoxLayout" name="stepsRowsLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="topMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="bottomMargin">
+             <number>0</number>
+            </property>
+           </layout>
+          </widget>
          </item>
          <item>
           <widget class="QPushButton" name="addStepButton">
