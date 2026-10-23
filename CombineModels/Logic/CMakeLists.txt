@@ -33,9 +33,9 @@ set(${KIT}_TARGET_LIBRARIES
 
 #-----------------------------------------------------------------------------
 # kigumi backend (https://github.com/unageek/kigumi, MIT license).
-# kigumi/include, vtkKigumiBooleanFilter.{h,cxx}, vtkKigumiBooleanSequenceFilter.{h,cxx}
-# and vtkKigumiBooleanInternals.h are copied from the CGAL-free kigumi fork
-# (https://github.com/mauigna06/kigumi), branch vtk-backend, commit 722bfbf.
+# kigumi/include, vtkKigumiBooleanFilter.{h,cxx}, vtkKigumiBooleanSequenceFilter.{h,cxx},
+# vtkKigumiMeshDefectsFilter.{h,cxx} and vtkKigumiBooleanInternals.h are copied from the CGAL-free kigumi fork
+# (https://github.com/mauigna06/kigumi), branch vtk-backend, commit 3d7048e.
 # kigumi requires C++20 and the header-only parts of Boost >= 1.81, which Slicer
 # does not provide, so Boost is downloaded at configure time.
 option(CombineModels_USE_KIGUMI "Build the kigumi Boolean backend (downloads Boost)" ON)
@@ -46,6 +46,8 @@ if(CombineModels_USE_KIGUMI)
     vtkKigumiBooleanFilter.h
     vtkKigumiBooleanSequenceFilter.cxx
     vtkKigumiBooleanSequenceFilter.h
+    vtkKigumiMeshDefectsFilter.cxx
+    vtkKigumiMeshDefectsFilter.h
     )
 
   # Build the Boost libraries statically into the logic library and keep them out
