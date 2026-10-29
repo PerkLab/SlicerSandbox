@@ -30,6 +30,7 @@ import slicer
 
 from . import ClaudeCodeAgent
 from . import CodexAgent
+from . import ServerRelay
 from . import Settings
 
 logger = logging.getLogger(__name__)
@@ -197,8 +198,11 @@ def createSession(backend, systemPrompt, tools, callTool, onEvent):
         if not model:
             raise RuntimeError("No model chosen for the LLM server: click Connect in the Connection panel.")
         _bypassProxy(url)
+        relay = ServerRelay.relayUrl(url)
+        _bypassProxy(relay)
         env = {
-            "ANTHROPIC_BASE_URL": url,
+            # Claude Code sends system messages mid-conversation, which many local models reject.
+            "ANTHROPIC_BASE_URL": relay,
             "ANTHROPIC_API_KEY": Settings.getApiKey(Settings.LLM_SERVER_KEYRING_USERNAME) or "none",
             # Claude Code's own small requests use the same model.
             "ANTHROPIC_DEFAULT_OPUS_MODEL": model, "ANTHROPIC_DEFAULT_SONNET_MODEL": model,

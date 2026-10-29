@@ -14,6 +14,7 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Lib/ChatHistory.py
   ${MODULE_NAME}Lib/CodexAgent.py
   ${MODULE_NAME}Lib/RiskCheck.py
+  ${MODULE_NAME}Lib/ServerRelay.py
   )
 
 set(MODULE_PYTHON_RESOURCES

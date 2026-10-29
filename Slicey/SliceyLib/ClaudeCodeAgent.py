@@ -8,15 +8,47 @@ run on the asyncio loop of AgentBackends.AsyncRunner; no Slicer/Qt access happen
 """
 
 import json
+import logging
 import os
 import shutil
 import subprocess
+
+logger = logging.getLogger(__name__)
 
 SERVER_NAME = "slicey"
 # Variables that make Claude Code use something other than the subscription login.
 ANTHROPIC_VARS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL")
 # Tool results can be large (directory listings, file contents); the SDK's default 1 MB limit is too small.
 MAX_BUFFER_SIZE = 64 * 1024 * 1024
+
+
+# Lines Claude Code writes to stderr on every Slicey session, which need no action:
+_HARMLESS_STDERR = (
+    # "claude.ai connectors are disabled because ANTHROPIC_API_KEY ... is set": the server backend
+    # sets an API key for the LLM server, and Slicey switches all MCP servers but its own off anyway
+    # (strict_mcp_config), so there are no connectors to miss.
+    "connectors are disabled",
+    # "[claude-code:unrecognized_model] {"model": ...}": a model name that is not in Claude Code's
+    # table of Anthropic models, i.e. every model of an LLM server. The name is still sent as it is,
+    # so the server runs the model the user chose.
+    "unrecognized_model",
+    # "Claude Code doesn't recognize the model ..., so it assumes a context window of 200k tokens":
+    # the same, for the context window. A local model with a smaller window fails when a chat gets
+    # that long; the server's error then reaches the chat.
+    "doesn't recognize the model",
+    # "no handler for notification notifications/initialized": the MCP handshake message that
+    # Claude Code sends Slicey's in-process tool server (create_sdk_mcp_server), which needs no
+    # reply; the tools work.
+    "no handler for notification",
+)
+
+
+def _logStderr(text):
+    """Claude Code's diagnostics: errors that matter come back in its messages, so the rest only goes
+    to the debug log instead of Slicer's console."""
+    for line in text.splitlines():
+        if line.strip() and not any(s in line for s in _HARMLESS_STDERR):
+            logger.debug("Claude Code: %s", line.rstrip())
 
 
 def claudeExecutable():
@@ -65,7 +97,7 @@ async def listModels(workDir, unsetVars=ANTHROPIC_VARS):
         os.environ.pop(var, None)
     os.makedirs(workDir, exist_ok=True)
     options = ClaudeAgentOptions(tools=[], strict_mcp_config=True, setting_sources=[], permission_mode="dontAsk",
-                                 cwd=workDir)
+                                 cwd=workDir, stderr=_logStderr)
     async with ClaudeSDKClient(options) as client:
         info = await client.get_server_info() or {}
     listed = info.get("models") or []
@@ -134,6 +166,7 @@ class ClaudeCodeSession:
             cwd=self.workDir,
             max_buffer_size=MAX_BUFFER_SIZE,
             env=self.env,
+            stderr=_logStderr,
             include_partial_messages=True,  # stream the reply text
         )
 
