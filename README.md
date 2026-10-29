@@ -17,6 +17,7 @@ Collection of modules for 3D Slicer, which are already useful, but not finalized
 - Line Profile: compute and plot image intensity profile along a line.
 - Scene Recorder: record all MRML node change events into a json document.
 - Segment Cross-Section Area: Measure cross-section of a segmentation along one of its axis. Note there are more advanced tools for this now in [Segment Geometry](https://github.com/jmhuie/Slicer-SegmentGeometry) and [SlicerVMTK](https://github.com/vmtk/SlicerExtension-VMTK#the-vmtk-extension-for-3d-slicer) extensions.
+- [Slicey](#slicey): AI chat assistant that uses Slicer and helps develop Slicer modules, by running Python code in Slicer. Works with the Claude API, a Claude or ChatGPT subscription, or your own model on a local LLM server.
 - [Stitch Volumes](#stitch-volumes): stitch together image volumes which share physical coordinate systems (e.g. CT scans with different stations)
 - Style Tester: test Qt style sheet changes.
 - User Statistics: collect statistics about what modules and tools are used and for how long.
@@ -314,3 +315,43 @@ The module also runs in [SlicerWeb](https://github.com/lassoan/SlicerWeb) (Slice
 
 - `showSliceHistogram()`: histogram of the slice shown in the red slice view, updated while scrolling through slices. Drag over the histogram to set that intensity range as the window/level.
 - `showSegmentStatistics()`: segments MRHead into brain, skull and scalp, and background with built-in Segment Editor effects, computes statistics with the Segment Statistics module, and shows them as a [seaborn](https://seaborn.pydata.org/) dashboard. Requires `seaborn` and `pandas`.
+
+## Slicey
+
+Slicey is an AI chat assistant in a module panel. Ask it to do something in Slicer ("show the CT using volume rendering", "describe what is in the segmentation") or to help you write or fix a module, and it does the work by running Python code in Slicer and by reading and writing files in folders that you share with it.
+
+![](ScreenshotSlicey01.jpg)
+
+### Connection
+
+Choose which agent answers in *Connection* / *Agent*:
+
+- **Claude, Anthropic API key**: the Claude API, paid per token. The key is stored in the operating system's credential store.
+- **Claude subscription (Claude Code login)**: Claude Code on your Claude Pro or Max subscription, with no API costs. Slicey installs the Claude Agent SDK, which includes Claude Code; log in once by running Claude Code in a terminal.
+- **ChatGPT subscription (Codex login)** and **Codex, OpenAI API key**: Codex, which needs [Node.js](https://nodejs.org) and `npm install -g @openai/codex`.
+- **Own model on an Anthropic-compatible server**: an open model running on this or another computer, for example in [LM Studio](https://lmstudio.ai) (`http://127.0.0.1:1234`) or [vLLM](https://docs.vllm.ai) (`http://localhost:8000`). Nothing leaves your network, but small models know much less about Slicer's Python API than Claude, so they need more attempts or fail at harder tasks.
+
+The local agents (Claude Code and Codex) only get Slicey's own tools: they can't run shell commands or access files outside the shared folders, except through code they run in Slicer.
+
+*Model* lists the models that the chosen account or server offers, and *Effort* sets how long the model thinks before answering (*(auto)* leaves it to the model's default).
+
+### Approval
+
+Code that Slicey runs has the same full access to the computer as Slicer's Python console. *Approval* sets when Slicey asks you first:
+
+- **Auto** (default): ask only before actions that a check finds risky, such as deleting files, running other programs, network access, clearing the scene, or overwriting an existing file.
+- **Ask**: ask before every code run and file write.
+- **Accept**: never ask.
+
+When Slicey asks, *Approve* or *Reject* the action below the chat, or click *Switch to auto* to stop being asked about actions that are not risky.
+
+### Execution
+
+- **Run in current Slicer** (default): code runs in this Slicer, on the loaded scene.
+- **Run in separate Slicer instance**: code runs in a separate Slicer with an empty scene, for experiments that should not affect your work.
+
+Slicer stays responsive while Slicey works. If you switch to another module, the status bar shows whether Slicey is still working, with a button to go back to it.
+
+### Chats
+
+Each chat is saved as Markdown in the *Chat log* folder (by default `~/.Slicey`). Open an earlier chat or continue it in *Past chats*. When *Let Slicey look up past chats* is on (default), Slicey can also search earlier chats itself, for example when you refer to earlier work.
