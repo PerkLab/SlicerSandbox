@@ -10,17 +10,42 @@ SETTINGS_PREFIX = "Slicey/"
 
 KEYRING_SERVICE_NAME = "Slicey"
 KEYRING_USERNAME = "anthropic_api_key"
+OPENAI_KEYRING_USERNAME = "openai_api_key"
+LLM_SERVER_KEYRING_USERNAME = "llm_server_api_key"
+
+# Which LLM drives Slicey and how it signs in - the same choices as the nnInteractive Agent
+# module (nninteractive_agent.web.llm.BACKENDS). "claude-api" calls the Anthropic Messages API
+# directly; the others run a local coding agent (Claude Code or Codex) that only gets Slicey's
+# own tools, so the subscription backends cost no API tokens.
+BACKENDS = (
+    ("claude-api", "Claude, Anthropic API key"),
+    ("claude", "Claude subscription (Claude Code login)"),
+    ("codex", "ChatGPT subscription (Codex login)"),
+    ("codex-api", "Codex, OpenAI API key"),
+    ("server", "Own model on an Anthropic-compatible server (e.g. vLLM)"),
+)
+DEFAULT_BACKEND = "claude-api"
+# Backends whose cost Slicey can estimate from token counts (MODEL_PRICING_USD_PER_MTOK).
+COST_TRACKED_BACKENDS = ("claude-api",)
+SUBSCRIPTION_BACKENDS = ("claude", "codex")
+# Offered for Claude Code until the login check lists the models of the subscription.
+CLAUDE_CODE_MODELS = ["opus", "sonnet", "haiku"]
+# "" (shown as "(auto)") leaves the effort to the agent's default for the model.
+EFFORTS = ["", "low", "medium", "high", "xhigh", "max"]
+DEFAULT_LLM_SERVER_URL = "http://localhost:8000"  # vLLM's default port
+# Working folder of the local agents (Claude Code and Codex need one; they get no file tools).
+AGENT_WORK_DIR = os.path.join(os.path.expanduser("~"), ".Slicey", "agent")
+# Codex keeps the API key of codex-api here, away from the ChatGPT login in ~/.codex.
+CODEX_API_HOME = os.path.join(os.path.expanduser("~"), ".Slicey", "codex-api")
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
+# Offered for the Anthropic API until the API key is checked, which lists the available models.
 MODEL_PRESETS = [
     "claude-sonnet-4-6",
     "claude-opus-4-8",
     "claude-haiku-4-5-20251001",
     "claude-fable-5",
 ]
-# Cheap/fast model used only to validate that an API key works, regardless of the user's
-# selected chat model.
-VALIDATION_MODEL = "claude-haiku-4-5-20251001"
 
 # USD per 1,000,000 tokens (input, output). Update if Anthropic changes pricing.
 MODEL_PRICING_USD_PER_MTOK = {
@@ -109,12 +134,96 @@ def setModel(model):
     setString("Model", model)
 
 
-def getRequireConfirmation():
-    return getBool("RequireConfirmation", True)
+def getBackend():
+    backend = getString("Backend", DEFAULT_BACKEND)
+    return backend if backend in dict(BACKENDS) else DEFAULT_BACKEND
 
 
-def setRequireConfirmation(value):
-    setBool("RequireConfirmation", value)
+def setBackend(value):
+    setString("Backend", value)
+
+
+def getBackendModel(backend):
+    """The chat model of `backend`; "" lets the agent choose (its default model)."""
+    if backend == "claude-api":
+        return getModel()
+    return getString(f"Model/{backend}", "")
+
+
+def setBackendModel(backend, model):
+    if backend == "claude-api":
+        setModel(model)
+    else:
+        setString(f"Model/{backend}", model)
+
+
+def getBackendModels(backend):
+    """The models offered for `backend`, as {"id", "label", "description"} dicts: what the last
+    connection check listed, or a fixed list before that."""
+    models = getJson(f"Models/{backend}", None)
+    if models is None:
+        models = {"claude-api": MODEL_PRESETS, "claude": [""] + CLAUDE_CODE_MODELS}.get(backend, [])
+    # Older settings stored the ids only.
+    return [m if isinstance(m, dict) else {"id": m, "label": m or "Default", "description": ""} for m in models]
+
+
+def hasListedModels(backend):
+    """Whether a connection check has listed the models of `backend` (else a fixed list is offered)."""
+    return getJson(f"Models/{backend}", None) is not None
+
+
+def setBackendModels(backend, models):
+    """`models`: {"id", "label", "description"} dicts; the agent's default model has the id ""."""
+    setJson(f"Models/{backend}", models)
+
+
+def getEffort():
+    return getString("Effort", "")
+
+
+def setEffort(value):
+    setString("Effort", value)
+
+
+def getLlmServerUrl():
+    return getString("LLMServerUrl", DEFAULT_LLM_SERVER_URL)
+
+
+def setLlmServerUrl(value):
+    setString("LLMServerUrl", value)
+
+
+def isBackendChecked(backend):
+    """Whether the login/server of a local-agent backend passed the check in the Connection panel."""
+    return getBool(f"Checked/{backend}", False)
+
+
+def setBackendChecked(backend, value):
+    setBool(f"Checked/{backend}", value)
+
+
+# When Slicey asks before running code or writing a file. "auto" asks only for the actions
+# RiskCheck finds risky.
+APPROVAL_MODES = (
+    ("auto", "Auto: ask only before risky actions"),
+    ("ask", "Ask before every action"),
+    ("accept", "Accept all actions"),
+)
+DEFAULT_APPROVAL_MODE = "auto"
+
+
+def getApprovalMode():
+    mode = getString("ApprovalMode", "")
+    if mode in dict(APPROVAL_MODES):
+        return mode
+    # Before approval modes there was only an auto-accept checkbox (RequireConfirmation=false).
+    if not getBool("RequireConfirmation", True):
+        return "accept"
+    return DEFAULT_APPROVAL_MODE
+
+
+def setApprovalMode(value):
+    setString("ApprovalMode", value)
 
 
 def getExecutionTarget():
@@ -132,6 +241,24 @@ def getChatLogFolder():
 
 def setChatLogFolder(value):
     setString("ChatLogFolder", value)
+
+
+def getRenderMarkdown():
+    """Whether Slicey's replies are shown formatted (Markdown) in the chat view."""
+    return getBool("RenderMarkdown", True)
+
+
+def setRenderMarkdown(value):
+    setBool("RenderMarkdown", value)
+
+
+def getPastChatsAccess():
+    """Whether Slicey may look up the user's earlier chats (in the chat log folder)."""
+    return getBool("PastChatsAccess", True)
+
+
+def setPastChatsAccess(value):
+    setBool("PastChatsAccess", value)
 
 
 # Fixed base instructions - not user-editable. The shared-folder list itself is always
@@ -168,39 +295,44 @@ def _ensureKeyring():
         return keyring
 
 
-def getApiKey():
-    """Returns the stored Anthropic API key, or an empty string if none is stored."""
+def _fallbackSettingsKey(username):
+    # The Anthropic key keeps its original settings name.
+    return "ApiKeyFallback" if username == KEYRING_USERNAME else f"ApiKeyFallback/{username}"
+
+
+def getApiKey(username=KEYRING_USERNAME):
+    """Returns the stored API key (the Anthropic one by default), or an empty string if none is stored."""
     try:
         keyring = _ensureKeyring()
-        key = keyring.get_password(KEYRING_SERVICE_NAME, KEYRING_USERNAME)
+        key = keyring.get_password(KEYRING_SERVICE_NAME, username)
         if key:
             return key
     except Exception as e:
         logger.warning(f"Slicey: could not read API key from OS keyring ({e}); using fallback storage.")
     # Fallback used only if the OS keyring backend is unavailable (e.g. headless Linux without a secret service).
-    return getString("ApiKeyFallback", "")
+    return getString(_fallbackSettingsKey(username), "")
 
 
-def setApiKey(key):
-    """Stores the Anthropic API key. Returns True if stored in the OS keyring, False if it fell back to plain settings storage."""
+def setApiKey(key, username=KEYRING_USERNAME):
+    """Stores an API key. Returns True if stored in the OS keyring, False if it fell back to plain settings storage."""
     try:
         keyring = _ensureKeyring()
-        keyring.set_password(KEYRING_SERVICE_NAME, KEYRING_USERNAME, key)
-        setString("ApiKeyFallback", "")  # clear any previous less-secure copy
+        keyring.set_password(KEYRING_SERVICE_NAME, username, key)
+        setString(_fallbackSettingsKey(username), "")  # clear any previous less-secure copy
         return True
     except Exception as e:
         logger.warning(f"Slicey: could not store API key in OS keyring ({e}); using fallback storage.")
-        setString("ApiKeyFallback", key)
+        setString(_fallbackSettingsKey(username), key)
         return False
 
 
-def clearApiKey():
+def clearApiKey(username=KEYRING_USERNAME):
     try:
         keyring = _ensureKeyring()
-        keyring.delete_password(KEYRING_SERVICE_NAME, KEYRING_USERNAME)
+        keyring.delete_password(KEYRING_SERVICE_NAME, username)
     except Exception:
         pass
-    setString("ApiKeyFallback", "")
+    setString(_fallbackSettingsKey(username), "")
 
 
 def isApiKeyStoredSecurely():

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>413</width>
-    <height>852</height>
+    <width>452</width>
+    <height>1151</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -16,18 +16,69 @@
      <property name="text">
       <string>Connection</string>
      </property>
+     <property name="collapsedHeight">
+      <number>6</number>
+     </property>
      <layout class="QFormLayout" name="connectionFormLayout">
       <item row="0" column="0">
+       <widget class="QLabel" name="backendLabel">
+        <property name="text">
+         <string>Agent:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QComboBox" name="backendComboBox">
+        <property name="toolTip">
+         <string>The LLM that drives Slicey and how it signs in. A subscription must be logged in on this computer once (run claude, or codex login, in a terminal); it uses no API tokens.</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="llmServerUrlLabel">
+        <property name="text">
+         <string>LLM server:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <layout class="QHBoxLayout" name="llmServerLayout">
+        <item>
+         <widget class="QLineEdit" name="llmServerUrlLineEdit">
+          <property name="toolTip">
+           <string>The Anthropic-compatible server of the model (e.g. vLLM)</string>
+          </property>
+          <property name="placeholderText">
+           <string>http://localhost:8000</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="llmServerKeyLineEdit">
+          <property name="toolTip">
+           <string>The server's API key, if it needs one; stored in the OS keyring when the connection succeeds</string>
+          </property>
+          <property name="echoMode">
+           <enum>QLineEdit::Password</enum>
+          </property>
+          <property name="placeholderText">
+           <string>API key (optional)</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="2" column="0">
        <widget class="QLabel" name="label">
         <property name="text">
          <string>Status:</string>
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
+      <item row="2" column="1">
        <widget class="QLabel" name="connectionStatusLabel"/>
       </item>
-      <item row="1" column="0" colspan="2">
+      <item row="3" column="0" colspan="2">
        <layout class="QHBoxLayout" name="connectionButtonsLayout">
         <item>
          <widget class="QPushButton" name="connectButton">
@@ -52,33 +103,16 @@
         </item>
        </layout>
       </item>
-      <item row="2" column="0" colspan="2">
-       <widget class="QLineEdit" name="apiKeyLineEdit">
-        <property name="visible">
-         <bool>false</bool>
-        </property>
-        <property name="echoMode">
-         <enum>QLineEdit::Password</enum>
-        </property>
-        <property name="placeholderText">
-         <string>Paste the API key you just created here</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="0" colspan="2">
-       <widget class="QPushButton" name="saveKeyButton">
-        <property name="visible">
-         <bool>false</bool>
-        </property>
-        <property name="text">
-         <string>Save key</string>
-        </property>
-       </widget>
-      </item>
       <item row="4" column="0" colspan="2">
        <layout class="QHBoxLayout" name="sessionUsageLayout">
         <item>
          <widget class="QLabel" name="sessionUsageLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+            <horstretch>1</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="styleSheet">
            <string>color: gray;</string>
           </property>
@@ -92,8 +126,17 @@
         </item>
         <item>
          <widget class="QPushButton" name="resetSessionUsageButton">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="toolTip">
+           <string>Reset the token and cost counter of this session</string>
+          </property>
           <property name="text">
-           <string>Reset session counter</string>
+           <string>Reset</string>
           </property>
          </widget>
         </item>
@@ -103,6 +146,12 @@
        <layout class="QHBoxLayout" name="totalUsageLayout">
         <item>
          <widget class="QLabel" name="totalUsageLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+            <horstretch>1</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="styleSheet">
            <string>color: gray;</string>
           </property>
@@ -116,24 +165,42 @@
         </item>
         <item>
          <widget class="QPushButton" name="resetTotalUsageButton">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="toolTip">
+           <string>Reset the all-time token and cost counter</string>
+          </property>
           <property name="text">
-           <string>Reset total counter</string>
+           <string>Reset</string>
           </property>
          </widget>
         </item>
        </layout>
       </item>
-      <item row="6" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>Model:</string>
+      <item row="6" column="0" colspan="2">
+       <widget class="QLineEdit" name="apiKeyLineEdit">
+        <property name="visible">
+         <bool>false</bool>
+        </property>
+        <property name="echoMode">
+         <enum>QLineEdit::Password</enum>
+        </property>
+        <property name="placeholderText">
+         <string>Paste the API key you just created here</string>
         </property>
        </widget>
       </item>
-      <item row="6" column="1">
-       <widget class="QComboBox" name="modelComboBox">
-        <property name="editable">
-         <bool>true</bool>
+      <item row="7" column="0" colspan="2">
+       <widget class="QPushButton" name="saveKeyButton">
+        <property name="visible">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>Save key</string>
         </property>
        </widget>
       </item>
@@ -148,7 +215,90 @@
      <property name="collapsed">
       <bool>true</bool>
      </property>
+     <property name="collapsedHeight">
+      <number>6</number>
+     </property>
      <layout class="QVBoxLayout" name="settingsVerticalLayout">
+      <item>
+       <widget class="QGroupBox" name="groupBox_5">
+        <property name="title">
+         <string>Conversation</string>
+        </property>
+        <layout class="QFormLayout" name="formLayout">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>Model:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QComboBox" name="modelComboBox">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="effortLabel">
+           <property name="text">
+            <string>Effort:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QComboBox" name="effortComboBox">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>1</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="toolTip">
+            <string>How much the agent thinks before answering; (auto): the agent decides, using its default for the model</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="approvalModeLabel">
+           <property name="text">
+            <string>Approval:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QComboBox" name="approvalModeComboBox">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>2</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="toolTip">
+            <string>When Slicey asks before running Python code or writing a file. Auto asks only when a check of the code finds something risky (running programs, deleting or writing files, network access, changing settings, closing Slicer, ...). The check is a convenience, not a sandbox.</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="renderMarkdownLabel">
+           <property name="text">
+            <string>Show formatted replies:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QCheckBox" name="renderMarkdownCheckBox">
+           <property name="toolTip">
+            <string>Show Slicey's replies with their Markdown formatting (headings, lists, bold, code, tables) instead of as plain text</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
       <item>
        <widget class="QGroupBox" name="groupBox">
         <property name="title">
@@ -182,7 +332,7 @@
             <string>color: gray; font-style: italic;</string>
            </property>
            <property name="text">
-            <string>Code execution is not restricted to the shared folders above - it has the same full access to this machine as Slicer's own Python console. Confirmation (see the auto-accept checkbox below the chat) is the only safeguard.</string>
+            <string>Code execution is not restricted to the shared folders above - it has the same full access to this machine as Slicer's own Python console. Approval (see Approval below the chat) is the only safeguard; in Auto mode, only for code that a check finds risky.</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -282,8 +432,58 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QCheckBox" name="pastChatsAccessCheckBox">
+           <property name="toolTip">
+            <string>Slicey can list, search and read the chats saved in this folder (read-only), e.g. when you refer to earlier work. Their content is then sent to the LLM provider.</string>
+           </property>
+           <property name="text">
+            <string>Let Slicey look up past chats</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="ctkCollapsibleButton" name="pastChatsCollapsibleButton">
+     <property name="text">
+      <string>Past chats</string>
+     </property>
+     <property name="collapsed">
+      <bool>true</bool>
+     </property>
+     <property name="collapsedHeight">
+      <number>6</number>
+     </property>
+     <layout class="QVBoxLayout" name="pastChatsLayout">
+      <item>
+       <widget class="QListWidget" name="pastChatsList">
+        <property name="toolTip">
+         <string>Double-click a chat to continue it</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="pastChatsButtonLayout">
+        <item>
+         <widget class="QPushButton" name="continueChatButton">
+          <property name="text">
+           <string>Continue chat</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="openTranscriptButton">
+          <property name="text">
+           <string>Open transcript</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>
@@ -373,6 +573,16 @@
          </widget>
         </item>
         <item>
+         <widget class="QPushButton" name="switchToAutoButton">
+          <property name="toolTip">
+           <string>From now on, ask only before risky actions. This action runs now if it is not risky.</string>
+          </property>
+          <property name="text">
+           <string>Switch to auto</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <spacer name="confirmButtonSpacer">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -388,6 +598,16 @@
        </layout>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="activityLabel">
+     <property name="visible">
+      <bool>false</bool>
+     </property>
+     <property name="styleSheet">
+      <string>color: gray; font-style: italic;</string>
+     </property>
     </widget>
    </item>
    <item>
@@ -430,13 +650,6 @@
       </widget>
      </item>
     </layout>
-   </item>
-   <item>
-    <widget class="QCheckBox" name="autoAcceptCheckBox">
-     <property name="text">
-      <string>Auto-accept actions (skip confirmation before running code or writing files)</string>
-     </property>
-    </widget>
    </item>
   </layout>
  </widget>

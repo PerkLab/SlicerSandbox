@@ -9,6 +9,11 @@ set(MODULE_PYTHON_SCRIPTS
   ${MODULE_NAME}Lib/FolderAccess.py
   ${MODULE_NAME}Lib/PythonExecutor.py
   ${MODULE_NAME}Lib/ClaudeClient.py
+  ${MODULE_NAME}Lib/AgentBackends.py
+  ${MODULE_NAME}Lib/ClaudeCodeAgent.py
+  ${MODULE_NAME}Lib/ChatHistory.py
+  ${MODULE_NAME}Lib/CodexAgent.py
+  ${MODULE_NAME}Lib/RiskCheck.py
   )
 
 set(MODULE_PYTHON_RESOURCES

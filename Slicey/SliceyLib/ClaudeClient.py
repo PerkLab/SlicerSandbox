@@ -2,6 +2,7 @@ import logging
 
 import slicer
 
+from . import ChatHistory
 from . import FolderAccess
 from . import PythonExecutor
 from . import Settings
@@ -85,8 +86,49 @@ TOOLS = [
     },
 ]
 
+# Offered when the user lets Slicey look up earlier chats (Settings.getPastChatsAccess()).
+PAST_CHAT_TOOLS = [
+    {
+        "name": "list_past_chats",
+        "description": (
+            "List the user's earlier Slicey chats (newest first, with each one's first message), or, "
+            "with a query, find the lines of earlier chats that contain the query text (case-"
+            "insensitive). Use it when the user refers to earlier work or conversations."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"query": {"type": "string", "description": "Text to search for. Omit to list all chats."}},
+            "required": [],
+        },
+    },
+    {
+        "name": "read_past_chat",
+        "description": (
+            "Read the transcript (Markdown, including tool calls and results) of an earlier chat "
+            "found with list_past_chats. Long transcripts are returned in parts: use offset to read on."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "The chat's name, e.g. Slicey-20260101-120000."},
+                "offset": {"type": "integer", "description": "Character offset to start at. Default 0."},
+                "length": {"type": "integer", "description": f"Characters to read, at most {ChatHistory.MAX_READ_CHARS}."},
+            },
+            "required": ["name"],
+        },
+    },
+]
 
-def buildSystemPrompt():
+
+def activeTools():
+    """The tools Slicey currently offers."""
+    return TOOLS + (PAST_CHAT_TOOLS if Settings.getPastChatsAccess() else [])
+
+
+def buildContextText():
+    """The part of the system prompt that follows the user's settings (where code runs, the shared
+    folders, the custom instructions). A local agent keeps the system prompt it started with, so
+    SliceyLogic sends this again with the next message when it changes."""
     folders = FolderAccess.listSharedFolders()
     if folders:
         folderLines = "\n".join(
@@ -111,16 +153,21 @@ def buildSystemPrompt():
             "affects their live scene/GUI immediately."
         )
 
-    prompt = (
-        f"{Settings.SYSTEM_PROMPT_INSTRUCTIONS}\n\n{executionNote}\n\n"
-        f"Shared folders you currently have access to:\n{folderLines}"
-    )
+    text = f"{executionNote}\n\nShared folders you currently have access to:\n{folderLines}"
+
+    if Settings.getPastChatsAccess():
+        text += ("\n\nThe user's earlier Slicey chats are available through list_past_chats and "
+                 "read_past_chat; look them up when the user refers to earlier work.")
 
     customText = Settings.getCustomSystemPromptText().strip()
     if customText:
-        prompt += f"\n\nAdditional instructions from the user:\n{customText}"
+        text += f"\n\nAdditional instructions from the user:\n{customText}"
 
-    return prompt
+    return text
+
+
+def buildSystemPrompt():
+    return f"{Settings.SYSTEM_PROMPT_INSTRUCTIONS}\n\n{buildContextText()}"
 
 
 def requiresMainThread(name, toolInput):
@@ -165,6 +212,13 @@ def dispatchTool(name, toolInput):
             return FolderAccess.readTextFile(_require(toolInput, "path"))
         if name == "write_text_file":
             return FolderAccess.writeTextFile(_require(toolInput, "path"), _require(toolInput, "content"), toolInput.get("mode", "overwrite"))
+        if name in ("list_past_chats", "read_past_chat") and not Settings.getPastChatsAccess():
+            return {"error": "The user has not allowed access to earlier chats."}
+        if name == "list_past_chats":
+            return ChatHistory.toolListPastChats(toolInput.get("query"))
+        if name == "read_past_chat":
+            return ChatHistory.toolReadPastChat(_require(toolInput, "name"), toolInput.get("offset", 0),
+                                                toolInput.get("length", ChatHistory.MAX_READ_CHARS))
         if name == "run_python_in_slicer":
             code = _require(toolInput, "code")
             if Settings.getExecutionTarget() == "new_instance":
@@ -178,7 +232,7 @@ def dispatchTool(name, toolInput):
         return {"error": str(e)}
 
 
-def _ensureAnthropicPackage():
+def ensureAnthropicPackage():
     try:
         import anthropic
     except ImportError:
@@ -188,32 +242,41 @@ def _ensureAnthropicPackage():
 
 
 def createClient(apiKey):
-    anthropic = _ensureAnthropicPackage()
+    anthropic = ensureAnthropicPackage()
     return anthropic.Anthropic(api_key=apiKey)
 
 
-def testApiKey(apiKey):
-    """Makes a minimal request to validate the key. Returns (ok: bool, message: str)."""
-    try:
-        client = createClient(apiKey)
-        client.messages.create(
-            model=Settings.VALIDATION_MODEL,
-            max_tokens=1,
-            messages=[{"role": "user", "content": "Hi"}],
-        )
-        return True, "Connected."
-    except Exception as e:
-        return False, str(e)
+def listModels(apiKey):
+    """Validates the key by listing the models it can use (free, unlike a message), newest first.
+    Raises if the key is not accepted. No Slicer access: runs on a worker thread, after
+    ensureAnthropicPackage() on the main thread."""
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=apiKey)
+    return [{"id": m.id, "label": m.display_name or m.id, "description": m.id} for m in client.models.list(limit=100)]
 
 
-def sendMessage(client, model, messages, systemPrompt, maxTokens=16000):
-    """Blocking call to the Messages API with tools enabled. Safe to call from a background
-    thread - performs no Slicer/Qt access itself.
+def storeModels(models):
+    """Offers `models` (from listModels) in the model selector. Main thread."""
+    if models:
+        Settings.setBackendModels("claude-api", models)
+        if Settings.getModel() not in [m["id"] for m in models]:
+            Settings.setModel(models[0]["id"])
+
+
+def sendMessage(client, model, messages, systemPrompt, tools, onDelta=None, maxTokens=16000):
+    """Blocking call to the Messages API with tools enabled (activeTools(), read on the main
+    thread); onDelta(text) gets the reply text while it streams in. Returns the complete message.
+    Safe to call from a background thread - performs no Slicer/Qt access itself.
     """
-    return client.messages.create(
+    with client.messages.stream(
         model=model,
         max_tokens=maxTokens,
         system=systemPrompt,
-        tools=TOOLS,
+        tools=tools,
         messages=messages,
-    )
+    ) as stream:
+        for text in stream.text_stream:
+            if onDelta:
+                onDelta(text)
+        return stream.get_final_message()
