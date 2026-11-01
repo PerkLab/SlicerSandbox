@@ -164,6 +164,8 @@ This module was created by adding a Slicer module wrapper to [vtkbool](https://g
 
 The default backend is [kigumi](https://github.com/unageek/kigumi), which computes Boolean operations exactly, so the result does not depend on numerical tolerances. vtkbool can still be selected in the Advanced section of the module. With kigumi, "Add step" combines more than two models in order (e.g., ((A|B)-C)&&D); intermediate results are kept exact, and only the final model is rounded. Building the kigumi backend downloads Boost at configure time; set `CombineModels_USE_KIGUMI=OFF` to build with vtkbool only.
 
+The octree backend computes the result on voxels: each model is scan-converted on octrees that are refined near its surface, the octrees are combined, and the result is meshed from the fraction of each voxel that it covers. It does not fail on self-intersecting, non-manifold or inconsistently oriented models, only closed surfaces are required, and it also supports "Add step". The result is accurate to a fraction of a voxel, but sharp edges are rounded and features thinner than a voxel are lost; the voxel size can be set in the Advanced section.
+
 ### If you use this module for your research please address this citation details
 
 Mizuno, M. kigumi [Computer software]. https://github.com/unageek/kigumi

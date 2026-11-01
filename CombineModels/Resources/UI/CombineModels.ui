@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>350</width>
-    <height>582</height>
+    <height>733</height>
    </rect>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
@@ -217,6 +217,58 @@
     </widget>
    </item>
    <item>
+    <widget class="ctkCollapsibleButton" name="inputCheckCollapsibleButton">
+     <property name="text">
+      <string>Input check</string>
+     </property>
+     <layout class="QVBoxLayout" name="inputCheckLayout">
+      <item>
+       <widget class="QPushButton" name="checkInputsButton">
+        <property name="toolTip">
+         <string>Check whether the input models are closed, manifold and consistently oriented surfaces without degenerate or self-intersecting faces, as the Boolean operation requires.</string>
+        </property>
+        <property name="text">
+         <string>Check inputs</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="checkInputsBeforeApplyCheckBox">
+        <property name="toolTip">
+         <string>Check the input models when Apply is clicked, and ask whether to compute the result if any of them has problems.</string>
+        </property>
+        <property name="text">
+         <string>Check inputs before applying</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="showDefectsCheckBox">
+        <property name="toolTip">
+         <string>Show where the defects of each input model are (boundary, non-manifold and inconsistent edges, degenerate and self-intersecting faces) in a model named after it.</string>
+        </property>
+        <property name="text">
+         <string>Show defects in the views</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="checkResultsLabel">
+        <property name="textFormat">
+         <enum>Qt::RichText</enum>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+        <property name="textInteractionFlags">
+         <set>Qt::TextSelectableByMouse</set>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
     <widget class="ctkCollapsibleButton" name="outputsCollapsibleButton">
      <property name="text">
       <string>Outputs</string>
@@ -284,25 +336,83 @@
       <item row="0" column="1">
        <widget class="QComboBox" name="backendComboBox">
         <property name="toolTip">
-         <string>Library that computes the Boolean operation. kigumi is exact, vtkbool is the previous default.</string>
+         <string>Library that computes the Boolean operation. kigumi is exact, vtkbool is the previous default. octree computes the result on voxels: it only needs closed input models, but it rounds sharp edges and loses features thinner than a voxel.</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
+      <item row="1" column="0" colspan="2">
+       <widget class="QGroupBox" name="octreeGroupBox">
+        <property name="title">
+         <string>Octree backend</string>
+        </property>
+        <layout class="QFormLayout" name="formLayout_4">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_9">
+           <property name="text">
+            <string>Voxel size:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QDoubleSpinBox" name="octreeVoxelSizeSpinBox">
+           <property name="toolTip">
+            <string>Edge length of the voxels. Sharp edges are rounded to about a voxel, and features thinner than a voxel are lost. Automatic gives 256 voxels along the longest side of the bounding box of the result.</string>
+           </property>
+           <property name="specialValueText">
+            <string>Automatic</string>
+           </property>
+           <property name="suffix">
+            <string> mm</string>
+           </property>
+           <property name="decimals">
+            <number>3</number>
+           </property>
+           <property name="maximum">
+            <double>100.000000000000000</double>
+           </property>
+           <property name="singleStep">
+            <double>0.100000000000000</double>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_10">
+           <property name="text">
+            <string>Sub-voxel levels:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QSpinBox" name="octreeExtraLevelsSpinBox">
+           <property name="toolTip">
+            <string>Number of times the voxels are split in 2 along each axis near the surfaces, to compute how much of each voxel the result covers. More levels are more accurate but slower; beyond 2 the accuracy barely improves.</string>
+           </property>
+           <property name="maximum">
+            <number>3</number>
+           </property>
+           <property name="value">
+            <number>2</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="2" column="0">
        <widget class="QLabel" name="label_7">
         <property name="text">
          <string>Triangulate input models:</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
+      <item row="2" column="1">
        <widget class="QCheckBox" name="triangulateInputsCheckBox">
         <property name="text">
          <string/>
         </property>
        </widget>
       </item>
-      <item row="2" column="0" colspan="2">
+      <item row="3" column="0" colspan="2">
        <widget class="QGroupBox" name="groupBox">
         <property name="title">
          <string>Retry failed operations</string>
@@ -406,17 +516,6 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>ctkCollapsibleButton</class>
-   <extends>QWidget</extends>
-   <header>ctkCollapsibleButton.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>ctkDoubleSpinBox</class>
-   <extends>QWidget</extends>
-   <header>ctkDoubleSpinBox.h</header>
-  </customwidget>
-  <customwidget>
    <class>qMRMLNodeComboBox</class>
    <extends>QWidget</extends>
    <header>qMRMLNodeComboBox.h</header>
@@ -431,6 +530,17 @@
    <extends>QWidget</extends>
    <header>qMRMLWidget.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkCollapsibleButton</class>
+   <extends>QWidget</extends>
+   <header>ctkCollapsibleButton.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkDoubleSpinBox</class>
+   <extends>QWidget</extends>
+   <header>ctkDoubleSpinBox.h</header>
   </customwidget>
  </customwidgets>
  <resources/>
