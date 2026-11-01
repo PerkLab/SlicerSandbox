@@ -23,12 +23,15 @@ class CombineModels(ScriptedLoadableModule):
     self.parent.dependencies = []
     self.parent.contributors = ["Andras Lasso (PerkLab)"]
     self.parent.helpText = """
-This module can perform Boolean operations on model nodes (surface meshes).</a>.
-The default backend is kigumi, which computes exact results; vtkbool can be selected in the Advanced section.
+This module can perform Boolean operations on model nodes (surface meshes).
+The default backend is kigumi, which computes exact results; CGAL (if the VESPA extension is installed) and vtkbool can be selected in the Advanced section.
+Input models must be closed, manifold, consistently oriented surfaces without degenerate or self-intersecting faces.
+The Input check section finds such problems before the result is computed, and shows where they are.
 """
     # TODO: replace with organization, grant and thanks
     self.parent.acknowledgementText = """
-The module uses https://github.com/unageek/kigumi and https://github.com/zippy84/vtkbool for processing.
+The module uses https://github.com/unageek/kigumi and https://github.com/zippy84/vtkbool for processing,
+and https://www.cgal.org through the VESPA extension (https://gitlab.kitware.com/vtk/meshing/SlicerVESPA) if it is installed.
 """
 
     for subfolder in ['Release', 'Debug', 'RelWithDebInfo', 'MinSizeRel', '.']:
@@ -58,6 +61,8 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     self._updatingGUIFromParameterNode = False
     # Widgets of the further steps, one dict per step
     self._stepWidgets = []
+    # Inputs and settings of the last input check, see _checkSettings()
+    self._checkedSettings = None
 
   def setup(self):
     """
@@ -99,9 +104,21 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self.ui.triangulateInputsCheckBox.connect("stateChanged(int)", self.updateParameterNodeFromGUI)
 
+    # Input check
+    self.ui.checkInputsBeforeApplyCheckBox.connect("stateChanged(int)", self.updateParameterNodeFromGUI)
+    self.ui.showDefectsCheckBox.connect("stateChanged(int)", self.updateParameterNodeFromGUI)
+    self.ui.checkInputsButton.connect('clicked(bool)', self.onCheckInputsButton)
+    self.ui.checkResultsLabel.visible = False
+
     for backend in self.logic.availableBackends():
       self.ui.backendComboBox.addItem(backend)
+    # CGAL is listed even if the VESPA extension is not installed, so that it can be installed when selected
+    if "CGAL" not in self.logic.availableBackends():
+      cgalIndex = self.ui.backendComboBox.findText("vtkbool")
+      self.ui.backendComboBox.insertItem(cgalIndex, "CGAL")
+      self.ui.backendComboBox.setItemData(cgalIndex, "Not installed, requires the VESPA extension", qt.Qt.ToolTipRole)
     self.ui.backendComboBox.currentTextChanged.connect(self.updateParameterNodeFromGUI)
+    self.ui.backendComboBox.textActivated.connect(self.onBackendComboBoxTextActivated)
 
     # Spin Boxes
     self.ui.numberOfRetriesSpinBox.valueChanged.connect(self.updateParameterNodeFromGUI)
@@ -229,11 +246,21 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     elif numberOfSteps > 0 and self._parameterNode.GetParameter("Backend") != "kigumi":
       self.ui.applyButton.toolTip = "Further steps require the kigumi backend (see Advanced section)"
       self.ui.applyButton.enabled = False
+    elif numberOfSteps == 0 and self._parameterNode.GetParameter("Backend") not in self.logic.availableBackends():
+      self.ui.applyButton.toolTip = "The selected backend is not installed (see Advanced section)"
+      self.ui.applyButton.enabled = False
     else:
       self.ui.applyButton.toolTip = "Compute output model"
       self.ui.applyButton.enabled = True
 
     self.ui.toggleVisibilityButton.enabled = (self._parameterNode.GetNodeReference("OutputModel") is not None)
+
+    self.ui.checkInputsButton.enabled = any(self._inputModels())
+    self.ui.checkInputsBeforeApplyCheckBox.checked = self._parameterNode.GetParameter("CheckInputsBeforeApply") == "True"
+    self.ui.showDefectsCheckBox.checked = self._parameterNode.GetParameter("ShowDefects") == "True"
+    # Results of the last input check do not apply after the inputs or settings changed
+    if self._checkedSettings != self._checkSettings():
+      self.ui.checkResultsLabel.visible = False
 
     # translate randomly order of magnitude (value is negative by default)
     randomTranslationMagnitude = int(float(self._parameterNode.GetParameter("randomTranslationMagnitude")))
@@ -241,11 +268,17 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     numberOfRetries = int(self._parameterNode.GetParameter("numberOfRetries"))
     self.ui.numberOfRetriesSpinBox.value = numberOfRetries
-    self.ui.numberOfRetriesSpinBox.enabled = numberOfSteps == 0
+    # Only vtkbool retries failed operations, kigumi and CGAL compute them exactly
+    retriesUsed = numberOfSteps == 0 and self._parameterNode.GetParameter("Backend") == "vtkbool"
+    self.ui.numberOfRetriesSpinBox.enabled = retriesUsed
     if numberOfSteps > 0:
       self.ui.numberOfRetriesSpinBox.toolTip = "Not used with further steps, which are computed exactly"
       self.ui.randomTranslationMagnitudeSpinBox.enabled = False
       self.ui.randomTranslationMagnitudeSpinBox.toolTip = "Not used with further steps, which are computed exactly"
+    elif not retriesUsed:
+      self.ui.numberOfRetriesSpinBox.toolTip = "Only used by the vtkbool backend"
+      self.ui.randomTranslationMagnitudeSpinBox.enabled = False
+      self.ui.randomTranslationMagnitudeSpinBox.toolTip = "Only used by the vtkbool backend"
     elif numberOfRetries > 0:
       self.ui.numberOfRetriesSpinBox.toolTip = "Model B will be randomized if operation fails"
       self.ui.randomTranslationMagnitudeSpinBox.enabled = True
@@ -285,6 +318,9 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     self._parameterNode.SetParameter("Backend", self.ui.backendComboBox.currentText)
 
+    self._parameterNode.SetParameter("CheckInputsBeforeApply", "True" if self.ui.checkInputsBeforeApplyCheckBox.checked else "False")
+    self._parameterNode.SetParameter("ShowDefects", "True" if self.ui.showDefectsCheckBox.checked else "False")
+
     for stepIndex, stepWidgets in enumerate(self._stepWidgets):
       self._parameterNode.SetParameter(f"StepOperation{stepIndex}", stepWidgets["operation"].currentData)
       self._parameterNode.SetNodeReferenceID(f"StepModel{stepIndex}", stepWidgets["model"].currentNodeID)
@@ -293,6 +329,48 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
   def _numberOfSteps(self):
     return int(self._parameterNode.GetParameter("NumberOfAdditionalSteps") or 0)
+
+  def _inputModels(self):
+    """Input models A, B and those of the further steps, None where no model is selected."""
+    return ([self._parameterNode.GetNodeReference("InputModelA"), self._parameterNode.GetNodeReference("InputModelB")]
+      + [self._parameterNode.GetNodeReference(f"StepModel{stepIndex}") for stepIndex in range(self._numberOfSteps())])
+
+  def _checkBackend(self):
+    """Backend that computes the result, which further steps always compute with kigumi."""
+    return "kigumi" if self._numberOfSteps() > 0 else self._parameterNode.GetParameter("Backend")
+
+  def _checkSettings(self):
+    """Inputs and settings that the results of the input check depend on."""
+    return (
+      tuple(inputModel.GetID() if inputModel else None for inputModel in self._inputModels()),
+      self._parameterNode.GetNodeReferenceID("OutputModel"),
+      self._checkBackend(),
+      self._parameterNode.GetParameter("triangulateInputs"),
+      self._parameterNode.GetParameter("ShowDefects"))
+
+  def _checkInputs(self):
+    """Check the selected input models, show the results, and return them."""
+    results = self.logic.checkInputs(
+      [inputModel for inputModel in self._inputModels() if inputModel],
+      self._parameterNode.GetNodeReference("OutputModel"),
+      self._checkBackend(),
+      self._parameterNode.GetParameter("triangulateInputs") == "True",
+      self._parameterNode.GetParameter("ShowDefects") == "True")
+    self._checkedSettings = self._checkSettings()
+    self.ui.checkResultsLabel.text = self.logic.checkResultsToHtml(results)
+    self.ui.checkResultsLabel.visible = True
+    return results
+
+  def onCheckInputsButton(self):
+    try:
+      qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
+      self._checkInputs()
+    except Exception as e:
+      slicer.util.errorDisplay("Failed to check inputs: "+str(e))
+      import traceback
+      traceback.print_exc()
+    finally:
+      qt.QApplication.restoreOverrideCursor()
 
   @staticmethod
   def _stepLetter(stepIndex):
@@ -381,12 +459,70 @@ class CombineModelsWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
   def operationButtonToggled(self, operation):
     self._parameterNode.SetParameter("Operation", operation)
 
+  def onBackendComboBoxTextActivated(self, backend):
+    """
+    Offer to install the VESPA extension if its CGAL backend is selected but not installed
+    """
+    if backend != "CGAL" or "CGAL" in self.logic.availableBackends():
+      return
+    if slicer.util.confirmYesNoDisplay(
+      "The CGAL backend is provided by the VESPA extension, which is not installed. "
+      "Until it is installed, the result cannot be computed with this backend.\n\n"
+      "Do you want to install the VESPA extension from the Extensions Manager now?",
+      windowTitle="Install VESPA extension"):
+      self._installVESPA()
+
+  @staticmethod
+  def _installVESPA():
+    """
+    Install the VESPA extension, which provides the CGAL backend, and offer to restart Slicer.
+    Ask for confirmation before calling it.
+    """
+    extensionsManagerModel = (
+      slicer.app.extensionsManagerModel() if hasattr(slicer.app, 'extensionsManagerModel') else None)
+    if extensionsManagerModel is None or not hasattr(extensionsManagerModel, 'installExtensionFromServer'):
+      slicer.util.infoDisplay("Please install the VESPA extension from the Extensions Manager and restart Slicer")
+      return
+    # The installation was already confirmed, so the Extensions Manager should not ask again
+    wasInteractive = extensionsManagerModel.interactive
+    extensionsManagerModel.interactive = False
+    try:
+      installed = extensionsManagerModel.installExtensionFromServer("VESPA", False)  # restart=False
+    finally:
+      extensionsManagerModel.interactive = wasInteractive
+    if not installed:
+      slicer.util.errorDisplay(
+        "Failed to install the VESPA extension. Please install it from the Extensions Manager and restart Slicer")
+      return
+    if slicer.util.confirmYesNoDisplay(
+      "The VESPA extension was installed. Slicer must be restarted to use the CGAL backend.\n\n"
+      "Do you want to restart Slicer now?",
+      windowTitle="Restart Slicer"):
+      slicer.util.restart()
+
   def onApplyButton(self):
     """
     Run processing when user clicks "Apply" button.
     """
     try:
       qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
+
+      if self._parameterNode.GetParameter("CheckInputsBeforeApply") == "True":
+        results = self._checkInputs()
+        if any(result["problems"] for result in results):
+          qt.QApplication.restoreOverrideCursor()
+          try:
+            computeAnyway = slicer.util.confirmYesNoDisplay(
+              "Some input models have problems that can make the result invalid:\n\n"
+              + self.logic.checkResultsToText(results, problemsOnly=True)
+              + "\n\nCompute the result anyway?",
+              windowTitle="Input check",
+              detailedText=self.logic.checkResultsToText(results))
+          finally:
+            qt.QApplication.setOverrideCursor(qt.Qt.WaitCursor)
+          if not computeAnyway:
+            return
+
       # Add a new node for output, if no output node is selected
       if not self._parameterNode.GetNodeReference("OutputModel"):
         outputModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
@@ -457,17 +593,39 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     Called when the logic class is instantiated. Can be used for initializing member variables.
     """
     ScriptedLoadableModuleLogic.__init__(self)
+    # Results of checkModel(), keyed by backend and polydata contents, oldest first
+    self._checkResults = {}
+
+  # Defects found by the input check: key in the results, label in the results table,
+  # and description of the problem
+  DEFECT_CHECKS = [
+    ("boundaryEdges", "Boundary edges", "not closed (boundary edges)"),
+    ("nonManifoldEdges", "Non-manifold edges", "non-manifold edges"),
+    ("nonManifoldVertices", "Non-manifold vertices", "non-manifold vertices"),
+    ("inconsistentEdges", "Inconsistent edges", "inconsistent orientation (inconsistent edges)"),
+    ("degenerateFaces", "Degenerate faces", "degenerate faces"),
+    ("selfIntersectingFaces", "Self-intersecting faces", "self-intersections (self-intersecting faces)"),
+  ]
+
+  # Libraries that perform the input check: key in the results and name
+  CHECK_ENGINES = [("kigumi", "kigumi"), ("vtk", "VTK")]
+
+  # Attribute of the model nodes that show the defects of an input model, which holds its ID
+  DEFECTS_OF_ATTRIBUTE = "CombineModels.DefectsOf"
 
   @staticmethod
   def availableBackends():
     """
-    Return the names of the Boolean operation backends in this build, the default one first.
-    kigumi is not available if the extension was built with CombineModels_USE_KIGUMI=OFF.
+    Return the names of the available Boolean operation backends, in order of priority (the default one first).
+    kigumi is not available if the extension was built with CombineModels_USE_KIGUMI=OFF,
+    and CGAL is available only if the VESPA extension is installed.
     """
     import vtkSlicerCombineModelsModuleLogicPython as logicModule
     backends = []
     if hasattr(logicModule, "vtkKigumiBooleanFilter"):
       backends.append("kigumi")
+    if hasattr(slicer.modules, "vespabooleanoperation"):
+      backends.append("CGAL")
     backends.append("vtkbool")
     return backends
 
@@ -485,6 +643,10 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
       parameterNode.SetParameter("triangulateInputs", "False")
     if not parameterNode.GetParameter("Backend"):
       parameterNode.SetParameter("Backend", self.availableBackends()[0])
+    if not parameterNode.GetParameter("CheckInputsBeforeApply"):
+      parameterNode.SetParameter("CheckInputsBeforeApply", "True")
+    if not parameterNode.GetParameter("ShowDefects"):
+      parameterNode.SetParameter("ShowDefects", "True")
     if not parameterNode.GetParameter("NumberOfAdditionalSteps"):
       parameterNode.SetParameter("NumberOfAdditionalSteps", "0")
     for stepIndex in range(int(parameterNode.GetParameter("NumberOfAdditionalSteps"))):
@@ -509,10 +671,12 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     :param inputModelB: second input model node
     :param outputModel: result model node, if empty then a new output node will be created
     :param operation: union, intersection, difference, difference2
-    :param numberOfRetries: number of retries if operation fails
-    :param randomTranslationMagnitude: order of magnitude of the random translation
+    :param numberOfRetries: number of retries if operation fails (vtkbool only)
+    :param randomTranslationMagnitude: order of magnitude of the random translation (vtkbool only)
     :param triangulateInputs: triangulate input models before boolean operation
-    :param backend: kigumi or vtkbool, if None then the default backend (kigumi) is used
+    :param backend: kigumi, CGAL or vtkbool, if None then the default backend (the first available one) is used
+    Raises RuntimeError if the Boolean operation fails. An empty result (e.g., the intersection of models
+    that do not overlap) is not a failure.
     """
 
     if not inputModelA or not inputModelB or not outputModel:
@@ -523,27 +687,14 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     if backend not in self.availableBackends():
       raise ValueError("Backend is not available: "+backend)
 
+    if operation not in ['union', 'intersection', 'difference', 'difference2']:
+      raise ValueError("Invalid operation: "+operation)
+
     import time
     startTime = time.time()
     logging.info(f'Processing started (backend: {backend})')
 
     import vtkSlicerCombineModelsModuleLogicPython as logicModule
-
-    if backend == 'kigumi':
-      combine = logicModule.vtkKigumiBooleanFilter()
-    else:
-      combine = logicModule.vtkPolyDataBooleanFilter()
-
-    if operation == 'union':
-      combine.SetOperModeToUnion()
-    elif operation == 'intersection':
-      combine.SetOperModeToIntersection()
-    elif operation == 'difference':
-      combine.SetOperModeToDifference()
-    elif operation == 'difference2':
-      combine.SetOperModeToDifference2()
-    else:
-      raise ValueError("Invalid operation: "+operation)
 
     # polydata inputs in "Output" coordinate system
     polydataA = self._polyDataInOutputCoordinates(inputModelA, outputModel, triangulateInputs)
@@ -554,97 +705,119 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
     modelBEmpty = polydataB.GetNumberOfPoints() == 0
     if modelAEmpty and modelBEmpty:
         # both inputs are empty, output is empty regardless of the operation
-        outputModel.SetAndObservePolyData(vtk.vtkPolyData())
+        self._setOutputPolyData(outputModel, vtk.vtkPolyData())
         return
     elif modelAEmpty or modelBEmpty:
         # exactly one input is empty
         if operation == "union":
-            outputModel.SetAndObservePolyData(polydataA if modelBEmpty else polydataB)
+            self._setOutputPolyData(outputModel, polydataA if modelBEmpty else polydataB)
             return
         elif operation == "intersection":
             # if one model is empty then intersection is empty
-            outputModel.SetAndObservePolyData(vtk.vtkPolyData())
+            self._setOutputPolyData(outputModel, vtk.vtkPolyData())
             return
         elif operation == "difference":
             # A-B
-            outputModel.SetAndObservePolyData(polydataA if modelBEmpty else vtk.vtkPolyData())
+            self._setOutputPolyData(outputModel, polydataA if modelBEmpty else vtk.vtkPolyData())
             return
         elif operation == "difference2":
             # B-A
-            outputModel.SetAndObservePolyData(polydataB if modelAEmpty else vtk.vtkPolyData())
+            self._setOutputPolyData(outputModel, polydataB if modelAEmpty else vtk.vtkPolyData())
             return
 
-    # We need to combine the models
-    polydataBOriginal = polydataB
-    polydataCombined = vtk.vtkPolyData()
-    for attemptIndex in range(numberOfRetries+1):
+    if backend == 'CGAL':
+      polydataCombined = self._cgalBooleanOperation(polydataA, polydataB, operation)
 
-        if attemptIndex == 0:
-            polydataB = polydataBOriginal
-        else:
-            # Add random translation to model B
-            # https://github.com/zippy84/vtkbool/issues/81
-            logging.info(f"Retrying boolean operation with random translation (attempt {attemptIndex+1})")
-            transform = vtk.vtkTransform()
-            unitVector = [vtk.vtkMath.Random()-0.5 for _ in range(3)]
-            vtk.vtkMath.Normalize(unitVector)
-            import numpy as np
-            translationVector = np.array(unitVector) * (10**-randomTranslationMagnitude)
-            perturbationTransform = vtk.vtkTransform()
-            perturbationTransform.Translate(translationVector)
-            perturbationTransformer = vtk.vtkTransformPolyDataFilter()
-            perturbationTransformer.SetTransform(perturbationTransform)
-            perturbationTransformer.SetInputData(polydataBOriginal)
-            perturbationTransformer.Update()
-            polydataB = perturbationTransformer.GetOutput()
+    elif backend == 'kigumi':
+      # kigumi is exact, so it fails only on invalid inputs (e.g., self-intersecting ones), and moving model B
+      # randomly as for vtkbool would not help. Its result is also correct when the models do not touch,
+      # e.g., empty for A-B with A inside B.
+      combine = logicModule.vtkKigumiBooleanFilter()
+      self._setOperMode(combine, operation)
+      combine.SetInputData(0, polydataA)
+      combine.SetInputData(1, polydataB)
+      # Report errors of the filter as an exception
+      self._updateFilter(combine)
+      polydataCombined = combine.GetOutput()
 
-        # Calculate the result using Boolean operation
-        combine.SetInputData(0, polydataA)
-        combine.SetInputData(1, polydataB)
-        # These parameters might be useful to expose:
-        # combine.MergeRegsOn()  # default off
-        # combine.DecPolysOff()  # default on
-        combine.Update()
+    else:
+      combine = logicModule.vtkPolyDataBooleanFilter()
+      self._setOperMode(combine, operation)
 
-        combineFilterSuccessful = combine.GetOutput().GetNumberOfPoints() != 0
-        if combineFilterSuccessful:
-            polydataCombined = combine.GetOutput()
-            break
+      # We need to combine the models
+      polydataBOriginal = polydataB
+      polydataCombined = None
+      for attemptIndex in range(numberOfRetries+1):
 
-        # Boolean operation failed, but if the meshes are not intersecting
-        # then it may be a special case that we can handle with simpler methods
-        collisionDetectionFilter = vtk.vtkCollisionDetectionFilter()
-        collisionDetectionFilter.SetInputData(0, polydataA)
-        collisionDetectionFilter.SetInputData(1, polydataB)
-        identityMatrix = vtk.vtkMatrix4x4()
-        collisionDetectionFilter.SetMatrix(0,identityMatrix)
-        collisionDetectionFilter.SetMatrix(1,identityMatrix)
-        collisionDetectionFilter.SetCollisionModeToFirstContact()
-        collisionDetectionFilter.Update()
-        intersecting = collisionDetectionFilter.GetNumberOfContacts() > 0
-        if intersecting:
-            # this is not a trivial case, try again
-            continue
+          if attemptIndex == 0:
+              polydataB = polydataBOriginal
+          else:
+              # Add random translation to model B
+              # https://github.com/zippy84/vtkbool/issues/81
+              logging.info(f"Retrying boolean operation with random translation (attempt {attemptIndex+1})")
+              transform = vtk.vtkTransform()
+              unitVector = [vtk.vtkMath.Random()-0.5 for _ in range(3)]
+              vtk.vtkMath.Normalize(unitVector)
+              import numpy as np
+              translationVector = np.array(unitVector) * (10**-randomTranslationMagnitude)
+              perturbationTransform = vtk.vtkTransform()
+              perturbationTransform.Translate(translationVector)
+              perturbationTransformer = vtk.vtkTransformPolyDataFilter()
+              perturbationTransformer.SetTransform(perturbationTransform)
+              perturbationTransformer.SetInputData(polydataBOriginal)
+              perturbationTransformer.Update()
+              polydataB = perturbationTransformer.GetOutput()
 
-        # No intersection, we can do without computing Boolean operation
-        if operation == 'union':
-            # models do not touch so we can simply append them
-            appendFilter = vtk.vtkAppendPolyData()
-            appendFilter.AddInputData(polydataA)
-            appendFilter.AddInputData(polydataB)
-            appendFilter.Update()
-            polydataCombined = appendFilter.GetOutput()
-            break
-        elif operation == 'intersection':
-            # models do not touch so we return an empty model
-            polydataCombined = vtk.vtkPolyData()
-            break
-        elif operation == 'difference':  # A-B
-            polydataCombined = polydataA
-            break
-        elif operation == 'difference2':  # B-A
-            polydataCombined = polydataB
-            break
+          # Calculate the result using Boolean operation
+          combine.SetInputData(0, polydataA)
+          combine.SetInputData(1, polydataB)
+          # These parameters might be useful to expose:
+          # combine.MergeRegsOn()  # default off
+          # combine.DecPolysOff()  # default on
+          combine.Update()
+
+          combineFilterSuccessful = combine.GetOutput().GetNumberOfPoints() != 0
+          if combineFilterSuccessful:
+              polydataCombined = combine.GetOutput()
+              break
+
+          # Boolean operation failed, but if the meshes are not intersecting
+          # then it may be a special case that we can handle with simpler methods
+          collisionDetectionFilter = vtk.vtkCollisionDetectionFilter()
+          collisionDetectionFilter.SetInputData(0, polydataA)
+          collisionDetectionFilter.SetInputData(1, polydataB)
+          identityMatrix = vtk.vtkMatrix4x4()
+          collisionDetectionFilter.SetMatrix(0,identityMatrix)
+          collisionDetectionFilter.SetMatrix(1,identityMatrix)
+          collisionDetectionFilter.SetCollisionModeToFirstContact()
+          collisionDetectionFilter.Update()
+          intersecting = collisionDetectionFilter.GetNumberOfContacts() > 0
+          if intersecting:
+              # this is not a trivial case, try again
+              continue
+
+          # No intersection, we can do without computing Boolean operation
+          if operation == 'union':
+              # models do not touch so we can simply append them
+              appendFilter = vtk.vtkAppendPolyData()
+              appendFilter.AddInputData(polydataA)
+              appendFilter.AddInputData(polydataB)
+              appendFilter.Update()
+              polydataCombined = appendFilter.GetOutput()
+              break
+          elif operation == 'intersection':
+              # models do not touch so we return an empty model
+              polydataCombined = vtk.vtkPolyData()
+              break
+          elif operation == 'difference':  # A-B
+              polydataCombined = polydataA
+              break
+          elif operation == 'difference2':  # B-A
+              polydataCombined = polydataB
+              break
+
+      if polydataCombined is None:
+        raise RuntimeError(f"Boolean operation failed: the result is empty after {numberOfRetries+1} attempt(s)")
 
     self._setOutputPolyData(outputModel, polydataCombined)
 
@@ -694,28 +867,432 @@ class CombineModelsLogic(ScriptedLoadableModuleLogic):
       combine.AddInputData(self._polyDataInOutputCoordinates(inputModel, outputModel, triangulateInputs))
 
     # Report errors of the filter (e.g., self-intersecting inputs) as an exception
-    errors = []
-    @vtk.calldata_type(vtk.VTK_STRING)
-    def onError(caller, event, message):
-      errors.append(message)
-    errorObserver = combine.AddObserver(vtk.vtkCommand.ErrorEvent, onError)
-    combine.Update()
-    combine.RemoveObserver(errorObserver)
-    if errors:
-      # Keep only the text after "vtkKigumiBooleanSequenceFilter (0x...): "
-      raise RuntimeError(errors[0].strip().splitlines()[-1].split("): ", 1)[-1])
+    self._updateFilter(combine)
 
     self._setOutputPolyData(outputModel, combine.GetOutput())
 
     stopTime = time.time()
     logging.info('Processing completed in {0:.2f} seconds'.format(stopTime-startTime))
 
+  def checkInputs(self, inputModels, outputModel = None, backend = None, triangulateInputs = False, showDefects = True):
+    """
+    Check whether the input models are valid inputs for Boolean operations, see checkModel().
+    Can be used without GUI widget.
+    :param inputModels: list of input model nodes, each of them is checked once
+    :param outputModel: result model node, whose coordinate system the inputs are checked in (world if None)
+    :param backend: kigumi, CGAL or vtkbool, if None then the default backend (the first available one) is used
+    :param triangulateInputs: triangulate input models before the check, as before the Boolean operation
+    :param showDefects: show the defects of each input in a model node, see checkModel()
+    :return: list of the results of checkModel(), one per distinct input model
+    """
+    results = []
+    checkedModelIDs = set()
+    for inputModel in inputModels:
+      if inputModel.GetID() in checkedModelIDs:
+        continue
+      checkedModelIDs.add(inputModel.GetID())
+      results.append(self.checkModel(inputModel, outputModel, backend, triangulateInputs, showDefects))
+    return results
+
+  def checkModel(self, inputModel, outputModel = None, backend = None, triangulateInputs = False, showDefects = True):
+    """
+    Check whether the input model is a valid input for Boolean operations: a closed, manifold and consistently
+    outwards oriented surface without degenerate or self-intersecting faces.
+    kigumi finds the defects exactly, if it is available. VTK filters check the mesh as the backend sees it.
+    The polydata is checked in the coordinate system of the output, as process() uses it.
+    Can be used without GUI widget.
+    :param inputModel: input model node
+    :param outputModel: result model node, whose coordinate system the input is checked in (world if None)
+    :param backend: kigumi, CGAL or vtkbool, if None then the default backend (the first available one) is used
+    :param triangulateInputs: triangulate the input model before the check, as before the Boolean operation
+    :param showDefects: show the defects in the model node "<input model name> defects", which is removed if
+      there are none to show
+    :return: dict with "model" (inputModel), "backend", "problems" and "warnings" (lists of sentences),
+      "kigumi" and "vtk" (dicts of the numbers found by each library, None if it did not check the model,
+      None values for checks that it cannot perform), "defects" (polydata of the defects, None if not found),
+      and "defectsModel" (model node that shows the defects, None if not shown)
+    """
+    if not backend:
+      backend = self.availableBackends()[0]
+
+    if inputModel.GetPolyData():
+      polyData = self._polyDataInOutputCoordinates(inputModel, outputModel, triangulateInputs)
+    else:
+      polyData = vtk.vtkPolyData()
+
+    # Reuse the result if the same mesh was checked before, e.g. by "Check inputs" before "Apply"
+    cacheKey = (backend, self._polyDataDigest(polyData))
+    if cacheKey not in self._checkResults:
+      if len(self._checkResults) >= 20:
+        del self._checkResults[next(iter(self._checkResults))]
+      self._checkResults[cacheKey] = self._checkPolyData(polyData, backend)
+
+    result = dict(self._checkResults[cacheKey], model=inputModel)
+    result["defectsModel"] = self._updateDefectsModel(inputModel, outputModel, result["defects"] if showDefects else None)
+    return result
+
+  def checkResultsToText(self, results, problemsOnly = False):
+    """
+    Describe the results of checkInputs() as plain text.
+    :param problemsOnly: describe only the problems of the models that have any
+    """
+    lines = []
+    for result in results:
+      if problemsOnly and not result["problems"]:
+        continue
+      lines.append(result["model"].GetName() + (":" if result["problems"] else ": no problems found"))
+      lines += ["  - " + problem for problem in result["problems"]]
+      if not problemsOnly:
+        lines += ["  - warning: " + warning for warning in result["warnings"]]
+    return "\n".join(lines)
+
+  def checkResultsToHtml(self, results):
+    """
+    Describe the results of checkInputs() as rich text, with a table of the numbers found by each library.
+    """
+    from html import escape
+
+    def cell(value, isProblem):
+      if value is None:
+        return '<td align="right">&ndash;</td>'
+      text = f"{value:.6g}" if isinstance(value, float) else str(value)
+      style = ' style="color:#d00000; font-weight:bold"' if isProblem else ""
+      return f'<td align="right"{style}>{text}</td>'
+
+    text = ""
+    for result in results:
+      if result["problems"]:
+        status = f'<span style="color:#d00000">&#10008; {len(result["problems"])} problem(s) found</span>'
+      else:
+        status = '<span style="color:#008000">&#10004; no problems found</span>'
+      text += f'<p><b>{escape(result["model"].GetName())}</b>: {status}</p>'
+
+      if result["vtk"]:
+        rows = [(label, key, True) for key, label, description in self.DEFECT_CHECKS]
+        rows += [
+          ("Sliver faces (vtkbool)", "sliverFaces", result["backend"] == "vtkbool"),
+          ("Triangles", "faces", False),
+          ("Parts", "parts", False),
+          ]
+        text += '<table cellspacing="0" cellpadding="2"><tr><th align="left">Check</th>'
+        text += "".join(f'<th align="right">{name}</th>' for engine, name in self.CHECK_ENGINES) + "</tr>"
+        for label, key, isDefect in rows:
+          text += f"<tr><td>{label}</td>"
+          for engine, name in self.CHECK_ENGINES:
+            value = result[engine].get(key) if result[engine] else None
+            text += cell(value, isDefect and bool(value))
+          text += "</tr>"
+        volume = result["vtk"]["volume"]
+        text += f"<tr><td>Volume</td>{cell(None, False)}{cell(volume, volume < 0)}</tr></table>"
+
+      if result["problems"]:
+        text += "<ul>" + "".join(f"<li>{escape(problem)}</li>" for problem in result["problems"]) + "</ul>"
+      if result["warnings"]:
+        text += "<ul>" + "".join(f'<li style="color:#b06000">{escape(warning)}</li>' for warning in result["warnings"]) + "</ul>"
+      if result["defectsModel"]:
+        text += f'<p>Defects are shown in model &quot;{escape(result["defectsModel"].GetName())}&quot;.</p>'
+    return text
+
+  def _checkPolyData(self, polyData, backend):
+    """
+    Check polyData with kigumi (if available) and VTK filters, see checkModel().
+    """
+    result = {"backend": backend, "kigumi": None, "vtk": None, "problems": [], "warnings": [], "defects": None}
+
+    numberOfIgnoredCells = polyData.GetNumberOfVerts() + polyData.GetNumberOfLines()
+    if numberOfIgnoredCells > 0:
+      result["warnings"].append(f"{numberOfIgnoredCells} vertex and line cells are ignored")
+    if polyData.GetNumberOfPolys() + polyData.GetNumberOfStrips() == 0:
+      result["warnings"].append("no polygons, the model represents the empty set")
+      return result
+
+    if "kigumi" in self.availableBackends():
+      result["kigumi"], result["defects"] = self._kigumiCheck(polyData)
+    else:
+      result["warnings"].append("self-intersections and non-manifold vertices are not checked,"
+        " because the kigumi backend is not available in this build")
+    result["vtk"], vtkDefects = self._vtkCheck(polyData, backend)
+    if result["defects"] is None:
+      result["defects"] = vtkDefects
+
+    for key, label, description in self.DEFECT_CHECKS:
+      counts = [f"{result[engine][key]} ({name})" for engine, name in self.CHECK_ENGINES
+        if result[engine] and result[engine][key]]
+      if counts:
+        result["problems"].append(f"{description}: " + ", ".join(counts))
+
+    vtkCounts = result["vtk"]
+    if vtkCounts["volume"] < 0 and not any(vtkCounts[key] for key in ["boundaryEdges", "nonManifoldEdges", "inconsistentEdges"]):
+      result["problems"].append("inside out: the faces are oriented inwards (negative volume)")
+    if backend == "vtkbool" and vtkCounts["sliverFaces"] > 0:
+      result["warnings"].append(f"{vtkCounts['sliverFaces']} sliver faces (triangle quality below 0.001),"
+        " vtkbool may fail where the intersection passes near them")
+    if backend == "CGAL" and result["problems"]:
+      result["warnings"].append("the CGAL backend repairs the inputs before the Boolean operation,"
+        " which may fix these problems")
+
+    return result
+
+  def _kigumiCheck(self, polyData):
+    """
+    Find the defects of polyData exactly with kigumi.
+    :return: dict of the numbers of defects, and polydata of the defects
+    """
+    import vtkSlicerCombineModelsModuleLogicPython as logicModule
+    defectsFilter = logicModule.vtkKigumiMeshDefectsFilter()
+    defectsFilter.SetInputData(polyData)
+    self._updateFilter(defectsFilter)
+    counts = {
+      "faces": defectsFilter.GetNumberOfFaces(),
+      "boundaryEdges": defectsFilter.GetNumberOfBoundaryEdges(),
+      "nonManifoldEdges": defectsFilter.GetNumberOfNonManifoldEdges(),
+      "nonManifoldVertices": defectsFilter.GetNumberOfNonManifoldVertices(),
+      "inconsistentEdges": defectsFilter.GetNumberOfInconsistentEdges(),
+      "degenerateFaces": defectsFilter.GetNumberOfDegenerateFaces(),
+      "selfIntersectingFaces": defectsFilter.GetNumberOfSelfIntersectingFaces(),
+      }
+    return counts, defectsFilter.GetOutput()
+
+  def _vtkCheck(self, polyData, backend):
+    """
+    Check polyData with VTK filters, after merging its points as the backend does: exactly for kigumi and CGAL
+    (whose input repair merges duplicate points), and with the tolerance of vtkbool (1e-6 of the bounding box
+    diagonal) for vtkbool.
+    Inconsistent edges, volume and triangle quality are computed as in the tests and the code of vtkbool.
+    VTK cannot find non-manifold vertices and self-intersections.
+    :return: dict of the numbers found, and polydata of the boundary and non-manifold edges
+    """
+    import numpy as np
+    from vtk.util.numpy_support import vtk_to_numpy
+
+    triangulator = vtk.vtkTriangleFilter()
+    triangulator.PassVertsOff()
+    triangulator.PassLinesOff()
+    triangulator.SetInputData(polyData)
+    triangulator.Update()
+    cleaner = vtk.vtkCleanPolyData()
+    cleaner.SetInputData(triangulator.GetOutput())
+    cleaner.ConvertPolysToLinesOff()
+    cleaner.ConvertLinesToPointsOff()
+    cleaner.ConvertStripsToPolysOff()
+    if backend == "vtkbool":
+      cleaner.SetTolerance(1e-6)
+    else:
+      cleaner.ToleranceIsAbsoluteOn()
+      cleaner.SetAbsoluteTolerance(0.0)
+    cleaner.Update()
+    triangles = cleaner.GetOutput()
+    # Triangles whose points were merged
+    numberOfCollapsedFaces = triangulator.GetOutput().GetNumberOfPolys() - triangles.GetNumberOfPolys()
+
+    def featureEdges(boundaryEdges, nonManifoldEdges):
+      featureEdgesFilter = vtk.vtkFeatureEdges()
+      featureEdgesFilter.SetInputData(triangles)
+      featureEdgesFilter.SetBoundaryEdges(boundaryEdges)
+      featureEdgesFilter.SetNonManifoldEdges(nonManifoldEdges)
+      featureEdgesFilter.FeatureEdgesOff()
+      featureEdgesFilter.ManifoldEdgesOff()
+      featureEdgesFilter.ColoringOff()
+      featureEdgesFilter.Update()
+      return featureEdgesFilter.GetOutput()
+
+    boundaryEdges = featureEdges(True, False)
+    nonManifoldEdges = featureEdges(False, True)
+    edges = vtk.vtkAppendPolyData()
+    edges.AddInputData(boundaryEdges)
+    edges.AddInputData(nonManifoldEdges)
+    edges.Update()
+
+    connectivity = vtk.vtkPolyDataConnectivityFilter()
+    connectivity.SetInputData(triangles)
+    connectivity.SetExtractionModeToAllRegions()
+    connectivity.Update()
+
+    counts = {
+      "faces": triangles.GetNumberOfPolys(),
+      "boundaryEdges": boundaryEdges.GetNumberOfLines(),
+      "nonManifoldEdges": nonManifoldEdges.GetNumberOfLines(),
+      "nonManifoldVertices": None,
+      "inconsistentEdges": 0,
+      "degenerateFaces": numberOfCollapsedFaces,
+      "selfIntersectingFaces": None,
+      "sliverFaces": 0,
+      "parts": connectivity.GetNumberOfExtractedRegions(),
+      "volume": 0.0,
+      }
+    if triangles.GetNumberOfPolys() == 0:
+      return counts, edges.GetOutput()
+
+    legacyFaces = vtk.vtkIdTypeArray()
+    triangles.GetPolys().ExportLegacyFormat(legacyFaces)
+    # Each face is stored as 3 followed by its point ids
+    faces = vtk_to_numpy(legacyFaces).reshape(-1, 4)[:, 1:]
+    # Relative to the center of the bounding box, for accuracy
+    bounds = triangles.GetBounds()
+    center = [(bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, (bounds[4] + bounds[5]) / 2]
+    points = vtk_to_numpy(triangles.GetPoints().GetData()).astype(np.float64) - center
+    p0, p1, p2 = points[faces[:, 0]], points[faces[:, 1]], points[faces[:, 2]]
+
+    # Each edge of a closed, consistently oriented mesh is traversed once in each direction
+    halfEdges = np.stack([faces, np.roll(faces, -1, axis=1)], axis=2).reshape(-1, 2).astype(np.int64)
+    edgeKeys = halfEdges.min(axis=1) * len(points) + halfEdges.max(axis=1)
+    directions = np.where(halfEdges[:, 0] < halfEdges[:, 1], 1, -1)
+    _, edgeIndices, edgeCounts = np.unique(edgeKeys, return_inverse=True, return_counts=True)
+    directionSums = np.bincount(edgeIndices.ravel(), weights=directions, minlength=len(edgeCounts))
+    counts["inconsistentEdges"] = int(np.count_nonzero((edgeCounts == 2) & (directionSums != 0)))
+
+    doubleAreas = np.linalg.norm(np.cross(p1 - p0, p2 - p0), axis=1)
+    counts["degenerateFaces"] += int(np.count_nonzero(doubleAreas == 0))
+    # Triangle quality of vtkbool, which is 1 for equilateral triangles. vtkbool fails at triangles
+    # of quality below 0.001 where the intersection passes near them.
+    perimeters = np.linalg.norm(p1 - p0, axis=1) + np.linalg.norm(p2 - p1, axis=1) + np.linalg.norm(p0 - p2, axis=1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+      qualities = 6 * np.sqrt(3) * doubleAreas / perimeters**2
+    counts["sliverFaces"] = int(np.count_nonzero((doubleAreas > 0) & (qualities < 0.001)))
+
+    counts["volume"] = float(np.einsum("ij,ij->", p0, np.cross(p1, p2)) / 6)
+    return counts, edges.GetOutput()
+
+  def _updateDefectsModel(self, inputModel, outputModel, defects):
+    """
+    Show defects (polydata) in the defects model of inputModel, which is created if needed.
+    The defects model is removed if defects is None or empty.
+    """
+    defectsModel = next((node for node in slicer.util.getNodesByClass("vtkMRMLModelNode")
+      if node.GetAttribute(self.DEFECTS_OF_ATTRIBUTE) == inputModel.GetID()), None)
+    if defects is None or defects.GetNumberOfCells() == 0:
+      if defectsModel:
+        slicer.mrmlScene.RemoveNode(defectsModel)
+      return None
+
+    if not defectsModel:
+      defectsModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", inputModel.GetName() + " defects")
+      defectsModel.SetAttribute(self.DEFECTS_OF_ATTRIBUTE, inputModel.GetID())
+      defectsModel.CreateDefaultDisplayNodes()
+      displayNode = defectsModel.GetDisplayNode()
+      displayNode.SetColor(1.0, 0.0, 0.0)
+      # Show faces as outlines, as the faces of the input model would hide them
+      displayNode.SetRepresentation(displayNode.WireframeRepresentation)
+      displayNode.SetLineWidth(3)
+      displayNode.SetPointSize(8)
+      displayNode.SetVisibility2D(True)
+
+    # Copy, as the polydata of the result is reused for later checks
+    defectsPolyData = vtk.vtkPolyData()
+    defectsPolyData.DeepCopy(defects)
+    defectsModel.SetAndObserveTransformNodeID(outputModel.GetTransformNodeID() if outputModel else None)
+    defectsModel.SetAndObservePolyData(defectsPolyData)
+    defectsModel.GetDisplayNode().SetScalarVisibility(False)
+    return defectsModel
+
+  @staticmethod
+  def _polyDataDigest(polyData):
+    """
+    Return a hash of the points and cells of polyData.
+    """
+    import hashlib
+    from vtk.util.numpy_support import vtk_to_numpy
+    digest = hashlib.blake2b()
+    arrays = [polyData.GetPoints().GetData()] if polyData.GetPoints() else []
+    for cells in [polyData.GetVerts(), polyData.GetLines(), polyData.GetPolys(), polyData.GetStrips()]:
+      # The legacy format is independent of how the cell array stores its offsets
+      legacyCells = vtk.vtkIdTypeArray()
+      cells.ExportLegacyFormat(legacyCells)
+      arrays.append(legacyCells)
+    for array in arrays:
+      values = vtk_to_numpy(array)
+      digest.update(f"{values.dtype}{values.shape}".encode())
+      digest.update(values.tobytes())
+    return digest.hexdigest()
+
+  @staticmethod
+  def _updateFilter(algorithm):
+    """
+    Update algorithm and raise its first error as an exception.
+    """
+    errors = []
+    @vtk.calldata_type(vtk.VTK_STRING)
+    def onError(caller, event, message):
+      errors.append(message)
+    errorObserver = algorithm.AddObserver(vtk.vtkCommand.ErrorEvent, onError)
+    algorithm.Update()
+    algorithm.RemoveObserver(errorObserver)
+    if errors:
+      # Keep only the text after "vtkKigumiBooleanSequenceFilter (0x...): "
+      raise RuntimeError(errors[0].strip().splitlines()[-1].split("): ", 1)[-1])
+
+  @staticmethod
+  def _setOperMode(combine, operation):
+    """
+    Set the operation (union, intersection, difference or difference2) of a kigumi or vtkbool Boolean filter.
+    """
+    if operation == 'union':
+      combine.SetOperModeToUnion()
+    elif operation == 'intersection':
+      combine.SetOperModeToIntersection()
+    elif operation == 'difference':
+      combine.SetOperModeToDifference()
+    elif operation == 'difference2':
+      combine.SetOperModeToDifference2()
+
+  @staticmethod
+  def _cgalBooleanOperation(polydataA, polydataB, operation):
+    """
+    Compute the Boolean operation of two non-empty polydata with the CGAL backend: the "BooleanOperation" CLI
+    of the VESPA extension. It is an executable-only CLI so it runs in a separate process and exchanges data
+    through files, keeping GPL-licensed CGAL/VESPA code out of the Slicer process (and out of this extension's
+    BSD-3 licensing).
+    Raises RuntimeError if the CLI does not complete successfully.
+    :return: polydata of the result
+    """
+    # The CLI only implements difference, intersection and union, and its difference is firstPoly minus
+    # secondPoly (CGAL corefine_and_compute_difference), so difference2 is the same operation with the
+    # operands swapped
+    if operation == 'difference2':
+      cliOperation, firstPolyData, secondPolyData = 'difference', polydataB, polydataA
+    else:
+      cliOperation, firstPolyData, secondPolyData = operation, polydataA, polydataB
+
+    # The CLI reads and writes model nodes, so use hidden temporary ones
+    temporaryModels = []
+    cliNode = None
+    try:
+      for polyData in [firstPolyData, secondPolyData, None]:
+        temporaryModel = slicer.mrmlScene.AddNewNodeByClass(
+          "vtkMRMLModelNode", slicer.mrmlScene.GetUniqueNameByString("CombineModelsTemp"))
+        temporaryModel.SetHideFromEditors(True)
+        if polyData is not None:
+          temporaryModel.SetAndObservePolyData(polyData)
+        temporaryModels.append(temporaryModel)
+      firstPoly, secondPoly, output = temporaryModels
+
+      parameters = {
+        "firstPoly": firstPoly,
+        "secondPoly": secondPoly,
+        "output": output,
+        "operation": cliOperation,
+        # Rebuild both operands into closed, non-self-intersecting 2-manifolds first, as CGAL corefinement
+        # fails on invalid inputs
+        "repairInputs": True,
+      }
+      cliNode = slicer.cli.runSync(slicer.modules.vespabooleanoperation, None, parameters, update_display=False)
+      if cliNode.GetStatus() & cliNode.ErrorsMask:
+        raise RuntimeError("VESPA BooleanOperation CLI failed: " + cliNode.GetErrorText())
+      return output.GetPolyData()
+    finally:
+      if cliNode is not None:
+        slicer.mrmlScene.RemoveNode(cliNode)
+      for temporaryModel in temporaryModels:
+        slicer.mrmlScene.RemoveNode(temporaryModel)
+
   def _polyDataInOutputCoordinates(self, inputModel, outputModel, triangulateInputs):
     """
-    Return the polydata of inputModel in the coordinate system of outputModel, triangulated if requested.
+    Return the polydata of inputModel in the coordinate system of outputModel (world if outputModel is None),
+    triangulated if requested.
     """
     transformToOutput = vtk.vtkGeneralTransform()
-    slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(inputModel.GetParentTransformNode(), outputModel.GetParentTransformNode(), transformToOutput)
+    slicer.vtkMRMLTransformNode.GetTransformBetweenNodes(inputModel.GetParentTransformNode(),
+      outputModel.GetParentTransformNode() if outputModel else None, transformToOutput)
     transformerToOutput = vtk.vtkTransformPolyDataFilter()
     transformerToOutput.SetTransform(transformToOutput)
     if triangulateInputs:
@@ -756,7 +1333,11 @@ class CombineModelsTest(ScriptedLoadableModuleTest):
     self.setUp()
     self.test_CombineModels1()
     self.setUp()
+    self.test_CombineModelsFailures()
+    self.setUp()
     self.test_CombineModelsMultiStep()
+    self.setUp()
+    self.test_CombineModelsCheckInputs()
 
   def test_CombineModels1(self):
     """ Ideally you should have several levels of tests.  At the lowest level
@@ -789,13 +1370,84 @@ class CombineModelsTest(ScriptedLoadableModuleTest):
 
     self.assertIn("kigumi", logic.availableBackends())
 
+    def volume(polyData):
+      triangulator = vtk.vtkTriangleFilter()
+      triangulator.SetInputData(polyData)
+      triangulator.Update()
+      massProperties = vtk.vtkMassProperties()
+      massProperties.SetInputData(triangulator.GetOutput())
+      massProperties.Update()
+      return massProperties.GetVolume()
+
+    volumes = {}
     for backend in logic.availableBackends():
       for operation in ['union', 'intersection', 'difference', 'difference2']:
         outputModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", f'Output {operation} ({backend})')
         logic.process(inputModelA, inputModelB, outputModel, operation, backend=backend)
         self.assertTrue(outputModel.GetPolyData().GetNumberOfPoints()>0)
+        volumes[backend, operation] = volume(outputModel.GetPolyData())
+
+    # CGAL is exact like kigumi, so it gives the same results, e.g., for difference2, which runs
+    # the difference of the CLI with the operands swapped
+    if "CGAL" in logic.availableBackends():
+      for operation in ['union', 'intersection', 'difference', 'difference2']:
+        kigumiVolume = volumes["kigumi", operation]
+        self.assertAlmostEqual(volumes["CGAL", operation], kigumiVolume, delta=1e-6 * kigumiVolume)
+    else:
+      self.delayDisplay("VESPA extension is not installed, the CGAL backend is not tested")
 
     self.delayDisplay('Test passed')
+
+  def test_CombineModelsFailures(self):
+    """Test that failed operations raise an exception, and that empty results are not failures."""
+
+    self.delayDisplay("Starting the failures test")
+
+    logic = CombineModelsLogic()
+    if "kigumi" not in logic.availableBackends():
+      self.delayDisplay("kigumi backend is not available, skipping the failures test")
+      return
+
+    def sphere(center=(0, 0, 0), radius=10):
+      source = vtk.vtkSphereSource()
+      source.SetCenter(center)
+      source.SetRadius(radius)
+      source.SetThetaResolution(24)
+      source.SetPhiResolution(16)
+      source.Update()
+      return source.GetOutput()
+
+    def addModel(polyData, name):
+      model = slicer.modules.models.logic().AddModel(polyData)
+      model.SetName(name)
+      return model
+
+    # Two overlapping spheres in one model intersect each other along a circle at x=2.5. kigumi fails
+    # where the other model crosses that circle, and the output model is left unchanged.
+    append = vtk.vtkAppendPolyData()
+    append.AddInputData(sphere())
+    append.AddInputData(sphere(center=(5, 0, 0)))
+    append.Update()
+    selfIntersectingModel = addModel(append.GetOutput(), "Self-intersecting")
+    crossingModel = addModel(sphere(center=(2.5, 0, (10**2 - 2.5**2)**0.5), radius=2), "Crossing")
+    outputModel = addModel(sphere(radius=1), "Output")
+    outputPolyData = outputModel.GetPolyData()
+    with self.assertRaisesRegex(RuntimeError, "self-intersections"):
+      logic.process(selfIntersectingModel, crossingModel, outputModel, "union", triangulateInputs=False, backend="kigumi")
+    self.assertIs(outputModel.GetPolyData(), outputPolyData)
+
+    # Empty results are not failures: the intersection of models that do not touch, and the difference
+    # of a model minus another that contains it
+    outerModel = addModel(sphere(), "Outer")
+    farModel = addModel(sphere(center=(100, 0, 0)), "Far")
+    innerModel = addModel(sphere(radius=3), "Inner")
+    for inputModelA, inputModelB, operation in [
+        (outerModel, farModel, "intersection"), (innerModel, outerModel, "difference"), (outerModel, innerModel, "difference2")]:
+      outputModel = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode", f"Output {operation} (empty)")
+      logic.process(inputModelA, inputModelB, outputModel, operation, triangulateInputs=False, backend="kigumi")
+      self.assertEqual(outputModel.GetPolyData().GetNumberOfPoints(), 0)
+
+    self.delayDisplay('Failures test passed')
 
   def test_CombineModelsMultiStep(self):
     """Test combining more than two models with exact intermediate results."""
@@ -867,3 +1519,124 @@ class CombineModelsTest(ScriptedLoadableModuleTest):
       logic.processSteps(inputModels, ["union", "xor"], outputModel)
 
     self.delayDisplay('Multi-step test passed')
+
+  def test_CombineModelsCheckInputs(self):
+    """Test the check of the input models for defects."""
+
+    self.delayDisplay("Starting the input check test")
+
+    logic = CombineModelsLogic()
+    kigumiAvailable = "kigumi" in logic.availableBackends()
+
+    def sphere(center=(0, 0, 0), endTheta=360):
+      source = vtk.vtkSphereSource()
+      source.SetCenter(center)
+      source.SetRadius(10)
+      source.SetThetaResolution(24)
+      source.SetPhiResolution(16)
+      source.SetEndTheta(endTheta)
+      source.Update()
+      return source.GetOutput()
+
+    def addModel(polyData, name):
+      model = slicer.modules.models.logic().AddModel(polyData)
+      model.SetName(name)
+      return model
+
+    def problems(result, text):
+      return [problem for problem in result["problems"] if text in problem]
+
+    def defectsModels(inputModel):
+      return [node for node in slicer.util.getNodesByClass("vtkMRMLModelNode")
+        if node.GetAttribute(logic.DEFECTS_OF_ATTRIBUTE) == inputModel.GetID()]
+
+    # A closed sphere has no problems, and each model is checked once
+    closedModel = addModel(sphere(), "Closed")
+    for backend in logic.availableBackends():
+      results = logic.checkInputs([closedModel, closedModel], backend=backend)
+      self.assertEqual(len(results), 1)
+      self.assertEqual(results[0]["problems"], [])
+      self.assertIsNone(results[0]["defectsModel"])
+      self.assertGreater(results[0]["vtk"]["volume"], 0)
+      self.assertEqual(results[0]["vtk"]["parts"], 1)
+
+    # Open
+    openModel = addModel(sphere(endTheta=270), "Open")
+    [result] = logic.checkInputs([openModel])
+    self.assertTrue(problems(result, "not closed"))
+    self.assertGreater(result["vtk"]["boundaryEdges"], 0)
+    self.assertIsNotNone(result["defectsModel"])
+    self.assertEqual(defectsModels(openModel), [result["defectsModel"]])
+    self.assertGreater(result["defectsModel"].GetPolyData().GetNumberOfLines(), 0)
+
+    # Inside out
+    reverseSense = vtk.vtkReverseSense()
+    reverseSense.SetInputData(sphere())
+    reverseSense.ReverseCellsOn()
+    reverseSense.Update()
+    insideOutModel = addModel(reverseSense.GetOutput(), "Inside out")
+    [result] = logic.checkInputs([insideOutModel])
+    self.assertEqual(len(result["problems"]), 1)
+    self.assertTrue(problems(result, "inside out"))
+    self.assertLess(result["vtk"]["volume"], 0)
+
+    # One face is reversed
+    inconsistentPolyData = sphere()
+    polys = vtk.vtkCellArray()
+    pointIds = vtk.vtkIdList()
+    for cellId in range(inconsistentPolyData.GetNumberOfCells()):
+      inconsistentPolyData.GetCellPoints(cellId, pointIds)
+      ids = [pointIds.GetId(index) for index in range(pointIds.GetNumberOfIds())]
+      polys.InsertNextCell(len(ids), ids[::-1] if cellId == 0 else ids)
+    inconsistentPolyData.SetPolys(polys)
+    inconsistentModel = addModel(inconsistentPolyData, "Inconsistent")
+    [result] = logic.checkInputs([inconsistentModel])
+    self.assertTrue(problems(result, "inconsistent orientation"))
+    self.assertEqual(result["vtk"]["inconsistentEdges"], 3)
+    if kigumiAvailable:
+      self.assertEqual(result["kigumi"]["inconsistentEdges"], 3)
+
+    # Two overlapping spheres in one model
+    append = vtk.vtkAppendPolyData()
+    append.AddInputData(sphere())
+    append.AddInputData(sphere(center=(5, 0, 0)))
+    append.Update()
+    selfIntersectingModel = addModel(append.GetOutput(), "Self-intersecting")
+    [result] = logic.checkInputs([selfIntersectingModel])
+    self.assertEqual(result["vtk"]["parts"], 2)
+    if kigumiAvailable:
+      import vtkSlicerCombineModelsModuleLogicPython as logicModule
+      from vtk.util.numpy_support import vtk_to_numpy
+      self.assertGreater(result["kigumi"]["selfIntersectingFaces"], 0)
+      self.assertTrue(problems(result, "self-intersections"))
+      defectTypes = vtk_to_numpy(result["defectsModel"].GetPolyData().GetCellData().GetArray("DefectType"))
+      self.assertIn(logicModule.vtkKigumiMeshDefectsFilter.SELF_INTERSECTING_FACE, defectTypes)
+    else:
+      self.assertTrue(result["warnings"])
+
+    # Defects are not shown if not requested
+    [result] = logic.checkInputs([selfIntersectingModel], showDefects=False)
+    self.assertIsNone(result["defectsModel"])
+    self.assertEqual(defectsModels(selfIntersectingModel), [])
+
+    # After fixing an input, its defects model is removed
+    openModel.SetAndObservePolyData(sphere())
+    [result] = logic.checkInputs([openModel])
+    self.assertEqual(result["problems"], [])
+    self.assertEqual(defectsModels(openModel), [])
+
+    # Descriptions of the results
+    results = logic.checkInputs([closedModel, insideOutModel])
+    problemsText = logic.checkResultsToText(results, problemsOnly=True)
+    self.assertIn("Inside out", problemsText)
+    self.assertNotIn("Closed", problemsText)
+    self.assertIn("Closed: no problems found", logic.checkResultsToText(results))
+    self.assertIn("Inside out", logic.checkResultsToHtml(results))
+
+    # An empty model represents the empty set
+    emptyModel = addModel(vtk.vtkPolyData(), "Empty")
+    [result] = logic.checkInputs([emptyModel])
+    self.assertEqual(result["problems"], [])
+    self.assertTrue(result["warnings"])
+
+    self.delayDisplay('Input check test passed')

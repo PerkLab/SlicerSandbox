@@ -20,12 +20,13 @@
 namespace kigumi {
 
 // Converts the polygons and triangle strips of polydata into a triangle soup. Vertices and lines
-// are ignored. Polygons with more than three vertices are interpreted as triangle fans, and
-// degenerate triangles are skipped. face_data(cell_id) returns the data attached to the triangles
-// that originate from the cell.
+// are ignored. Polygons with more than three vertices are interpreted as triangle fans.
+// Degenerate triangles (with repeated or collinear vertices) are skipped unless
+// skip_degenerate_triangles is false. face_data(cell_id) returns the data attached to the
+// triangles that originate from the cell.
 template <class K, class FaceData, class FaceDataFunction>
-Triangle_soup<K, FaceData> to_triangle_soup(vtkPolyData* polydata,
-                                            FaceDataFunction face_data) {
+Triangle_soup<K, FaceData> to_triangle_soup(vtkPolyData* polydata, FaceDataFunction face_data,
+                                            bool skip_degenerate_triangles = true) {
   Triangle_soup<K, FaceData> soup;
   if (polydata == nullptr) {
     return soup;
@@ -40,12 +41,13 @@ Triangle_soup<K, FaceData> to_triangle_soup(vtkPolyData* polydata,
   }
 
   auto add_triangle = [&](vtkIdType a, vtkIdType b, vtkIdType c, vtkIdType cell_id) {
-    if (a == b || b == c || c == a) {
+    if (skip_degenerate_triangles && (a == b || b == c || c == a)) {
       return;
     }
     Face f{Vertex_index{static_cast<std::size_t>(a)}, Vertex_index{static_cast<std::size_t>(b)},
            Vertex_index{static_cast<std::size_t>(c)}};
-    if (collinear(soup.point(f[0]), soup.point(f[1]), soup.point(f[2]))) {
+    if (skip_degenerate_triangles &&
+        collinear(soup.point(f[0]), soup.point(f[1]), soup.point(f[2]))) {
       return;
     }
     auto fi = soup.add_face(f);
