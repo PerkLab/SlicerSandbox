@@ -161,13 +161,15 @@ decompositionResults = CharacterizeTransformMatrix.CharacterizeTransformMatrixLo
 
 This module was created by adding a Slicer module wrapper to [vtkbool](https://github.com/zippy84/vtkbool), a library used for more robust boolean operations on vtkPolyData.
 
-The default backend is [kigumi](https://github.com/unageek/kigumi), which computes Boolean operations exactly, so the result does not depend on numerical tolerances. vtkbool can still be selected in the Advanced section of the module. With kigumi, "Add step" combines more than two models in order (e.g., ((A|B)-C)&&D); intermediate results are kept exact, and only the final model is rounded. Building the kigumi backend downloads Boost at configure time; set `CombineModels_USE_KIGUMI=OFF` to build with vtkbool only.
+The default backend is [kigumi](https://github.com/unageek/kigumi), which computes Boolean operations exactly, so the result does not depend on numerical tolerances. vtkbool can still be selected in the Advanced section of the module, and so can CGAL, which is provided by the [VESPA](https://gitlab.kitware.com/vtk/meshing/SlicerVESPA) extension (selecting CGAL offers to install VESPA if it is missing): it repairs the inputs and then computes the result with [CGAL](https://www.cgal.org) corefinement, in a separate process. If an operation fails, e.g., on invalid inputs, `CombineModelsLogic.process()` raises an exception, so scripts can try another backend. With kigumi, "Add step" combines more than two models in order (e.g., ((A|B)-C)&&D); intermediate results are kept exact, and only the final model is rounded. Building the kigumi backend downloads Boost at configure time; set `CombineModels_USE_KIGUMI=OFF` to build with vtkbool only.
 
 ### If you use this module for your research please address this citation details
 
 Mizuno, M. kigumi [Computer software]. https://github.com/unageek/kigumi
 
 Römer, R. vtkbool (Version 3.2.0) [Computer software]. https://github.com/zippy84/vtkbool
+
+The CGAL Project. CGAL User and Reference Manual [Computer software]. CGAL Editorial Board. https://doc.cgal.org (CGAL backend, only if installed)
 
 ## Stitch Volumes
 

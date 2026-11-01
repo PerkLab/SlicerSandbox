@@ -336,7 +336,7 @@
       <item row="0" column="1">
        <widget class="QComboBox" name="backendComboBox">
         <property name="toolTip">
-         <string>Library that computes the Boolean operation. kigumi is exact, vtkbool is the previous default.</string>
+         <string>Library that computes the Boolean operation. kigumi is exact, CGAL runs the BooleanOperation CLI of the VESPA extension (selecting it offers to install VESPA if it is missing), vtkbool is the previous default.</string>
         </property>
        </widget>
       </item>
