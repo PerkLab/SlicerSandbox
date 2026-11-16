@@ -314,7 +314,7 @@ class CodexSession:
         if method != "item/tool/call":
             return None
         result = await self.callTool(params.get("tool", ""), _args(params.get("arguments")))
-        isError = isinstance(result, dict) and "error" in result
+        isError = isinstance(result, dict) and bool(result.get("error"))
         return {"contentItems": [{"type": "inputText", "text": json.dumps(result)}], "success": not isError}
 
     async def interrupt(self):
