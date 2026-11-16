@@ -139,7 +139,7 @@ class ClaudeCodeSession:
     def _handler(self, name):
         async def handler(args):
             result = await self.callTool(name, dict(args))
-            isError = isinstance(result, dict) and "error" in result
+            isError = isinstance(result, dict) and bool(result.get("error"))
             return {"content": [{"type": "text", "text": json.dumps(result)}], "is_error": isError}
 
         return handler
